@@ -8,9 +8,8 @@ namespace CreditsPlugin.Commands;
 
 public class GambleCommand : Command
 {
-    public GambleCommand(CommandConfiguration config, ITranslationLookup translationLookup, IMetaService metaService) :
-        base(config,
-            translationLookup)
+    public GambleCommand(CommandConfiguration config, ITranslationLookup translationLookup) :
+        base(config, translationLookup)
     {
         Name = "gamble";
         Alias = "gmb";
@@ -31,39 +30,49 @@ public class GambleCommand : Command
             }
         };
     }
-    
+
 
     public override async Task ExecuteAsync(GameEvent e)
     {
         if (e.Type != GameEvent.EventType.Command) return;
-        
+
         var argStr = e.Data.Split(" ");
         if (!int.TryParse(argStr[0], out var argOne))
         {
-            e.Origin.Tell("Error trying to parse first argument.");
+            e.Origin.Tell("(Color::Red)Error trying to parse first argument.");
             return;
         }
 
         if (!int.TryParse(argStr[1], out var argTwo))
         {
-            e.Origin.Tell("Error trying to parse second argument.");
+            e.Origin.Tell("(Color::Red)Error trying to parse second argument.");
             return;
         }
-        
-        var client = new EFClient {ClientId = e.Origin.ClientId};
+
+        if (CreditCheck.LessThanZero(argTwo))
+        {
+            e.Origin.Tell("(Color::Red)Minimum amount is 1.");
+            return;
+        }
+
+        if (CreditCheck.AvailableFunds(e.Origin, argTwo))
+        {
+            e.Origin.Tell("(Color::Red)Insufficient funds...");
+            return;
+        }
+
         var rand = new Random();
         var randNum = rand.Next(0, 11);
 
         if (randNum == argOne)
         {
             e.Origin.Tell($"Congratulations, you won {argTwo} tokens!");
-            client.SetAdditionalProperty("Credits", client.GetAdditionalProperty<int>("Credits") + argTwo);
-            
+            e.Origin.SetAdditionalProperty("Credits", e.Origin.GetAdditionalProperty<int>("Credits") + argTwo);
         }
         else
         {
             e.Origin.Tell($"Unlucky, you lost {argTwo} credits. You chose {argOne}, the number was {randNum}.");
-            client.SetAdditionalProperty("Credits", client.GetAdditionalProperty<int>("Credits") - argTwo);
+            e.Origin.SetAdditionalProperty("Credits", e.Origin.GetAdditionalProperty<int>("Credits") - argTwo);
         }
     }
 }

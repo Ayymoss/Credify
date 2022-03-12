@@ -8,10 +8,8 @@ namespace CreditsPlugin.Commands;
 
 public class BetPlayerCommand : Command
 {
-    public BetPlayerCommand(CommandConfiguration config, ITranslationLookup translationLookup,
-        IMetaService metaService) :
-        base(config,
-            translationLookup)
+    public BetPlayerCommand(CommandConfiguration config, ITranslationLookup translationLookup) :
+        base(config, translationLookup)
     {
         Name = "betplayer";
         Alias = "betp";

@@ -1,15 +1,11 @@
-﻿using Data.Models.Client;
-using Microsoft.EntityFrameworkCore;
-using SharedLibraryCore;
+﻿using SharedLibraryCore;
 using SharedLibraryCore.Interfaces;
-using EFClient = SharedLibraryCore.Database.Models.EFClient;
 
 namespace CreditsPlugin;
 
 // TODO: Make Top Credits
 // TODO: Get Players Credits
 // TODO: Bet on Player to Win (Dynamic Payout based on ELO?)
-
 
 public class Plugin : IPlugin
 {
@@ -20,7 +16,7 @@ public class Plugin : IPlugin
 
     private readonly IMetaService _metaService;
 
-    
+
     public string Name => "Credits";
     public float Version => 1.1f;
     public string Author => "Amos";
@@ -28,34 +24,45 @@ public class Plugin : IPlugin
 
     public async Task OnEventAsync(GameEvent e, Server s)
     {
-        
         if (e.Type == GameEvent.EventType.Join)
         {
-            var client = new EFClient {ClientId = e.Origin.ClientId};
-            if (_metaService.GetPersistentMeta("Credits", client) == null)
+            if (_metaService.GetPersistentMeta("Credits", e.Origin) == null)
             {
                 await _metaService.SetPersistentMeta("Credits", "0", e.Origin.ClientId);
             }
 
-            client.SetAdditionalProperty("Credits", int.Parse(_metaService.GetPersistentMeta("Credits", client).Result.Value));
+            e.Origin.SetAdditionalProperty("Credits",
+                int.Parse(_metaService.GetPersistentMeta("Credits", e.Origin).Result.Value));
 
-            e.Origin.Tell($"You have {client.GetAdditionalProperty<int>("Credits")} credits.");
+            e.Origin.Tell($"You have {e.Origin.GetAdditionalProperty<int>("Credits")} credits.");
         }
-        
+
         if (e.Type == GameEvent.EventType.Kill)
         {
-            var client = new EFClient {ClientId = e.Origin.ClientId};
-            client.SetAdditionalProperty("Credits", client.GetAdditionalProperty<int>("Credits") + 1);
+            e.Origin.SetAdditionalProperty("Credits", e.Origin.GetAdditionalProperty<int>("Credits") + 1);
         }
 
         if (e.Type == GameEvent.EventType.Disconnect)
         {
-            var client = new EFClient {ClientId = e.Origin.ClientId};
-            await _metaService.SetPersistentMeta("Credits", client.GetAdditionalProperty<int>("Credits").ToString(), e.Origin.ClientId);
+            await _metaService.SetPersistentMeta("Credits", e.Origin.GetAdditionalProperty<int>("Credits").ToString(),
+                e.Origin.ClientId);
         }
     }
 
-    public Task OnLoadAsync(IManager manager) => Task.CompletedTask;
+    public async Task OnLoadAsync(IManager manager)
+    {
+        if (_metaService.GetPersistentMeta("TopCredits") == null)
+        {
+            await _metaService.AddPersistentMeta("TopCredits", "");
+        }
+        TopCredits.LoadTopCredits(_metaService.GetPersistentMeta("TopCredits").ToString()!);
+        
+        // TODO: Top stats logic 
+        // Create constructor in top stats cs file
+        // Pull from database on load - write data to constructor
+        // compare constructor data when players credits change
+        // If more, compare and reorder - write change 
+    }
 
     public Task OnTickAsync(Server s) => Task.CompletedTask;
 

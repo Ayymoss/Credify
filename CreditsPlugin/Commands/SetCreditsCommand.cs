@@ -8,10 +8,8 @@ namespace CreditsPlugin.Commands;
 
 public class SetCreditsCommand : Command
 {
-    public SetCreditsCommand(CommandConfiguration config, ITranslationLookup translationLookup,
-        IMetaService metaService) :
-        base(config,
-            translationLookup)
+    public SetCreditsCommand(CommandConfiguration config, ITranslationLookup translationLookup) :
+        base(config, translationLookup)
     {
         Name = "setcredits";
         Description = "Set Credits";
@@ -53,12 +51,10 @@ public class SetCreditsCommand : Command
             return;
         }
 
-        //TODO: Figure out why it's not storing or retrieving credit values.
         if (e.Target != null)
         {
-            var client = new EFClient {ClientId = e.Target.ClientId};
-            client.SetAdditionalProperty("Credits", argTwo);
-            e.Origin.Tell($"You have given {e.Target.Name} {argTwo} credits.");
+            e.Target.SetAdditionalProperty("Credits", Math.Abs(argTwo));
+            e.Origin.Tell($"You have given {e.Target.Name} (Color::White){Math.Abs(argTwo)} credits.");
         }
     }
 }

@@ -7,9 +7,8 @@ namespace CreditsPlugin.Commands;
 
 public class CreditCommand : Command
 {
-    public CreditCommand(CommandConfiguration config, ITranslationLookup translationLookup, IMetaService metaService) :
-        base(config,
-            translationLookup)
+    public CreditCommand(CommandConfiguration config, ITranslationLookup translationLookup) :
+        base(config, translationLookup)
     {
         Name = "credits";
         Description = "Check your credits.";
@@ -23,8 +22,7 @@ public class CreditCommand : Command
     {
         if (e.Type != GameEvent.EventType.Command) return Task.CompletedTask;
         
-        var client = new EFClient {ClientId = e.Origin.ClientId};
-        e.Origin.Tell($"You have {client.GetAdditionalProperty<int>("Credits")} credits.");
+        e.Origin.Tell($"You have (Color::Blue){e.Origin.GetAdditionalProperty<int>("Credits")} (Color::White)credits.");
         
         return Task.CompletedTask;
     }
