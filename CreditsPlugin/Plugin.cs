@@ -1,5 +1,11 @@
-﻿using SharedLibraryCore;
+﻿using System.Text.Json.Nodes;
+using CreditsPlugin.Commands;
+using Microsoft.EntityFrameworkCore;
+using Newtonsoft.Json;
+using Serilog.Core;
+using SharedLibraryCore;
 using SharedLibraryCore.Interfaces;
+using JsonSerializer = System.Text.Json.JsonSerializer;
 
 namespace CreditsPlugin;
 
@@ -34,12 +40,17 @@ public class Plugin : IPlugin
             e.Origin.SetAdditionalProperty("Credits",
                 int.Parse(_metaService.GetPersistentMeta("Credits", e.Origin).Result.Value));
 
-            e.Origin.Tell($"You have {e.Origin.GetAdditionalProperty<int>("Credits")} credits.");
+            e.Origin.Tell(
+                $"You have (Color::Blue){e.Origin.GetAdditionalProperty<int>("Credits")} (Color::White)credits.");
         }
 
+        // +1 Credit on Kill - Check if in Top and Sort.
         if (e.Type == GameEvent.EventType.Kill)
         {
-            e.Origin.SetAdditionalProperty("Credits", e.Origin.GetAdditionalProperty<int>("Credits") + 1);
+            var currentCredits = e.Origin.GetAdditionalProperty<int>("Credits");
+            currentCredits++;
+            e.Origin.SetAdditionalProperty("Credits", currentCredits);
+            TopCreditsLogic.OriginOrderTop(e, currentCredits);
         }
 
         if (e.Type == GameEvent.EventType.Disconnect)
@@ -51,20 +62,18 @@ public class Plugin : IPlugin
 
     public async Task OnLoadAsync(IManager manager)
     {
-        if (_metaService.GetPersistentMeta("TopCredits") == null)
-        {
-            await _metaService.AddPersistentMeta("TopCredits", "");
-        }
-        TopCredits.LoadTopCredits(_metaService.GetPersistentMeta("TopCredits").ToString()!);
-        
-        // TODO: Top stats logic 
-        // Create constructor in top stats cs file
-        // Pull from database on load - write data to constructor
-        // compare constructor data when players credits change
-        // If more, compare and reorder - write change 
+        var topCreditsValue = (await _metaService.GetPersistentMeta("TopCredits")).FirstOrDefault()?.Value;
+
+        TopCreditsLogic.TopCredits = topCreditsValue is null
+            ? new List<TopCreditEntry>()
+            : JsonSerializer.Deserialize<List<TopCreditEntry>>(topCreditsValue)!;
     }
 
     public Task OnTickAsync(Server s) => Task.CompletedTask;
 
-    public Task OnUnloadAsync() => Task.CompletedTask;
+    public async Task OnUnloadAsync()
+    {
+        await _metaService.RemovePersistentMeta("TopCredits");
+        await _metaService.AddPersistentMeta("TopCredits", JsonSerializer.Serialize(TopCreditsLogic.TopCredits));
+    }
 }

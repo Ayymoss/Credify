@@ -55,6 +55,8 @@ public class SetCreditsCommand : Command
         {
             e.Target.SetAdditionalProperty("Credits", Math.Abs(argTwo));
             e.Origin.Tell($"You have given {e.Target.Name} (Color::White){Math.Abs(argTwo)} credits.");
+
+            TopCreditsLogic.TargetOrderTop(e, Math.Abs(argTwo));
         }
     }
 }

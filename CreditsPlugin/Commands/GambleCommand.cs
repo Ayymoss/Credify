@@ -63,16 +63,21 @@ public class GambleCommand : Command
 
         var rand = new Random();
         var randNum = rand.Next(0, 11);
+        var currentCredits = e.Origin.GetAdditionalProperty<int>("Credits");
 
         if (randNum == argOne)
         {
+            currentCredits += argTwo;
             e.Origin.Tell($"Congratulations, you won {argTwo} tokens!");
-            e.Origin.SetAdditionalProperty("Credits", e.Origin.GetAdditionalProperty<int>("Credits") + argTwo);
+            e.Origin.SetAdditionalProperty("Credits", currentCredits);
+            TopCreditsLogic.OriginOrderTop(e, currentCredits);
         }
         else
         {
+            currentCredits -= argTwo;
             e.Origin.Tell($"Unlucky, you lost {argTwo} credits. You chose {argOne}, the number was {randNum}.");
-            e.Origin.SetAdditionalProperty("Credits", e.Origin.GetAdditionalProperty<int>("Credits") - argTwo);
+            e.Origin.SetAdditionalProperty("Credits", currentCredits);
+            TopCreditsLogic.OriginOrderTop(e, currentCredits);
         }
     }
 }

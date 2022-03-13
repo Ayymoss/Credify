@@ -16,14 +16,14 @@ public class CreditCommand : Command
         Permission = EFClient.Permission.User;
         RequiresTarget = false;
     }
-    
+
 
     public override Task ExecuteAsync(GameEvent e)
     {
         if (e.Type != GameEvent.EventType.Command) return Task.CompletedTask;
-        
+
         e.Origin.Tell($"You have (Color::Blue){e.Origin.GetAdditionalProperty<int>("Credits")} (Color::White)credits.");
-        
+
         return Task.CompletedTask;
     }
 }
