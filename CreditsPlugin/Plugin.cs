@@ -1,6 +1,8 @@
 ﻿using System.Text.Json.Nodes;
 using CreditsPlugin.Commands;
+using Data.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.VisualBasic;
 using Newtonsoft.Json;
 using Serilog.Core;
 using SharedLibraryCore;
@@ -30,21 +32,17 @@ public class Plugin : IPlugin
 
     public async Task OnEventAsync(GameEvent e, Server s)
     {
+        // Join event to check if the user has any credits, if new user, set to 0.
         if (e.Type == GameEvent.EventType.Join)
         {
-            if (_metaService.GetPersistentMeta("Credits", e.Origin) == null)
-            {
-                await _metaService.SetPersistentMeta("Credits", "0", e.Origin.ClientId);
-            }
+            var userCredits = (await _metaService.GetPersistentMeta("Credits", e.Origin))?.Value ?? "0";
 
-            e.Origin.SetAdditionalProperty("Credits",
-                int.Parse(_metaService.GetPersistentMeta("Credits", e.Origin).Result.Value));
+            e.Origin.SetAdditionalProperty("Credits", int.Parse(userCredits));
 
-            e.Origin.Tell(
-                $"You have (Color::Blue){e.Origin.GetAdditionalProperty<int>("Credits")} (Color::White)credits.");
+            e.Origin.Tell($"You have (Color::Blue){userCredits} (Color::White)credits.");
         }
 
-        // +1 Credit on Kill - Check if in Top and Sort.
+        // Kill event +1 Credit on Kill - Check if in Top and Sort.
         if (e.Type == GameEvent.EventType.Kill)
         {
             var currentCredits = e.Origin.GetAdditionalProperty<int>("Credits");
@@ -53,6 +51,7 @@ public class Plugin : IPlugin
             TopCreditsLogic.OriginOrderTop(e, currentCredits);
         }
 
+        // Disconnect event to write back credits to database.
         if (e.Type == GameEvent.EventType.Disconnect)
         {
             await _metaService.SetPersistentMeta("Credits", e.Origin.GetAdditionalProperty<int>("Credits").ToString(),
@@ -62,6 +61,7 @@ public class Plugin : IPlugin
 
     public async Task OnLoadAsync(IManager manager)
     {
+        // Pull top credit data on IW4MAdmin load and deserialise. 
         var topCreditsValue = (await _metaService.GetPersistentMeta("TopCredits")).FirstOrDefault()?.Value;
 
         TopCreditsLogic.TopCredits = topCreditsValue is null
@@ -73,6 +73,7 @@ public class Plugin : IPlugin
 
     public async Task OnUnloadAsync()
     {
+        // Remove old top credit entry and write updated one.
         await _metaService.RemovePersistentMeta("TopCredits");
         await _metaService.AddPersistentMeta("TopCredits", JsonSerializer.Serialize(TopCreditsLogic.TopCredits));
     }

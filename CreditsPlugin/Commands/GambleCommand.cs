@@ -31,7 +31,6 @@ public class GambleCommand : Command
         };
     }
 
-
     public override async Task ExecuteAsync(GameEvent e)
     {
         if (e.Type != GameEvent.EventType.Command) return;

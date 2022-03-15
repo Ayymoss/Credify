@@ -23,29 +23,29 @@ public class TopCreditsCommand : Command
 
     private readonly IDatabaseContextFactory _contextFactory;
 
-
     public override async Task ExecuteAsync(GameEvent e)
     {
         if (e.Type != GameEvent.EventType.Command) return;
+        
+        // If user requests top and there are no entries.
+        if (!TopCreditsLogic.TopCredits.Any())
+        {
+            e.Origin.Tell("There are no users in the top.");
+            return;
+        }
+        
+        e.Origin.Tell($"(Color::Yellow)Top Credits:");
 
-        e.Origin.Tell($"Top Credits:");
-
+        // Get top credits, format for returning.
         await using var context = _contextFactory.CreateContext(false);
         var names = await context.Clients
             .Where(client => TopCreditsLogic.TopCredits.Select(credit => credit.ClientId).Contains(client.ClientId))
-            .Select(client => new
-            {
-                client.ClientId,
-                client.CurrentAlias.Name
-            })
+            .Select(client => new {client.ClientId, client.CurrentAlias.Name})
             .ToDictionaryAsync(selector => selector.ClientId, selector => selector.Name);
 
-        var output = TopCreditsLogic.TopCredits.Select((creditEntry, index) =>
-            $"#{index + 1} {names[creditEntry.ClientId]} {creditEntry.Credits}");
+        var output = TopCreditsLogic.TopCredits.OrderByDescending(entry => entry.Credits).Select((creditEntry, index) =>
+            $"#{index + 1} {names[creditEntry.ClientId]} (Color::White)- {creditEntry.Credits}");
 
-        foreach (var entry in output)
-        {
-            e.Origin.Tell(entry);
-        }
+        e.Origin.Tell(output);
     }
 }
