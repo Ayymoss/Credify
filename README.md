@@ -9,7 +9,7 @@ They can also mindlessly gamble the credits in a 0-10 RNG battle.
 ## User Commands
 !credits (!cr) - Returns your credits.
 
-!topcredits (!topcr) - List top players by credits.
+!topcredits (!tcr) - List top players by credits.
 
 !gamble \<0-10> \<amount> (!gmb) - Gambles your credits, 1 in 10 chance, return is double your money.
   
