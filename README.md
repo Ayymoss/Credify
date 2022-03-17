@@ -9,13 +9,13 @@ They can also mindlessly gamble the credits in a 0-10 RNG battle.
 ## User Commands
 !credits (!cr) - Returns your credits.
 
-!topcredits (!topcr) - List top players by credits.
+!topcredits (!tcr) - List top players by credits.
 
-!gamble <0-10> <amount> (!gmb) - Gambles your credits, 1 in 10 chance, return is double your money.
+!gamble \<0-10> \<amount> (!gmb) - Gambles your credits, 1 in 10 chance, return is double your money.
   
-!betplayer <name> <amount> (!betp) - Bet on a player to win - Payout is proportionate based on their ELO.
+!betplayer \<name> \<amount> (!betp) - Bet on a player to win - Payout is proportionate based on their ELO.
   
-!betteam <name> <amount> (!bett) - Bet on a team to win - Payout is proportionate based team's average ELO.
+!betteam \<name> \<amount> (!bett) - Bet on a team to win - Payout is proportionate based team's average ELO.
   
 ## Admin Commands
-!setcredits <name> <amount> (!scr) - Set a player's credits.
+!setcredits \<name> \<amount> (!scr) - Set a player's credits.
