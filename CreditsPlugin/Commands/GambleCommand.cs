@@ -13,7 +13,7 @@ public class GambleCommand : Command
     {
         Name = "gamble";
         Alias = "gmb";
-        Description = "Gamble Credits";
+        Description = "Gamble Credits - Payout = Amount * 10";
         Permission = EFClient.Permission.User;
         RequiresTarget = false;
         Arguments = new[]
@@ -36,27 +36,33 @@ public class GambleCommand : Command
         if (e.Type != GameEvent.EventType.Command) return;
 
         var argStr = e.Data.Split(" ");
-        if (!int.TryParse(argStr[0], out var argOne))
+        if (!int.TryParse(argStr[0], out var argRange))
         {
-            e.Origin.Tell("(Color::Red)Error trying to parse first argument.");
+            e.Origin.Tell("(Color::Yellow)Error trying to parse first argument.");
             return;
         }
 
-        if (!int.TryParse(argStr[1], out var argTwo))
+        if (!int.TryParse(argStr[1], out var argAmount))
         {
-            e.Origin.Tell("(Color::Red)Error trying to parse second argument.");
+            e.Origin.Tell("(Color::Yellow)Error trying to parse second argument.");
             return;
         }
 
-        if (CreditCheck.LessThanZero(argTwo))
+        if (argRange is > 10 or < 0)
         {
-            e.Origin.Tell("(Color::Red)Minimum amount is 1.");
+            e.Origin.Tell("(Color::Yellow)Accepted number range is 0 to 10.");
             return;
         }
 
-        if (CreditCheck.AvailableFunds(e.Origin, argTwo))
+        if (argAmount <= 0)
         {
-            e.Origin.Tell("(Color::Red)Insufficient funds...");
+            e.Origin.Tell("(Color::Yellow)Minimum amount is 1.");
+            return;
+        }
+
+        if (CreditLogic.AvailableFunds(e, argAmount))
+        {
+            e.Origin.Tell("(Color::Yellow)Insufficient credits.");
             return;
         }
 
@@ -64,19 +70,19 @@ public class GambleCommand : Command
         var randNum = rand.Next(0, 11);
         var currentCredits = e.Origin.GetAdditionalProperty<int>("Credits");
 
-        if (randNum == argOne)
+        if (randNum == argRange)
         {
-            currentCredits += argTwo;
-            e.Origin.Tell($"Congratulations, you won {argTwo} tokens!");
-            e.Origin.SetAdditionalProperty("Credits", currentCredits);
-            TopCreditsLogic.OriginOrderTop(e, currentCredits);
+            currentCredits += argAmount * 10;
+            e.Origin.Tell($"Congratulations, you won (Color::Cyan){argAmount * 10} (Color::White)tokens!");
         }
         else
         {
-            currentCredits -= argTwo;
-            e.Origin.Tell($"Unlucky, you lost {argTwo} credits. You chose {argOne}, the number was {randNum}.");
-            e.Origin.SetAdditionalProperty("Credits", currentCredits);
-            TopCreditsLogic.OriginOrderTop(e, currentCredits);
+            currentCredits -= argAmount;
+            e.Origin.Tell(
+                $"Unlucky, you lost (Color::Cyan){argAmount} (Color::White)credits. You chose (Color::Cyan){argRange}(Color::White), the number was (Color::Cyan){randNum}(Color::White).");
         }
+
+        e.Origin.SetAdditionalProperty("Credits", currentCredits);
+        CreditLogic.OrderTop(e, currentCredits, 0);
     }
 }

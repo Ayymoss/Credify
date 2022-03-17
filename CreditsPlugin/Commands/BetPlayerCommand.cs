@@ -1,4 +1,7 @@
-﻿using SharedLibraryCore;
+﻿using Data.Abstractions;
+using Data.Models.Client.Stats;
+using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
+using SharedLibraryCore;
 using SharedLibraryCore.Commands;
 using SharedLibraryCore.Configuration;
 using SharedLibraryCore.Database.Models;
@@ -30,14 +33,37 @@ public class BetPlayerCommand : Command
             }
         };
     }
-    
-    public override Task ExecuteAsync(GameEvent e)
+
+    public async override Task ExecuteAsync(GameEvent e)
     {
-        if (e.Type != GameEvent.EventType.Command) return Task.CompletedTask;
+        if (e.Type != GameEvent.EventType.Command) return;
 
-        //TODO: Implement command logic
-        e.Origin.Tell("Command Not Implemented...");
+        if (!BetPlayerLogic.CanBet())
+        {
+            e.Origin.Tell("Player bets are only accepted for the first 2 minutes of the map.");
+        }
 
-        return Task.CompletedTask;
+        var argStr = e.Data.Split(" ");
+
+        if (!int.TryParse(argStr[1], out var argAmount))
+        {
+            e.Origin.Tell("(Color::Yellow)Error trying to parse second argument.");
+            return;
+        }
+
+        e.Target = e.Owner.GetClientByName(argStr[0]).FirstOrDefault();
+
+        if (e.Target == null)
+        {
+            e.Origin.Tell("(Color::Yellow)Error trying to find user.");
+            return;
+        }
+
+
+        // Check if target isn't null - Set credits, sort, and tell the origin and target.
+        if (e.Target != null)
+        {
+            e.Origin.Tell("Not implemented.");
+        }
     }
 }

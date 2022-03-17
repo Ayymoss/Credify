@@ -31,15 +31,15 @@ public class SetCreditsCommand : Command
         };
     }
 
-    public override async Task ExecuteAsync(GameEvent e)
+    public async override Task ExecuteAsync(GameEvent e)
     {
         if (e.Type != GameEvent.EventType.Command) return;
 
         var argStr = e.Data.Split(" ");
 
-        if (!int.TryParse(argStr[1], out var argTwo))
+        if (!int.TryParse(argStr[1], out var argAmount))
         {
-            e.Origin.Tell("Error trying to parse second argument.");
+            e.Origin.Tell("(Color::Yellow)Error trying to parse second argument.");
             return;
         }
 
@@ -47,15 +47,20 @@ public class SetCreditsCommand : Command
 
         if (e.Target == null)
         {
-            e.Origin.Tell("Error trying to find user.");
+            e.Origin.Tell("(Color::Yellow)Error trying to find user.");
             return;
         }
 
+        // Check if target isn't null - Set credits, sort, and tell the origin and target.
         if (e.Target != null)
         {
-            e.Target.SetAdditionalProperty("Credits", Math.Abs(argTwo));
-            e.Origin.Tell($"You have given {e.Target.Name} (Color::White){Math.Abs(argTwo)} credits.");
-            TopCreditsLogic.TargetOrderTop(e, Math.Abs(argTwo));
+            e.Target.SetAdditionalProperty("Credits", Math.Abs(argAmount));
+            e.Origin.Tell(
+                $"Set credits for {e.Target.Name} (Color::White)to (Color::Cyan){Math.Abs(argAmount)}(Color::White).");
+            if (e.Origin.ClientId != e.Target.ClientId)
+                e.Target.Tell(
+                    $"{e.Origin.Name} (Color::White)set your credits to (Color::Cyan){Math.Abs(argAmount)}(Color::White).");
+            CreditLogic.OrderTop(e, Math.Abs(argAmount), 1);
         }
     }
 }
