@@ -60,7 +60,7 @@ public class SetCreditsCommand : Command
             if (e.Origin.ClientId != e.Target.ClientId)
                 e.Target.Tell(
                     $"{e.Origin.Name} (Color::White)set your credits to (Color::Cyan){Math.Abs(argAmount)}(Color::White).");
-            CreditLogic.OrderTop(e, Math.Abs(argAmount), 1);
+            PrimaryLogic.OrderTop(e, Math.Abs(argAmount), 1);
         }
     }
 }

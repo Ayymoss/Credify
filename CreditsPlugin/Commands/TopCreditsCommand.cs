@@ -28,7 +28,7 @@ public class TopCreditsCommand : Command
         if (e.Type != GameEvent.EventType.Command) return;
         
         // If user requests top and there are no entries.
-        if (!CreditLogic.TopCredits.Any())
+        if (!PrimaryLogic.TopCredits.Any())
         {
             e.Origin.Tell("No one has any credits for top.");
             return;
@@ -39,11 +39,11 @@ public class TopCreditsCommand : Command
         // Get top credits, format for returning.
         await using var context = _contextFactory.CreateContext(false);
         var names = await context.Clients
-            .Where(client => CreditLogic.TopCredits.Select(credit => credit.ClientId).Contains(client.ClientId))
+            .Where(client => PrimaryLogic.TopCredits.Select(credit => credit.ClientId).Contains(client.ClientId))
             .Select(client => new {client.ClientId, client.CurrentAlias.Name})
             .ToDictionaryAsync(selector => selector.ClientId, selector => selector.Name);
 
-        var output = CreditLogic.TopCredits.OrderByDescending(entry => entry.Credits).Select((creditEntry, index) =>
+        var output = PrimaryLogic.TopCredits.OrderByDescending(entry => entry.Credits).Select((creditEntry, index) =>
             $"#{index + 1} {names[creditEntry.ClientId]} (Color::White)- {creditEntry.Credits}");
 
         e.Origin.Tell(output);

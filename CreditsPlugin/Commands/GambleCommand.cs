@@ -60,7 +60,7 @@ public class GambleCommand : Command
             return;
         }
 
-        if (CreditLogic.AvailableFunds(e, argAmount))
+        if (PrimaryLogic.AvailableFunds(e, argAmount))
         {
             e.Origin.Tell("(Color::Yellow)Insufficient credits.");
             return;
@@ -83,6 +83,6 @@ public class GambleCommand : Command
         }
 
         e.Origin.SetAdditionalProperty("Credits", currentCredits);
-        CreditLogic.OrderTop(e, currentCredits, 0);
+        PrimaryLogic.OrderTop(e, currentCredits, 0);
     }
 }

@@ -38,10 +38,10 @@ public class BetPlayerCommand : Command
     {
         if (e.Type != GameEvent.EventType.Command) return;
 
-        if (!BetPlayerLogic.CanBet())
-        {
-            e.Origin.Tell("Player bets are only accepted for the first 2 minutes of the map.");
-        }
+        //if (!BetPlayerLogic.CanBet())
+        //{
+        //    e.Origin.Tell("Player bets are only accepted for the first 2 minutes of the map.");
+        //}
 
         var argStr = e.Data.Split(" ");
 

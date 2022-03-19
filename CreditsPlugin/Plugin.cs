@@ -1,92 +1,75 @@
-﻿using SharedLibraryCore;
+﻿using Data.Abstractions;
+using SharedLibraryCore;
 using SharedLibraryCore.Interfaces;
-using JsonSerializer = System.Text.Json.JsonSerializer;
+using Stats.Config;
 
 namespace CreditsPlugin;
 
-// TODO: Bet on Player to Win (Dynamic Payout based on ELO?)
-
 public class Plugin : IPlugin
 {
-    public Plugin(IMetaService metaService)
+    public Plugin(IDatabaseContextFactory contextFactory, IMetaService metaService, StatsConfiguration statsConfig)
     {
+        _config = statsConfig;
+        _contextFactory = contextFactory;
         _metaService = metaService;
     }
 
+    private readonly StatsConfiguration _config;
+    private readonly IDatabaseContextFactory _contextFactory;
     private readonly IMetaService _metaService;
-
     public string Name => "Credits";
     public float Version => 0.5f;
     public string Author => "Amos";
 
-    public async Task OnEventAsync(GameEvent e, Server s)
+    public async Task OnEventAsync(GameEvent player, Server server)
     {
-        // PLAYER EVENTS 
-
-        // Join event to check if the user has any credits, if new user, set to 0.
-        if (e.Type == GameEvent.EventType.Join)
+        switch (player.Type)
         {
-            var userCredits = (await _metaService.GetPersistentMeta("Credits", e.Origin))?.Value ?? "0";
+            case GameEvent.EventType.Join: // Client Event
+                PrimaryLogic
+                    .InitialisePlayer(
+                        player); // Join event to check if the user has any credits, if new user, set to 0.
+                break;
 
-            e.Origin.SetAdditionalProperty("Credits", int.Parse(userCredits));
+            case GameEvent.EventType.Kill: // Client Event
+                PrimaryLogic.IncrementCredits(player); // Kill event +1 Credit on Kill - Check if in Top and Sort.
 
-            e.Origin.Tell($"You have (Color::Cyan){userCredits} (Color::White)credits.");
-        }
+                // WORKING - Move to a better location
+                var serverPlayerRank =
+                    await new BetManager(_contextFactory, _config).GetPlayerRankedPosition(player.Origin.ClientId,
+                        await player.Origin.CurrentServer.GetIdForServer());
+                var serverTotalRanked =
+                    await new BetManager(_contextFactory, _config).GetTotalRankedPlayers(
+                        await player.Origin.CurrentServer.GetIdForServer());
+                Console.WriteLine($"Ranked: {serverPlayerRank}/{serverTotalRanked}");
+                // WORKING
+                break;
 
-        // Kill event +1 Credit on Kill - Check if in Top and Sort.
-        if (e.Type == GameEvent.EventType.Kill)
-        {
-            var userCredits = e.Origin.GetAdditionalProperty<int>("Credits");
-            userCredits++;
-            e.Origin.SetAdditionalProperty("Credits", userCredits);
-            CreditLogic.OrderTop(e, userCredits, 0);
+            case GameEvent.EventType.Disconnect: // Client Event
+                PrimaryLogic.WriteCredits(player); // Disconnect event to write back credits to database.
+                break;
 
-            //DBG
-            foreach (var test in BetPlayerLogic.ServerList)
-            {
-                Console.WriteLine("Server: " + test.ServerId);
-            }
-        }
-
-        // Disconnect event to write back credits to database.
-        if (e.Type == GameEvent.EventType.Disconnect)
-        {
-            await _metaService.SetPersistentMeta("Credits", e.Origin.GetAdditionalProperty<int>("Credits").ToString(),
-                e.Origin.ClientId);
-        }
-
-        // SERVER EVENTS
-        // TODO: Fix
-        if (e.Type == GameEvent.EventType.MapChange)
-        {
-            BetPlayerLogic.Timer.Restart();
-        }
-        // TODO: Fix
-        if (e.Type == GameEvent.EventType.Start)
-        {
-            var serverEntry = new ServerEntry {ServerId = s.GetIdForServer().Result, MapTime = 0};
-            BetPlayerLogic.ServerList.Add(serverEntry);
+            case GameEvent.EventType.Update: //Server Event
+                var result = BetManager.MapEndHighestFragger(server);
+                Console.WriteLine($"FRAGS - ID: {result[0]} SCORE: {result[1]}");
+                break;
+            
         }
     }
 
     public async Task OnLoadAsync(IManager manager)
     {
         // Pull top credit data on IW4MAdmin load and deserialise. 
-        var topCreditsValue = (await _metaService.GetPersistentMeta("TopCredits")).FirstOrDefault()?.Value;
-
-        CreditLogic.TopCredits = topCreditsValue is null
-            ? new List<TopCreditEntry>()
-            : JsonSerializer.Deserialize<List<TopCreditEntry>>(topCreditsValue)!;
+        new PrimaryLogic(_metaService).ReadTopScore();
         Console.WriteLine($"[Credits] Plugin Loaded. Version: {Version}");
     }
-
-    public Task OnTickAsync(Server s) => Task.CompletedTask;
 
     public async Task OnUnloadAsync()
     {
         // Remove old top credit entry and write updated one.
-        await _metaService.RemovePersistentMeta("TopCredits");
-        await _metaService.AddPersistentMeta("TopCredits", JsonSerializer.Serialize(CreditLogic.TopCredits));
+        //new PrimaryLogic(_metaService).WriteTopScore();
         Console.WriteLine("[Credits] Plugin Unloaded.");
     }
+
+    public Task OnTickAsync(Server server) => Task.CompletedTask;
 }
