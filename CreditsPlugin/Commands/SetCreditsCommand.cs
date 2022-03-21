@@ -31,36 +31,36 @@ public class SetCreditsCommand : Command
         };
     }
 
-    public async override Task ExecuteAsync(GameEvent e)
+    public async override Task ExecuteAsync(GameEvent gameEvent)
     {
-        if (e.Type != GameEvent.EventType.Command) return;
+        if (gameEvent.Type != GameEvent.EventType.Command) return;
 
-        var argStr = e.Data.Split(" ");
+        var argStr = gameEvent.Data.Split(" ");
 
         if (!int.TryParse(argStr[1], out var argAmount))
         {
-            e.Origin.Tell("(Color::Yellow)Error trying to parse second argument.");
+            gameEvent.Origin.Tell("(Color::Yellow)Error trying to parse second argument.");
             return;
         }
 
-        e.Target = e.Owner.GetClientByName(argStr[0]).FirstOrDefault();
+        gameEvent.Target = gameEvent.Owner.GetClientByName(argStr[0]).FirstOrDefault();
 
-        if (e.Target == null)
+        if (gameEvent.Target == null)
         {
-            e.Origin.Tell("(Color::Yellow)Error trying to find user.");
+            gameEvent.Origin.Tell("(Color::Yellow)Error trying to find user.");
             return;
         }
 
         // Check if target isn't null - Set credits, sort, and tell the origin and target.
-        if (e.Target != null)
+        if (gameEvent.Target != null)
         {
-            e.Target.SetAdditionalProperty("Credits", Math.Abs(argAmount));
-            e.Origin.Tell(
-                $"Set credits for {e.Target.Name} (Color::White)to (Color::Cyan){Math.Abs(argAmount)}(Color::White).");
-            if (e.Origin.ClientId != e.Target.ClientId)
-                e.Target.Tell(
-                    $"{e.Origin.Name} (Color::White)set your credits to (Color::Cyan){Math.Abs(argAmount)}(Color::White).");
-            PrimaryLogic.OrderTop(e, Math.Abs(argAmount), 1);
+            gameEvent.Target.SetAdditionalProperty(Plugin.CreditsKey, Math.Abs(argAmount));
+            gameEvent.Origin.Tell(
+                $"Set credits for {gameEvent.Target.Name} (Color::White)to (Color::Cyan){Math.Abs(argAmount):N0}(Color::White).");
+            if (gameEvent.Origin.ClientId != gameEvent.Target.ClientId)
+                gameEvent.Target.Tell(
+                    $"{gameEvent.Origin.Name} (Color::White)set your credits to (Color::Cyan){Math.Abs(argAmount):N0}(Color::White).");
+            Plugin.PrimaryLogic.OrderTop(gameEvent.Target, Math.Abs(argAmount));
         }
     }
 }

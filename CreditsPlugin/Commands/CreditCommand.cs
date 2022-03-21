@@ -45,11 +45,11 @@ public class CreditCommand : Command
         if (e.Target != null)
         {
             e.Origin.Tell(
-                $"{e.Target.Name} (Color::White)has (Color::Cyan){e.Target.GetAdditionalProperty<int>("Credits")} (Color::White)credits.");
+                $"{e.Target.Name} (Color::White)has (Color::Cyan){e.Target.GetAdditionalProperty<int>("Credits"):N0} (Color::White)credits.");
             return;
         }
 
         // If no target specified
-        e.Origin.Tell($"You have (Color::Cyan){e.Origin.GetAdditionalProperty<int>("Credits")} (Color::White)credits.");
+        e.Origin.Tell($"You have (Color::Cyan){e.Origin.GetAdditionalProperty<int>(Plugin.CreditsKey):N0} (Color::White)credits.");
     }
 }

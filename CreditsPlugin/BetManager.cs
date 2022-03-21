@@ -1,11 +1,10 @@
-﻿using System.Linq;
-using System.Linq.Expressions;
+﻿using System.Linq.Expressions;
 using Data.Abstractions;
 using Data.Models.Client.Stats;
 using IW4MAdmin.Plugins.Stats;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Internal;
 using SharedLibraryCore;
+using SharedLibraryCore.Database.Models;
 using SharedLibraryCore.Interfaces;
 using Stats.Config;
 
@@ -13,7 +12,7 @@ namespace CreditsPlugin;
 
 public class BetManager
 {
-    public BetManager(IDatabaseContextFactory contextFactory, StatsConfiguration statsConfig)
+    public BetManager(IDatabaseContextFactory contextFactory, StatsConfiguration statsConfig, IMetaService metaService)
     {
         _config = statsConfig;
         _contextFactory = contextFactory;
@@ -35,16 +34,16 @@ public class BetManager
         return clientRanking?.Ranking + 1 ?? 0;
     }
 
-    public Expression<Func<EFClientRankingHistory, bool>> GetNewRankingFunc(int? clientId = null, long? serverId = null)
+    public Expression<Func<EFClientRankingHistory, bool>> GetNewRankingFunc(long? serverId = null)
     {
-        return (ranking) => ranking.ServerId == serverId
-                            && ranking.Client.Level != Data.Models.Client.EFClient.Permission.Banned
-                            && ranking.CreatedDateTime >= Extensions.FifteenDaysAgo()
-                            && ranking.ZScore != null
-                            && ranking.PerformanceMetric != null
-                            && ranking.Newest
-                            && ranking.Client.TotalConnectionTime >=
-                            _config.TopPlayersMinPlayTime;
+        return ranking => ranking.ServerId == serverId
+                          && ranking.Client.Level != Data.Models.Client.EFClient.Permission.Banned
+                          && ranking.CreatedDateTime >= Extensions.FifteenDaysAgo()
+                          && ranking.ZScore != null
+                          && ranking.PerformanceMetric != null
+                          && ranking.Newest
+                          && ranking.Client.TotalConnectionTime >=
+                          _config.TopPlayersMinPlayTime;
     }
 
     public async Task<int> GetTotalRankedPlayers(long serverId)
@@ -52,68 +51,117 @@ public class BetManager
         await using var context = _contextFactory.CreateContext(false);
 
         return await context.Set<EFClientRankingHistory>()
-            .Where(GetNewRankingFunc(serverId: serverId))
+            .Where(GetNewRankingFunc(serverId))
             .CountAsync();
     }
-    
-    
-    // TODO: Fix this. Called on Event. Event calls foreach person in server.
-    // Only need to do the work once an update.
-    // Also need to fix check for map rotation.
-    public static int[] MapEndHighestFragger(Server server)
+
+    private Dictionary<long, DateTime> MapTime = new();
+    private Dictionary<long, int> MaxScore = new();
+    private Dictionary<int, OpenBetData> OpenBets = new();
+
+    public async Task<bool> CanBet(EFClient client)
     {
-        var highestScore = 0;
-        var highestScoreClientId = 0;
-        var highestScoreOld = 0;
-        var highestScoreClientIdOld = 0;
+        var clientServerId = await client.CurrentServer.GetIdForServer();
 
-        foreach (var client in server.GetClientsAsList().Where(client => highestScore < client.Score))
-        {
-            highestScore = client.Score;
-            highestScoreClientId = client.ClientId;
-        }
+        if (!MapTime.ContainsKey(clientServerId)) return false;
+        return MapTime[clientServerId].AddMinutes(2) >= DateTime.UtcNow;
+    }
+
+    public async void OnBetCreated(GameEvent gameEvent, int amount)
+    {
+        var totalKeys = OpenBets.Count;
         
-        if (highestScoreOld != highestScore && highestScore == 0)
+        var clientServerId = await gameEvent.Origin.CurrentServer.GetIdForServer();
+        var serverPlayerRank = await GetPlayerRankedPosition(gameEvent.Origin.ClientId, clientServerId);
+        var serverTotalRanked = await GetTotalRankedPlayers(clientServerId);
+
+        if (serverPlayerRank == 0)
         {
-            Console.WriteLine("Map rotated?");
+            gameEvent.Origin.Tell("(Color::Yellow)Client needs to be ranked to bet for.");
+            return;
         }
 
-        if (highestScore > 0)
+        OpenBets.Add(totalKeys + 1, new OpenBetData
         {
-            highestScoreOld = highestScore;
-            highestScoreClientIdOld = highestScoreClientId;
+            Origin = gameEvent.Origin,
+            Target = gameEvent.Target,
+            TargetRank = serverPlayerRank,
+            TotalRanked = serverTotalRanked,
+            Amount = amount
+        });
+    }
+
+    public async void OnClientUpdated(GameEvent gameEvent)
+    {
+        var clientServerId = await gameEvent.Origin.CurrentServer.GetIdForServer();
+        lock (MaxScore)
+        {
+            if (!MaxScore.ContainsKey(clientServerId)) MaxScore.Add(clientServerId, gameEvent.Origin.Score);
+            if (MaxScore[clientServerId] < gameEvent.Origin.Score) MaxScore[clientServerId] = gameEvent.Origin.Score;
+        }
+    }
+
+    public async void OnMatchEnd(Server server)
+    {
+        var serverId = await server.GetIdForServer();
+
+        if (OpenBets.Count > 0)
+        {
+            for (var i = 1; i <= OpenBets.Count; i++)
+            {
+                if (!OpenBets[i].Origin.IsIngame || !OpenBets[i].Target.IsIngame)
+                {
+                    Console.WriteLine($"Removed bet {i} due to Origin or Target disconnected.");
+                    OpenBets.Remove(i);
+                    return;
+                }
+
+                if (!Plugin.PrimaryLogic.AvailableFunds(OpenBets[i].Origin, OpenBets[i].Amount))
+                {
+                    Console.WriteLine($"Removed bet {i} due to insufficient funds on Origin");
+                    OpenBets.Remove(i);
+                    return;
+                }
+
+                var previousCredits = OpenBets[i].Origin.GetAdditionalProperty<int>(Plugin.CreditsKey);
+                var payOut = OpenBets[i].Amount;
+
+                if (MaxScore[serverId] >= OpenBets[i].Target.Score)
+                {
+                    payOut *= OpenBets[i].TargetRank / OpenBets[i].TotalRanked;
+
+                    Console.WriteLine(
+                        $"DBG: {OpenBets[i].Origin.Name} betted on {OpenBets[i].Target.Name} and won {payOut + OpenBets[i].Amount:N0} credits.");
+                    OpenBets[i].Origin.Tell($"Your placed bet won! Payout: {payOut + OpenBets[i].Amount:N0} credits.");
+                    OpenBets[i].Origin.SetAdditionalProperty(Plugin.CreditsKey, previousCredits + payOut);
+                }
+                else
+                {
+                    Console.WriteLine(
+                        $"DBG: {OpenBets[i].Origin.Name} betted on {OpenBets[i].Target.Name} and lost {OpenBets[i].Amount:N0} credits.");
+                    OpenBets[i].Origin.Tell($"Your placed bet lost! You lost {OpenBets[i].Amount:N0} credits.");
+                    OpenBets[i].Origin.SetAdditionalProperty(Plugin.CreditsKey, previousCredits - payOut);
+                }
+
+                OpenBets.Remove(i);
+            }
         }
 
-       
-        
-        return highestScore == 0 ? new[] {0, 0} : new[] {highestScoreClientId, highestScore};
+        if (MapTime.ContainsKey(serverId))
+        {
+            MapTime[serverId] = DateTime.UtcNow;
+            return;
+        }
+
+        MapTime.Add(serverId, DateTime.UtcNow);
     }
 }
 
-public class ClientEntry
+public class OpenBetData
 {
-    public int ClientId { get; set; }
-    public long Score { get; set; }
+    public EFClient? Origin { get; set; }
+    public EFClient? Target { get; set; }
+    public int TargetRank { get; set; }
+    public int TotalRanked { get; set; }
+    public int Amount { get; set; }
 }
-
-public class ServerEntry
-{
-    public long ServerId { get; set; }
-
-    public long DateNow { get; set; }
-}
-
-/*
-TODO: See below
-1. Get player rank in server
-2. Store player score on update
-    2.1 Need to store PER server
-3. Store time when map updates 
-    3.1 Need to store PER server
-4. Check if user (command sender) is within 2 minute window
-5. Write command logic
-
-2.1/3.1 -> Create a new server object with required parameters 
-    Update when new values are provided by IW4MAdmin
-
-*/

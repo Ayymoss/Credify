@@ -23,18 +23,18 @@ public class TopCreditsCommand : Command
 
     private readonly IDatabaseContextFactory _contextFactory;
 
-    public override async Task ExecuteAsync(GameEvent e)
+    public override async Task ExecuteAsync(GameEvent gameEvent)
     {
-        if (e.Type != GameEvent.EventType.Command) return;
+        if (gameEvent.Type != GameEvent.EventType.Command) return;
         
         // If user requests top and there are no entries.
         if (!PrimaryLogic.TopCredits.Any())
         {
-            e.Origin.Tell("No one has any credits for top.");
+            gameEvent.Origin.Tell("No one has any credits for top.");
             return;
         }
         
-        e.Origin.Tell($"(Color::Cyan)--Top Credits--");
+        gameEvent.Origin.Tell($"(Color::Cyan)--Top Credits--");
 
         // Get top credits, format for returning.
         await using var context = _contextFactory.CreateContext(false);
@@ -44,8 +44,8 @@ public class TopCreditsCommand : Command
             .ToDictionaryAsync(selector => selector.ClientId, selector => selector.Name);
 
         var output = PrimaryLogic.TopCredits.OrderByDescending(entry => entry.Credits).Select((creditEntry, index) =>
-            $"#{index + 1} {names[creditEntry.ClientId]} (Color::White)- {creditEntry.Credits}");
+            $"#{index + 1} {names[creditEntry.ClientId]} (Color::White)- {creditEntry.Credits:N0}");
 
-        e.Origin.Tell(output);
+        gameEvent.Origin.Tell(output);
     }
 }

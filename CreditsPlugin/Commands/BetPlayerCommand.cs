@@ -1,7 +1,4 @@
-﻿using Data.Abstractions;
-using Data.Models.Client.Stats;
-using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
-using SharedLibraryCore;
+﻿using SharedLibraryCore;
 using SharedLibraryCore.Commands;
 using SharedLibraryCore.Configuration;
 using SharedLibraryCore.Database.Models;
@@ -18,7 +15,7 @@ public class BetPlayerCommand : Command
         Alias = "betp";
         Description = "Bet on a Player\'s Win - Can only do within first minute of game.";
         Permission = EFClient.Permission.User;
-        RequiresTarget = true;
+        RequiresTarget = false;
         Arguments = new[]
         {
             new CommandArgument
@@ -34,36 +31,49 @@ public class BetPlayerCommand : Command
         };
     }
 
-    public async override Task ExecuteAsync(GameEvent e)
+    public override async Task ExecuteAsync(GameEvent gameEvent)
     {
-        if (e.Type != GameEvent.EventType.Command) return;
-
-        //if (!BetPlayerLogic.CanBet())
-        //{
-        //    e.Origin.Tell("Player bets are only accepted for the first 2 minutes of the map.");
-        //}
-
-        var argStr = e.Data.Split(" ");
+        if (gameEvent.Type != GameEvent.EventType.Command) return;
+        
+        var argStr = gameEvent.Data.Split(" ");
 
         if (!int.TryParse(argStr[1], out var argAmount))
         {
-            e.Origin.Tell("(Color::Yellow)Error trying to parse second argument.");
+            gameEvent.Origin.Tell("(Color::Yellow)Error trying to parse second argument.");
             return;
         }
 
-        e.Target = e.Owner.GetClientByName(argStr[0]).FirstOrDefault();
+        gameEvent.Target = gameEvent.Owner.GetClientByName(argStr[0]).FirstOrDefault();
 
-        if (e.Target == null)
+        if (gameEvent.Target == null)
         {
-            e.Origin.Tell("(Color::Yellow)Error trying to find user.");
+            gameEvent.Origin.Tell("(Color::Yellow)Error trying to find user.");
+            return;
+        }
+        
+        if (argAmount <= 0)
+        {
+            gameEvent.Origin.Tell("(Color::Yellow)Minimum amount is 1.");
+            return;
+        }
+        
+        if (!Plugin.PrimaryLogic.AvailableFunds(gameEvent.Origin, argAmount))
+        {
+            gameEvent.Origin.Tell("(Color::Yellow)Insufficient credits.");
+            return;
+        }
+        
+        if (await Plugin.BetManager.CanBet(gameEvent.Origin))
+        {
+            gameEvent.Origin.Tell("(Color::Yellow)Player bets are only accepted for the first 2 minutes of the map.");
             return;
         }
 
-
-        // Check if target isn't null - Set credits, sort, and tell the origin and target.
-        if (e.Target != null)
+        if (gameEvent.Target != null)
         {
-            e.Origin.Tell("Not implemented.");
+            Plugin.BetManager.OnBetCreated(gameEvent, argAmount);
+            gameEvent.Origin.Tell($"Bet on {gameEvent.Target.Name} (Color::White)for (Color::Cyan){argAmount:N0} (Color::White)created.");
+            gameEvent.Origin.Tell($"Payout will be after game. Do not disconnect.");
         }
     }
 }
