@@ -1,8 +1,8 @@
 ﻿using SharedLibraryCore;
 using SharedLibraryCore.Commands;
 using SharedLibraryCore.Configuration;
-using SharedLibraryCore.Database.Models;
 using SharedLibraryCore.Interfaces;
+using EFClient = Data.Models.Client.EFClient;
 
 namespace CreditsPlugin.Commands;
 
@@ -26,30 +26,31 @@ public class CreditCommand : Command
         };
     }
 
-    public async override Task ExecuteAsync(GameEvent e)
+    public async override Task ExecuteAsync(GameEvent gameEvent)
     {
-        if (e.Type != GameEvent.EventType.Command) return;
+        if (gameEvent.Type != GameEvent.EventType.Command) return;
 
         // Get argument from command.
-        var argPlayer = e.Data;
-        e.Target = e.Owner.GetClientByName(argPlayer).FirstOrDefault();
+        var argPlayer = gameEvent.Data;
+        gameEvent.Target = gameEvent.Owner.GetClientByName(argPlayer).FirstOrDefault();
 
         // Check for valid target.
-        if (e.Data.Length != 0 && e.Target == null)
+        if (gameEvent.Data.Length != 0 && gameEvent.Target == null)
         {
-            e.Origin.Tell("(Color::Yellow)Error trying to find user.");
+            gameEvent.Origin.Tell("(Color::Yellow)Error trying to find user.");
             return;
         }
 
         // Return player's credits
-        if (e.Target != null)
+        if (gameEvent.Target != null)
         {
-            e.Origin.Tell(
-                $"{e.Target.Name} (Color::White)has (Color::Cyan){e.Target.GetAdditionalProperty<int>("Credits"):N0} (Color::White)credits.");
+            gameEvent.Origin.Tell(
+                $"{gameEvent.Target.Name} (Color::White)has (Color::Cyan){gameEvent.Target.GetAdditionalProperty<int>("Credits"):N0} (Color::White)credits.");
             return;
         }
 
         // If no target specified
-        e.Origin.Tell($"You have (Color::Cyan){e.Origin.GetAdditionalProperty<int>(Plugin.CreditsKey):N0} (Color::White)credits.");
+        gameEvent.Origin.Tell(
+            $"You have (Color::Cyan){gameEvent.Origin.GetAdditionalProperty<int>(Plugin.CreditsKey):N0} (Color::White)credits.");
     }
 }

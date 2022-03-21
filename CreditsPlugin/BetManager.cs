@@ -5,14 +5,13 @@ using IW4MAdmin.Plugins.Stats;
 using Microsoft.EntityFrameworkCore;
 using SharedLibraryCore;
 using SharedLibraryCore.Database.Models;
-using SharedLibraryCore.Interfaces;
 using Stats.Config;
 
 namespace CreditsPlugin;
 
 public class BetManager
 {
-    public BetManager(IDatabaseContextFactory contextFactory, StatsConfiguration statsConfig, IMetaService metaService)
+    public BetManager(IDatabaseContextFactory contextFactory, StatsConfiguration statsConfig)
     {
         _config = statsConfig;
         _contextFactory = contextFactory;
@@ -21,7 +20,30 @@ public class BetManager
     private readonly StatsConfiguration _config;
     private readonly IDatabaseContextFactory _contextFactory;
 
-    public async Task<int> GetPlayerRankedPosition(int clientId, long serverId)
+    private readonly Dictionary<long, DateTime> _mapTime = new();
+    private readonly Dictionary<long, int> _maxScore = new();
+    private readonly Dictionary<int, OpenBetData> _openBets = new();
+
+    public void GetOpenBets(GameEvent gameEvent)
+    {
+        if (_openBets.Count == 0)
+        {
+            gameEvent.Origin.Tell("(Color::Yellow)There are no open bets.");
+            return;
+        }
+
+        gameEvent.Origin.Tell("(Color::Cyan)--Open Bets--");
+        for (var i = 0; i < _openBets.Count; i++)
+        {
+            foreach (var (_, value) in _openBets)
+            {
+                gameEvent.Origin.Tell(
+                    $"#(Color::Cyan){i + 1} (Color::White)- (Color::Green){value.Origin!.CleanedName} (Color::White)- (Color::Red){value.Target!.CleanedName} (Color::White)- (Color::Cyan){value.Amount}");
+            }
+        }
+    }
+
+    private async Task<int> GetPlayerRankedPosition(int clientId, long serverId)
     {
         await using var context = _contextFactory.CreateContext(false);
 
@@ -34,7 +56,7 @@ public class BetManager
         return clientRanking?.Ranking + 1 ?? 0;
     }
 
-    public Expression<Func<EFClientRankingHistory, bool>> GetNewRankingFunc(long? serverId = null)
+    private Expression<Func<EFClientRankingHistory, bool>> GetNewRankingFunc(long? serverId = null)
     {
         return ranking => ranking.ServerId == serverId
                           && ranking.Client.Level != Data.Models.Client.EFClient.Permission.Banned
@@ -46,7 +68,7 @@ public class BetManager
                           _config.TopPlayersMinPlayTime;
     }
 
-    public async Task<int> GetTotalRankedPlayers(long serverId)
+    private async Task<int> GetTotalRankedPlayers(long serverId)
     {
         await using var context = _contextFactory.CreateContext(false);
 
@@ -55,33 +77,30 @@ public class BetManager
             .CountAsync();
     }
 
-    private Dictionary<long, DateTime> MapTime = new();
-    private Dictionary<long, int> MaxScore = new();
-    private Dictionary<int, OpenBetData> OpenBets = new();
-
     public async Task<bool> CanBet(EFClient client)
     {
         var clientServerId = await client.CurrentServer.GetIdForServer();
 
-        if (!MapTime.ContainsKey(clientServerId)) return false;
-        return MapTime[clientServerId].AddMinutes(2) >= DateTime.UtcNow;
+        if (!_mapTime.ContainsKey(clientServerId)) return false;
+        return _mapTime[clientServerId].AddMinutes(2) >= DateTime.UtcNow;
     }
 
     public async void OnBetCreated(GameEvent gameEvent, int amount)
     {
-        var totalKeys = OpenBets.Count;
-        
+        var totalKeys = _openBets.Count;
+
         var clientServerId = await gameEvent.Origin.CurrentServer.GetIdForServer();
         var serverPlayerRank = await GetPlayerRankedPosition(gameEvent.Origin.ClientId, clientServerId);
         var serverTotalRanked = await GetTotalRankedPlayers(clientServerId);
 
         if (serverPlayerRank == 0)
         {
-            gameEvent.Origin.Tell("(Color::Yellow)Client needs to be ranked to bet for.");
+            gameEvent.Origin.Tell(
+                $"(Color::Yellow){gameEvent.Target.Name} (Color::Yellow)needs to be ranked to set a bet.");
             return;
         }
 
-        OpenBets.Add(totalKeys + 1, new OpenBetData
+        _openBets.Add(totalKeys + 1, new OpenBetData
         {
             Origin = gameEvent.Origin,
             Target = gameEvent.Target,
@@ -89,15 +108,20 @@ public class BetManager
             TotalRanked = serverTotalRanked,
             Amount = amount
         });
+
+        gameEvent.Origin.Tell(
+            $"Bet on {gameEvent.Target.Name} (Color::White)for (Color::Cyan){amount:N0} (Color::White)created.");
+        gameEvent.Origin.Tell(
+            "Payout is made after map rotation. Disconnecting will void bet.");
     }
 
     public async void OnClientUpdated(GameEvent gameEvent)
     {
         var clientServerId = await gameEvent.Origin.CurrentServer.GetIdForServer();
-        lock (MaxScore)
+        lock (_maxScore)
         {
-            if (!MaxScore.ContainsKey(clientServerId)) MaxScore.Add(clientServerId, gameEvent.Origin.Score);
-            if (MaxScore[clientServerId] < gameEvent.Origin.Score) MaxScore[clientServerId] = gameEvent.Origin.Score;
+            if (!_maxScore.ContainsKey(clientServerId)) _maxScore.Add(clientServerId, gameEvent.Origin.Score);
+            if (_maxScore[clientServerId] < gameEvent.Origin.Score) _maxScore[clientServerId] = gameEvent.Origin.Score;
         }
     }
 
@@ -105,63 +129,67 @@ public class BetManager
     {
         var serverId = await server.GetIdForServer();
 
-        if (OpenBets.Count > 0)
+        if (_openBets.Count > 0)
         {
-            for (var i = 1; i <= OpenBets.Count; i++)
+            for (var i = 1; i <= _openBets.Count; i++)
             {
-                if (!OpenBets[i].Origin.IsIngame || !OpenBets[i].Target.IsIngame)
+                if (!_openBets[i].Origin!.IsIngame || !_openBets[i].Target!.IsIngame)
                 {
-                    Console.WriteLine($"Removed bet {i} due to Origin or Target disconnected.");
-                    OpenBets.Remove(i);
+                    _openBets[i].Origin?.Tell("(Color::Red)Bet removed due to Target disconnecting.");
+                    _openBets.Remove(i);
                     return;
                 }
 
-                if (!Plugin.PrimaryLogic.AvailableFunds(OpenBets[i].Origin, OpenBets[i].Amount))
+                if (!Plugin.PrimaryLogic!.AvailableFunds(_openBets[i].Origin, _openBets[i].Amount))
                 {
-                    Console.WriteLine($"Removed bet {i} due to insufficient funds on Origin");
-                    OpenBets.Remove(i);
+                    _openBets[i].Origin?.Tell("(Color::Red)Bet removed due to you no longer having available funds.");
+                    _openBets.Remove(i);
                     return;
                 }
 
-                var previousCredits = OpenBets[i].Origin.GetAdditionalProperty<int>(Plugin.CreditsKey);
-                var payOut = OpenBets[i].Amount;
+                var previousCredits = _openBets[i].Origin?.GetAdditionalProperty<int>(Plugin.CreditsKey);
+                var payOut = _openBets[i].Amount;
 
-                if (MaxScore[serverId] >= OpenBets[i].Target.Score)
+                lock (_maxScore)
                 {
-                    payOut *= OpenBets[i].TargetRank / OpenBets[i].TotalRanked;
+                    if (_maxScore[serverId] >= _openBets[i].Target?.Score)
+                    {
+                        payOut *= _openBets[i].TargetRank / _openBets[i].TotalRanked;
 
-                    Console.WriteLine(
-                        $"DBG: {OpenBets[i].Origin.Name} betted on {OpenBets[i].Target.Name} and won {payOut + OpenBets[i].Amount:N0} credits.");
-                    OpenBets[i].Origin.Tell($"Your placed bet won! Payout: {payOut + OpenBets[i].Amount:N0} credits.");
-                    OpenBets[i].Origin.SetAdditionalProperty(Plugin.CreditsKey, previousCredits + payOut);
-                }
-                else
-                {
-                    Console.WriteLine(
-                        $"DBG: {OpenBets[i].Origin.Name} betted on {OpenBets[i].Target.Name} and lost {OpenBets[i].Amount:N0} credits.");
-                    OpenBets[i].Origin.Tell($"Your placed bet lost! You lost {OpenBets[i].Amount:N0} credits.");
-                    OpenBets[i].Origin.SetAdditionalProperty(Plugin.CreditsKey, previousCredits - payOut);
+                        Console.WriteLine(
+                            $"DBG: {_openBets[i].Origin!.Name} bet on {_openBets[i].Target?.Name} and won {payOut + _openBets[i].Amount:N0} credits.");
+                        _openBets[i].Origin
+                            ?.Tell($"Your placed bet won! Payout: {payOut + _openBets[i].Amount:N0} credits.");
+                        _openBets[i].Origin?.SetAdditionalProperty(Plugin.CreditsKey, previousCredits + payOut);
+                    }
+                    else
+                    {
+                        Console.WriteLine(
+                            $"DBG: {_openBets[i].Origin?.Name} bet on {_openBets[i].Target?.Name} and lost {_openBets[i].Amount:N0} credits.");
+                        _openBets[i].Origin?.Tell($"Your placed bet lost! You lost {_openBets[i].Amount:N0} credits.");
+                        _openBets[i].Origin?.SetAdditionalProperty(Plugin.CreditsKey, previousCredits - payOut);
+                    }
                 }
 
-                OpenBets.Remove(i);
+                _openBets.Remove(i);
             }
         }
 
-        if (MapTime.ContainsKey(serverId))
+        if (_mapTime.ContainsKey(serverId))
         {
-            MapTime[serverId] = DateTime.UtcNow;
+            _mapTime[serverId] = DateTime.UtcNow;
             return;
         }
 
-        MapTime.Add(serverId, DateTime.UtcNow);
+        _mapTime.Add(serverId, DateTime.UtcNow);
     }
 }
 
 public class OpenBetData
 {
-    public EFClient? Origin { get; set; }
-    public EFClient? Target { get; set; }
-    public int TargetRank { get; set; }
-    public int TotalRanked { get; set; }
-    public int Amount { get; set; }
+    public EFClient? Origin { get; init; }
+    public EFClient? Target { get; init; }
+    public int TargetRank { get; init; }
+    public int TotalRanked { get; init; }
+    public int Amount { get; init; }
 }

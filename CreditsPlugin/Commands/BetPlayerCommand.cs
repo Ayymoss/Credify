@@ -34,7 +34,7 @@ public class BetPlayerCommand : Command
     public override async Task ExecuteAsync(GameEvent gameEvent)
     {
         if (gameEvent.Type != GameEvent.EventType.Command) return;
-        
+
         var argStr = gameEvent.Data.Split(" ");
 
         if (!int.TryParse(argStr[1], out var argAmount))
@@ -50,20 +50,20 @@ public class BetPlayerCommand : Command
             gameEvent.Origin.Tell("(Color::Yellow)Error trying to find user.");
             return;
         }
-        
+
         if (argAmount <= 0)
         {
             gameEvent.Origin.Tell("(Color::Yellow)Minimum amount is 1.");
             return;
         }
-        
-        if (!Plugin.PrimaryLogic.AvailableFunds(gameEvent.Origin, argAmount))
+
+        if (!Plugin.PrimaryLogic!.AvailableFunds(gameEvent.Origin, argAmount))
         {
             gameEvent.Origin.Tell("(Color::Yellow)Insufficient credits.");
             return;
         }
-        
-        if (await Plugin.BetManager.CanBet(gameEvent.Origin))
+
+        if (!await Plugin.BetManager!.CanBet(gameEvent.Origin))
         {
             gameEvent.Origin.Tell("(Color::Yellow)Player bets are only accepted for the first 2 minutes of the map.");
             return;
@@ -72,8 +72,7 @@ public class BetPlayerCommand : Command
         if (gameEvent.Target != null)
         {
             Plugin.BetManager.OnBetCreated(gameEvent, argAmount);
-            gameEvent.Origin.Tell($"Bet on {gameEvent.Target.Name} (Color::White)for (Color::Cyan){argAmount:N0} (Color::White)created.");
-            gameEvent.Origin.Tell($"Payout will be after game. Do not disconnect.");
+            
         }
     }
 }

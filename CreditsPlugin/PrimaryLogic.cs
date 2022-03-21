@@ -12,18 +12,17 @@ public class PrimaryLogic
         _metaService = metaService;
     }
 
-    public static List<TopCreditEntry> TopCredits;
-    private static IMetaService _metaService;
+    public static List<TopCreditEntry>? TopCredits;
+    private static IMetaService? _metaService;
 
-    
     /// <summary>
     /// Return true/false based on available funds
     /// </summary>
     /// <param name="client">EFClient</param>
     /// <param name="amount">Amount of credits to check EFClient has</param>
     /// <returns>Boolean. True if has funds. False if doesn't.</returns>
-    public bool AvailableFunds(EFClient client, int amount) =>
-        amount <= client.GetAdditionalProperty<int>(Plugin.CreditsKey);
+    public bool AvailableFunds(EFClient? client, int amount) =>
+        amount <= client?.GetAdditionalProperty<int>(Plugin.CreditsKey);
 
     /// <summary>
     /// Load player's credits from database, else create new cached credit
@@ -31,7 +30,7 @@ public class PrimaryLogic
     /// <param name="gameEvent">GameEvent</param>
     public async void InitialisePlayer(GameEvent gameEvent)
     {
-        var userCredits = (await _metaService.GetPersistentMeta(Plugin.CreditsKey, gameEvent.Origin))?.Value ?? "0";
+        var userCredits = (await _metaService!.GetPersistentMeta(Plugin.CreditsKey, gameEvent.Origin))?.Value ?? "0";
         gameEvent.Origin.SetAdditionalProperty(Plugin.CreditsKey, int.Parse(userCredits));
         gameEvent.Origin.Tell($"You have (Color::Cyan){int.Parse(userCredits):N0} (Color::White)credits.");
     }
@@ -55,7 +54,7 @@ public class PrimaryLogic
     /// <param name="gameEvent">GameEvent</param>
     public async void WriteCredits(GameEvent gameEvent)
     {
-        await _metaService.SetPersistentMeta(Plugin.CreditsKey,
+        await _metaService!.SetPersistentMeta(Plugin.CreditsKey,
             gameEvent.Origin.GetAdditionalProperty<int>(Plugin.CreditsKey).ToString(),
             gameEvent.Origin.ClientId);
     }
@@ -65,8 +64,8 @@ public class PrimaryLogic
     /// </summary>
     public async void WriteTopScore()
     {
-        await _metaService.RemovePersistentMeta("Credits_TopList");
-        await _metaService.AddPersistentMeta("Credits_TopList", JsonSerializer.Serialize(TopCredits));
+        await _metaService!.RemovePersistentMeta(Plugin.CreditsTopKey);
+        await _metaService.AddPersistentMeta(Plugin.CreditsTopKey, JsonSerializer.Serialize(TopCredits));
     }
 
     /// <summary>
@@ -74,7 +73,7 @@ public class PrimaryLogic
     /// </summary>
     public async void ReadTopScore()
     {
-        var topCreditsValue = (await _metaService.GetPersistentMeta("Credits_TopList")).FirstOrDefault()?.Value;
+        var topCreditsValue = (await _metaService!.GetPersistentMeta(Plugin.CreditsTopKey)).FirstOrDefault()?.Value;
 
         TopCredits = topCreditsValue is null
             ? new List<TopCreditEntry>()
@@ -88,7 +87,7 @@ public class PrimaryLogic
     /// <returns>Boolean. True if exist. False if doesn't</returns>
     private bool ExistInTop(int targetClientId)
     {
-        var topResult = TopCredits.FirstOrDefault(i => i.ClientId == targetClientId);
+        var topResult = TopCredits?.FirstOrDefault(i => i.ClientId == targetClientId);
         return topResult != null;
     }
 
@@ -99,7 +98,7 @@ public class PrimaryLogic
     /// <param name="amount">Amount of Credits from Additional Properties</param>
     public void OrderTop(EFClient client, int amount)
     {
-        lock (TopCredits)
+        lock (TopCredits!)
         {
             // If the top hasn't got 5 entries yet add user - check for duplicates.
             if (TopCredits.Count < 5 && !ExistInTop(client.ClientId))
@@ -133,6 +132,6 @@ public class PrimaryLogic
 
 public class TopCreditEntry
 {
-    public int ClientId { get; set; }
+    public int ClientId { get; init; }
     public int Credits { get; set; }
 }

@@ -2,8 +2,8 @@
 using Microsoft.EntityFrameworkCore;
 using SharedLibraryCore;
 using SharedLibraryCore.Configuration;
-using SharedLibraryCore.Database.Models;
 using SharedLibraryCore.Interfaces;
+using EFClient = Data.Models.Client.EFClient;
 
 namespace CreditsPlugin.Commands;
 
@@ -26,24 +26,24 @@ public class TopCreditsCommand : Command
     public override async Task ExecuteAsync(GameEvent gameEvent)
     {
         if (gameEvent.Type != GameEvent.EventType.Command) return;
-        
+
         // If user requests top and there are no entries.
-        if (!PrimaryLogic.TopCredits.Any())
+        if (!PrimaryLogic.TopCredits!.Any())
         {
             gameEvent.Origin.Tell("No one has any credits for top.");
             return;
         }
-        
+
         gameEvent.Origin.Tell($"(Color::Cyan)--Top Credits--");
 
         // Get top credits, format for returning.
         await using var context = _contextFactory.CreateContext(false);
         var names = await context.Clients
-            .Where(client => PrimaryLogic.TopCredits.Select(credit => credit.ClientId).Contains(client.ClientId))
+            .Where(client => PrimaryLogic.TopCredits!.Select(credit => credit.ClientId).Contains(client.ClientId))
             .Select(client => new {client.ClientId, client.CurrentAlias.Name})
             .ToDictionaryAsync(selector => selector.ClientId, selector => selector.Name);
 
-        var output = PrimaryLogic.TopCredits.OrderByDescending(entry => entry.Credits).Select((creditEntry, index) =>
+        var output = PrimaryLogic.TopCredits!.OrderByDescending(entry => entry.Credits).Select((creditEntry, index) =>
             $"#{index + 1} {names[creditEntry.ClientId]} (Color::White)- {creditEntry.Credits:N0}");
 
         gameEvent.Origin.Tell(output);

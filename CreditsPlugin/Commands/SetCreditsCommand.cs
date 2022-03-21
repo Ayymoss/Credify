@@ -1,8 +1,8 @@
 ﻿using SharedLibraryCore;
 using SharedLibraryCore.Commands;
 using SharedLibraryCore.Configuration;
-using SharedLibraryCore.Database.Models;
 using SharedLibraryCore.Interfaces;
+using EFClient = Data.Models.Client.EFClient;
 
 namespace CreditsPlugin.Commands;
 
@@ -60,7 +60,7 @@ public class SetCreditsCommand : Command
             if (gameEvent.Origin.ClientId != gameEvent.Target.ClientId)
                 gameEvent.Target.Tell(
                     $"{gameEvent.Origin.Name} (Color::White)set your credits to (Color::Cyan){Math.Abs(argAmount):N0}(Color::White).");
-            Plugin.PrimaryLogic.OrderTop(gameEvent.Target, Math.Abs(argAmount));
+            Plugin.PrimaryLogic?.OrderTop(gameEvent.Target, Math.Abs(argAmount));
         }
     }
 }
