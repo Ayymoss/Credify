@@ -1,4 +1,7 @@
 ﻿using System.Text.Json;
+using Data.Abstractions;
+using Data.Models.Client.Stats;
+using Microsoft.EntityFrameworkCore;
 using SharedLibraryCore;
 using SharedLibraryCore.Database.Models;
 using SharedLibraryCore.Interfaces;
@@ -7,13 +10,15 @@ namespace CreditsPlugin;
 
 public class PrimaryLogic
 {
-    public PrimaryLogic(IMetaService metaService)
+    public PrimaryLogic(IMetaService metaService, IDatabaseContextFactory contextFactory)
     {
         _metaService = metaService;
+        _contextFactory = contextFactory;
     }
 
-    public static List<TopCreditEntry>? TopCredits;
-    private static IMetaService? _metaService;
+    public static List<TopCreditEntry> TopCredits;
+    private readonly IDatabaseContextFactory _contextFactory;
+    private readonly IMetaService _metaService;
 
     /// <summary>
     /// Return true/false based on available funds
@@ -21,7 +26,7 @@ public class PrimaryLogic
     /// <param name="client">EFClient</param>
     /// <param name="amount">Amount of credits to check EFClient has</param>
     /// <returns>Boolean. True if has funds. False if doesn't.</returns>
-    public bool AvailableFunds(EFClient? client, int amount) =>
+    public bool AvailableFunds(EFClient client, int amount) =>
         amount <= client?.GetAdditionalProperty<int>(Plugin.CreditsKey);
 
     /// <summary>
@@ -30,7 +35,16 @@ public class PrimaryLogic
     /// <param name="gameEvent">GameEvent</param>
     public async void InitialisePlayer(GameEvent gameEvent)
     {
-        var userCredits = (await _metaService!.GetPersistentMeta(Plugin.CreditsKey, gameEvent.Origin))?.Value ?? "0";
+        var userCredits = (await _metaService.GetPersistentMeta(Plugin.CreditsKey, gameEvent.Origin))?.Value;
+
+        if (userCredits is null)
+        {
+            await using var context = _contextFactory.CreateContext(false);
+            var pStats = await context.Set<EFClientStatistics>()
+                .FirstOrDefaultAsync(client => client.ClientId == gameEvent.Origin.ClientId);
+            userCredits = pStats?.Kills.ToString() ?? "0";
+        }
+
         gameEvent.Origin.SetAdditionalProperty(Plugin.CreditsKey, int.Parse(userCredits));
         gameEvent.Origin.Tell($"You have (Color::Cyan){int.Parse(userCredits):N0} (Color::White)credits.");
     }
@@ -44,7 +58,6 @@ public class PrimaryLogic
         var userCredits = gameEvent.Origin.GetAdditionalProperty<int>(Plugin.CreditsKey);
         userCredits++;
         gameEvent.Origin.SetAdditionalProperty(Plugin.CreditsKey, userCredits);
-
         OrderTop(gameEvent.Origin, userCredits);
     }
 

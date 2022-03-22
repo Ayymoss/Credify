@@ -23,6 +23,40 @@ public class BetManager
     private readonly Dictionary<long, DateTime> _mapTime = new();
     private readonly Dictionary<long, int> _maxScore = new();
     private readonly Dictionary<int, OpenBetData> _openBets = new();
+    private readonly Dictionary<int, CompletedBets> _completedBets = new();
+
+    // TODO: Check
+    // Color Completed bets output
+    // Check Bet then leave
+    // Check Bet then rotate, then rotate (OOB Exception)
+    // Fix check for InGame OnMatchEnd()
+    public void MessageCompletedBetsOnKill(GameEvent gameEvent)
+    {
+        if (_completedBets.Count == 0) return;
+
+        for (var i = 1; i <= _completedBets.Count; i++)
+        {
+            if (_completedBets[i].Origin.ClientId != gameEvent.Origin.ClientId) continue;
+
+            if (_completedBets[i].Message is not null)
+            {
+                gameEvent.Origin.Tell(_completedBets[i].Message);
+                continue;
+            }
+
+            if (_completedBets[i].Outcome == EOutcome.Won)
+            {
+                gameEvent.Origin.Tell(
+                    $"Your placed bet for {_completedBets[i].Origin.Name} (Color::White)won! You (Color::Green)won (Color::Cyan){_completedBets[i].PayOut + _completedBets[i].InitAmount:N0} (Color::White)credits.");
+                _completedBets.Remove(i);
+                continue;
+            }
+
+            gameEvent.Origin.Tell(
+                $"Your placed bet for {_completedBets[i].Target.Name} (Color::White)lost! You (Color::Red)lost (Color::Cyan){_completedBets[i].InitAmount:N0} (Color::White)credits.");
+            _completedBets.Remove(i);
+        }
+    }
 
     /// <summary>
     /// Prints a list of initalised bets in-game
@@ -42,7 +76,7 @@ public class BetManager
             foreach (var (_, value) in _openBets)
             {
                 gameEvent.Origin.Tell(
-                    $"#(Color::Cyan){i + 1} (Color::White)- (Color::Green){value.Origin!.CleanedName} (Color::White)- (Color::Red){value.Target!.CleanedName} (Color::White)- (Color::Cyan){value.Amount}");
+                    $"#(Color::Cyan){i + 1} (Color::White)- (Color::Green){value.Origin.CleanedName} (Color::White)- (Color::Red){value.Target.CleanedName} (Color::White)- (Color::Cyan){value.InitAmount}");
             }
         }
     }
@@ -136,7 +170,7 @@ public class BetManager
             Target = gameEvent.Target,
             TargetRank = serverPlayerRank,
             TotalRanked = serverTotalRanked,
-            Amount = amount
+            InitAmount = amount
         });
 
         gameEvent.Origin.Tell(
@@ -167,50 +201,69 @@ public class BetManager
     {
         var serverId = await server.GetIdForServer();
 
-        if (_openBets.Count > 0)
+        if (_openBets.Count == 0) return;
+
+        for (var i = 1; i <= _openBets.Count; i++)
         {
-            for (var i = 1; i <= _openBets.Count; i++)
+            if (!_openBets[i].Origin.IsIngame || !_openBets[i].Target.IsIngame) // THIS NEVER HITS??
             {
-                if (!_openBets[i].Origin!.IsIngame || !_openBets[i].Target!.IsIngame)
+                _completedBets.Add(i, new CompletedBets
                 {
-                    _openBets[i].Origin?.Tell("(Color::Red)Bet removed due to Target disconnecting.");
-                    _openBets.Remove(i);
-                    return;
-                }
-
-                if (!Plugin.PrimaryLogic!.AvailableFunds(_openBets[i].Origin, _openBets[i].Amount))
-                {
-                    _openBets[i].Origin?.Tell("(Color::Red)Bet removed due to you no longer having available funds.");
-                    _openBets.Remove(i);
-                    return;
-                }
-
-                var previousCredits = _openBets[i].Origin?.GetAdditionalProperty<int>(Plugin.CreditsKey);
-                var payOut = _openBets[i].Amount;
-
-                lock (_maxScore)
-                {
-                    if (_maxScore[serverId] >= _openBets[i].Target?.Score)
-                    {
-                        payOut *= _openBets[i].TargetRank / _openBets[i].TotalRanked;
-
-                        Console.WriteLine(
-                            $"DBG: {_openBets[i].Origin!.Name} bet on {_openBets[i].Target?.Name} and won {payOut + _openBets[i].Amount:N0} credits.");
-                        _openBets[i].Origin
-                            ?.Tell($"Your placed bet won! Payout: {payOut + _openBets[i].Amount:N0} credits.");
-                        _openBets[i].Origin?.SetAdditionalProperty(Plugin.CreditsKey, previousCredits + payOut);
-                    }
-                    else
-                    {
-                        Console.WriteLine(
-                            $"DBG: {_openBets[i].Origin?.Name} bet on {_openBets[i].Target?.Name} and lost {_openBets[i].Amount:N0} credits.");
-                        _openBets[i].Origin?.Tell($"Your placed bet lost! You lost {_openBets[i].Amount:N0} credits.");
-                        _openBets[i].Origin?.SetAdditionalProperty(Plugin.CreditsKey, previousCredits - payOut);
-                    }
-                }
-
+                    Message = $"(Color::Red)Your bet was removed due to {_openBets[i].Target.CleanedName} leaving."
+                });
+                Console.WriteLine($"[Credits] Bet {i} removed due to target and/or origin disconnecting.");
                 _openBets.Remove(i);
+                return;
             }
+
+            if (!Plugin.PrimaryLogic!.AvailableFunds(_openBets[i].Origin, _openBets[i].InitAmount))
+            {
+                _completedBets.Add(i, new CompletedBets
+                {
+                    Message = "(Color::Red)Bet was removed due to you no longer having available credits."
+                });
+                _openBets.Remove(i);
+                return;
+            }
+
+            var previousCredits = _openBets[i].Origin?.GetAdditionalProperty<int>(Plugin.CreditsKey);
+            var payOut = _openBets[i].InitAmount;
+
+            lock (_maxScore)
+            {
+                if (_maxScore[serverId] <= _openBets[i].Target?.Score)
+                {
+                    payOut = _openBets[i].InitAmount * _openBets[i].TargetRank / _openBets[i].TotalRanked;
+
+                    Console.WriteLine(
+                        $"[Credits] {_openBets[i].Origin.CleanedName} bet on {_openBets[i].Target.CleanedName} and won {payOut + _openBets[i].InitAmount:N0} credits.");
+                    _completedBets.Add(i, new CompletedBets
+                    {
+                        Origin = _openBets[i].Origin,
+                        Target = _openBets[i].Target,
+                        InitAmount = _openBets[i].InitAmount,
+                        PayOut = payOut,
+                        Outcome = EOutcome.Won
+                    });
+                    _openBets[i].Origin?.SetAdditionalProperty(Plugin.CreditsKey, previousCredits + payOut);
+                }
+                else
+                {
+                    Console.WriteLine(
+                        $"[Credits] {_openBets[i].Origin.CleanedName} bet on {_openBets[i].Target.CleanedName} and lost {_openBets[i].InitAmount:N0} credits.");
+                    _completedBets.Add(i, new CompletedBets
+                    {
+                        Origin = _openBets[i].Origin,
+                        Target = _openBets[i].Target,
+                        InitAmount = _openBets[i].InitAmount,
+                        PayOut = payOut,
+                        Outcome = EOutcome.Loss
+                    });
+                    _openBets[i].Origin?.SetAdditionalProperty(Plugin.CreditsKey, previousCredits - payOut);
+                }
+            }
+
+            _openBets.Remove(i);
         }
 
         if (_mapTime.ContainsKey(serverId))
@@ -225,9 +278,25 @@ public class BetManager
 
 public class OpenBetData
 {
-    public EFClient? Origin { get; init; }
-    public EFClient? Target { get; init; }
+    public EFClient Origin { get; init; }
+    public EFClient Target { get; init; }
     public int TargetRank { get; init; }
     public int TotalRanked { get; init; }
-    public int Amount { get; init; }
+    public int InitAmount { get; init; }
+}
+
+public class CompletedBets
+{
+    public EFClient Origin { get; init; }
+    public EFClient Target { get; init; }
+    public int InitAmount { get; init; }
+    public int PayOut { get; init; }
+    public string Message { get; init; }
+    public EOutcome Outcome { get; init; }
+}
+
+public enum EOutcome
+{
+    Won,
+    Loss
 }

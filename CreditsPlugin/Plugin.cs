@@ -9,14 +9,14 @@ public class Plugin : IPlugin
 {
     public Plugin(IDatabaseContextFactory contextFactory, IMetaService metaService, StatsConfiguration statsConfig)
     {
-        _metaService = metaService;
         BetManager = new BetManager(contextFactory, statsConfig);
-        PrimaryLogic = new PrimaryLogic(_metaService);
+        PrimaryLogic = new PrimaryLogic(metaService, contextFactory);
     }
+    
+    // TODO: Implement Team Betting
 
     public static BetManager? BetManager;
     public static PrimaryLogic? PrimaryLogic;
-    private readonly IMetaService _metaService;
     public const string CreditsKey = "Credits_Amount";
     public const string CreditsTopKey = "Credits_TopList";
     public string Name => "Credits";
@@ -33,6 +33,7 @@ public class Plugin : IPlugin
 
             case GameEvent.EventType.Kill: // Client Event
                 PrimaryLogic?.IncrementCredits(gameEvent); // Kill event +1 Credit on Kill - Check if in Top and Sort.
+                BetManager?.MessageCompletedBetsOnKill(gameEvent); // If bets have been made, return the expired bet to the completed player.
                 break;
 
             case GameEvent.EventType.Disconnect: // Client Event
@@ -52,14 +53,14 @@ public class Plugin : IPlugin
     public async Task OnLoadAsync(IManager manager)
     {
         // Pull top credit data on IW4MAdmin load and deserialise. 
-        new PrimaryLogic(_metaService).ReadTopScore();
+        PrimaryLogic?.ReadTopScore();
         Console.WriteLine($"[Credits] Plugin Loaded. Version: {Version}");
     }
 
     public async Task OnUnloadAsync()
     {
         // Remove old top credit entry and write updated one.
-        //new PrimaryLogic(_metaService).WriteTopScore();
+        //PrimaryLogic?.WriteTopScore();
         Console.WriteLine("[Credits] Plugin Unloaded.");
     }
 

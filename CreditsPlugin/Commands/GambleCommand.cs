@@ -20,7 +20,7 @@ public class GambleCommand : Command
         {
             new CommandArgument
             {
-                Name = "0-10",
+                Name = "1-10",
                 Required = true
             },
             new CommandArgument
@@ -48,9 +48,9 @@ public class GambleCommand : Command
             return;
         }
 
-        if (argRange is > 10 or < 0)
+        if (argRange is > 10 or < 1)
         {
-            gameEvent.Origin.Tell("(Color::Yellow)Accepted number range is 0 to 10.");
+            gameEvent.Origin.Tell("(Color::Yellow)Accepted number range is 1 to 10.");
             return;
         }
 
@@ -67,12 +67,12 @@ public class GambleCommand : Command
         }
 
         var rand = new Random();
-        var randNum = rand.Next(0, 11);
+        var randNum = rand.Next(1, 11);
         var currentCredits = gameEvent.Origin.GetAdditionalProperty<int>(Plugin.CreditsKey);
 
         if (randNum == argRange)
         {
-            currentCredits += argAmount * 10;
+            currentCredits += argAmount * 7;
             gameEvent.Origin.Tell($"Congratulations, you won (Color::Cyan){argAmount * 10:N0} (Color::White)tokens!");
         }
         else

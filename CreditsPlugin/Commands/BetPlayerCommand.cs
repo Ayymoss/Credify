@@ -72,7 +72,6 @@ public class BetPlayerCommand : Command
         if (gameEvent.Target != null)
         {
             Plugin.BetManager.OnBetCreated(gameEvent, argAmount);
-            
         }
     }
 }
