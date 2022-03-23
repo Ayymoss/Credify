@@ -38,31 +38,31 @@ public class GambleCommand : Command
         var argStr = gameEvent.Data.Split(" ");
         if (!int.TryParse(argStr[0], out var argRange))
         {
-            gameEvent.Origin.Tell("(Color::Yellow)Error trying to parse first argument.");
+            gameEvent.Origin.Tell("(Color::Yellow)Error trying to parse first argument");
             return;
         }
 
         if (!int.TryParse(argStr[1], out var argAmount))
         {
-            gameEvent.Origin.Tell("(Color::Yellow)Error trying to parse second argument.");
+            gameEvent.Origin.Tell("(Color::Yellow)Error trying to parse second argument");
             return;
         }
 
         if (argRange is > 10 or < 1)
         {
-            gameEvent.Origin.Tell("(Color::Yellow)Accepted number range is 1 to 10.");
+            gameEvent.Origin.Tell("(Color::Yellow)Accepted number range is 1 to 10");
             return;
         }
 
         if (argAmount <= 0)
         {
-            gameEvent.Origin.Tell("(Color::Yellow)Minimum amount is 1.");
+            gameEvent.Origin.Tell("(Color::Yellow)Minimum amount is 1");
             return;
         }
 
         if (!Plugin.PrimaryLogic!.AvailableFunds(gameEvent.Origin, argAmount))
         {
-            gameEvent.Origin.Tell("(Color::Yellow)Insufficient credits.");
+            gameEvent.Origin.Tell("(Color::Yellow)Insufficient credits");
             return;
         }
 
@@ -79,7 +79,7 @@ public class GambleCommand : Command
         {
             currentCredits -= argAmount;
             gameEvent.Origin.Tell(
-                $"Unlucky, you lost (Color::Cyan){argAmount:N0} (Color::White)credits. You chose (Color::Cyan){argRange}(Color::White), the number was (Color::Cyan){randNum}(Color::White).");
+                $"Unlucky, you lost (Color::Cyan){argAmount:N0} (Color::White)credits. You chose (Color::Cyan){argRange}(Color::White), the number was (Color::Cyan){randNum}(Color::White)");
         }
 
         gameEvent.Origin.SetAdditionalProperty(Plugin.CreditsKey, currentCredits);

@@ -1,6 +1,5 @@
 ﻿using System.Text.Json;
 using Data.Abstractions;
-using Data.Models;
 using Data.Models.Client.Stats;
 using Microsoft.EntityFrameworkCore;
 using SharedLibraryCore;
@@ -33,53 +32,49 @@ public class PrimaryLogic
     /// <summary>
     /// Load player's credits from database, else create new cached credit
     /// </summary>
-    /// <param name="gameEvent">GameEvent</param>
-    public async void InitialisePlayer(GameEvent gameEvent)
+    /// <param name="client"></param>
+    public async void InitialisePlayer(EFClient client)
     {
-        var userCredits = (await _metaService.GetPersistentMeta(Plugin.CreditsKey, gameEvent.Origin.ClientId))?.Value;
+        var userCredits = (await _metaService.GetPersistentMeta(Plugin.CreditsKey, client.ClientId))?.Value;
 
         if (userCredits is null)
         {
             await using var context = _contextFactory.CreateContext(false);
             var pStats = await context.Set<EFClientStatistics>()
-                .FirstOrDefaultAsync(client => client.ClientId == gameEvent.Origin.ClientId);
+                .FirstOrDefaultAsync(c => c.ClientId == client.ClientId);
             userCredits = pStats?.Kills.ToString() ?? "0";
         }
 
-        gameEvent.Origin.SetAdditionalProperty(Plugin.CreditsKey, int.Parse(userCredits));
-        gameEvent.Origin.Tell($"You have (Color::Cyan){int.Parse(userCredits):N0} (Color::White)credits.");
+        client.SetAdditionalProperty(Plugin.CreditsKey, int.Parse(userCredits));
+        client.Tell($"You have (Color::Cyan){int.Parse(userCredits):N0} (Color::White)credits");
     }
 
     /// <summary>
     /// Increment cached credits
     /// </summary>
-    /// <param name="gameEvent">GameEvent</param>
-    public void IncrementCredits(GameEvent gameEvent)
+    /// <param name="client">GameEvent</param>
+    public void IncrementCredits(EFClient client)
     {
-        var userCredits = gameEvent.Origin.GetAdditionalProperty<int>(Plugin.CreditsKey);
+        var userCredits = client.GetAdditionalProperty<int>(Plugin.CreditsKey);
         userCredits++;
-        gameEvent.Origin.SetAdditionalProperty(Plugin.CreditsKey, userCredits);
-        OrderTop(gameEvent.Origin, userCredits);
+        client.SetAdditionalProperty(Plugin.CreditsKey, userCredits);
+        OrderTop(client, userCredits);
     }
 
     /// <summary>
     /// Write back player credits to database
     /// </summary>
-    /// <param name="gameEvent">GameEvent</param>
-    public async void WriteCredits(GameEvent gameEvent)
-    {
-        await _metaService!.SetPersistentMeta(Plugin.CreditsKey,
-            gameEvent.Origin.GetAdditionalProperty<int>(Plugin.CreditsKey).ToString(),
-            gameEvent.Origin.ClientId);
-    }
-
+    /// <param name="client">EFClient</param>
+    public async void WriteCredits(EFClient client) => await _metaService!.SetPersistentMeta(Plugin.CreditsKey,
+        client.GetAdditionalProperty<int>(Plugin.CreditsKey).ToString(), client.ClientId);
+    
     /// <summary>
     /// Write Top Score back to database
     /// </summary>
     public async void WriteTopScore()
     {
         await _metaService!.RemovePersistentMeta(Plugin.CreditsTopKey);
-        await _metaService.SetPersistentMeta(Plugin.CreditsTopKey, JsonSerializer.Serialize(TopCredits));
+        await _metaService.SetPersistentMetaValue(Plugin.CreditsTopKey, TopCredits);
     }
 
     /// <summary>
@@ -87,7 +82,7 @@ public class PrimaryLogic
     /// </summary>
     public async void ReadTopScore()
     {
-        var topCreditsValue = (await _metaService.GetPersistentMeta(Plugin.CreditsTopKey)).Value;
+        var topCreditsValue = (await _metaService.GetPersistentMeta(Plugin.CreditsTopKey))?.Value;
 
         TopCredits = topCreditsValue is null
             ? new List<TopCreditEntry>()

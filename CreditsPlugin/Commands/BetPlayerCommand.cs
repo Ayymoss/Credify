@@ -39,7 +39,7 @@ public class BetPlayerCommand : Command
 
         if (!int.TryParse(argStr[1], out var argAmount))
         {
-            gameEvent.Origin.Tell("(Color::Yellow)Error trying to parse second argument.");
+            gameEvent.Origin.Tell("(Color::Yellow)Error trying to parse second argument");
             return;
         }
 
@@ -47,25 +47,25 @@ public class BetPlayerCommand : Command
 
         if (gameEvent.Target == null)
         {
-            gameEvent.Origin.Tell("(Color::Yellow)Error trying to find user.");
+            gameEvent.Origin.Tell("(Color::Yellow)Error trying to find user");
             return;
         }
 
         if (argAmount <= 0)
         {
-            gameEvent.Origin.Tell("(Color::Yellow)Minimum amount is 1.");
+            gameEvent.Origin.Tell("(Color::Yellow)Minimum amount is 1");
             return;
         }
 
-        if (!Plugin.PrimaryLogic!.AvailableFunds(gameEvent.Origin, argAmount))
+        if (!Plugin.PrimaryLogic.AvailableFunds(gameEvent.Origin, argAmount))
         {
-            gameEvent.Origin.Tell("(Color::Yellow)Insufficient credits.");
+            gameEvent.Origin.Tell("(Color::Yellow)Insufficient credits");
             return;
         }
 
-        if (!await Plugin.BetManager!.CanBet(gameEvent.Origin))
+        if (!await Plugin.BetManager.CanBet(gameEvent.Origin))
         {
-            gameEvent.Origin.Tell("(Color::Yellow)Player bets are only accepted for the first 2 minutes of the map.");
+            gameEvent.Origin.Tell("(Color::Yellow)Player bets are only accepted for the first 2 minutes of the map");
             return;
         }
 

@@ -39,7 +39,7 @@ public class SetCreditsCommand : Command
 
         if (!int.TryParse(argStr[1], out var argAmount))
         {
-            gameEvent.Origin.Tell("(Color::Yellow)Error trying to parse second argument.");
+            gameEvent.Origin.Tell("(Color::Yellow)Error trying to parse second argument");
             return;
         }
 
@@ -47,7 +47,7 @@ public class SetCreditsCommand : Command
 
         if (gameEvent.Target == null)
         {
-            gameEvent.Origin.Tell("(Color::Yellow)Error trying to find user.");
+            gameEvent.Origin.Tell("(Color::Yellow)Error trying to find user");
             return;
         }
 
@@ -56,10 +56,10 @@ public class SetCreditsCommand : Command
         {
             gameEvent.Target.SetAdditionalProperty(Plugin.CreditsKey, Math.Abs(argAmount));
             gameEvent.Origin.Tell(
-                $"Set credits for {gameEvent.Target.Name} (Color::White)to (Color::Cyan){Math.Abs(argAmount):N0}(Color::White).");
+                $"Set credits for {gameEvent.Target.Name} (Color::White)to (Color::Cyan){Math.Abs(argAmount):N0}(Color::White)");
             if (gameEvent.Origin.ClientId != gameEvent.Target.ClientId)
                 gameEvent.Target.Tell(
-                    $"{gameEvent.Origin.Name} (Color::White)set your credits to (Color::Cyan){Math.Abs(argAmount):N0}(Color::White).");
+                    $"{gameEvent.Origin.Name} (Color::White)set your credits to (Color::Cyan){Math.Abs(argAmount):N0}(Color::White)");
             Plugin.PrimaryLogic?.OrderTop(gameEvent.Target, Math.Abs(argAmount));
         }
     }

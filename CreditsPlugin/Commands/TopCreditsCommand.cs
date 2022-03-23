@@ -30,7 +30,7 @@ public class TopCreditsCommand : Command
         // If user requests top and there are no entries.
         if (!PrimaryLogic.TopCredits!.Any())
         {
-            gameEvent.Origin.Tell("No one has any credits for top.");
+            gameEvent.Origin.Tell("No one has any credits for top");
             return;
         }
 

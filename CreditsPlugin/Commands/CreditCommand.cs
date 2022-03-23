@@ -37,7 +37,7 @@ public class CreditCommand : Command
         // Check for valid target.
         if (gameEvent.Data.Length != 0 && gameEvent.Target == null)
         {
-            gameEvent.Origin.Tell("(Color::Yellow)Error trying to find user.");
+            gameEvent.Origin.Tell("(Color::Yellow)Error trying to find user");
             return;
         }
 
@@ -45,12 +45,12 @@ public class CreditCommand : Command
         if (gameEvent.Target != null)
         {
             gameEvent.Origin.Tell(
-                $"{gameEvent.Target.Name} (Color::White)has (Color::Cyan){gameEvent.Target.GetAdditionalProperty<int>("Credits"):N0} (Color::White)credits.");
+                $"{gameEvent.Target.Name} (Color::White)has (Color::Cyan){gameEvent.Target.GetAdditionalProperty<int>("Credits"):N0} (Color::White)credits");
             return;
         }
 
         // If no target specified
         gameEvent.Origin.Tell(
-            $"You have (Color::Cyan){gameEvent.Origin.GetAdditionalProperty<int>(Plugin.CreditsKey):N0} (Color::White)credits.");
+            $"You have (Color::Cyan){gameEvent.Origin.GetAdditionalProperty<int>(Plugin.CreditsKey):N0} (Color::White)credits");
     }
 }

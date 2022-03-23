@@ -16,9 +16,18 @@ public class BetsCommand : Command
         RequiresTarget = false;
     }
 
-    public async override Task ExecuteAsync(GameEvent gameEvent)
+    public override async Task ExecuteAsync(GameEvent gameEvent)
     {
-        if (gameEvent.Type != GameEvent.EventType.Command) return;
-        Plugin.BetManager?.GetOpenBets(gameEvent);
+        var openBets = Plugin.BetManager.GetOpenBets();
+        if (!openBets.Any())
+        {
+            gameEvent.Origin.Tell("(Color::Yellow)There are no open bets");
+            return;
+        }
+
+        gameEvent.Origin.Tell("(Color::Cyan)--Open Bets--");
+        await gameEvent.Origin.TellAsync(openBets.Select((value, i) =>
+            $"#(Color::Cyan){i + 1} (Color::White)- (Color::Green){value.Origin.CleanedName} (Color::White)- (Color::Red){value.Target.CleanedName} (Color::White)- (Color::Cyan){value.InitAmount}")
+        );
     }
 }
