@@ -7,7 +7,7 @@ namespace CreditsPlugin;
 
 public class Plugin : IPlugin
 {
-    public Plugin(IDatabaseContextFactory contextFactory, IMetaService metaService, StatsConfiguration statsConfig)
+    public Plugin(IDatabaseContextFactory contextFactory, IMetaServiceV2 metaService, StatsConfiguration statsConfig)
     {
         BetManager = new BetManager(contextFactory, statsConfig);
         PrimaryLogic = new PrimaryLogic(metaService, contextFactory);
@@ -60,7 +60,7 @@ public class Plugin : IPlugin
     public async Task OnUnloadAsync()
     {
         // Remove old top credit entry and write updated one.
-        //PrimaryLogic?.WriteTopScore();
+        PrimaryLogic?.WriteTopScore();
         Console.WriteLine("[Credits] Plugin Unloaded.");
     }
 

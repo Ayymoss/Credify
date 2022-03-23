@@ -30,6 +30,11 @@ public class BetManager
     // Check Bet then leave
     // Check Bet then rotate, then rotate (OOB Exception)
     // Fix check for InGame OnMatchEnd()
+    
+    /// <summary>
+    /// Prints queued messages to people whose bets have completed
+    /// </summary>
+    /// <param name="gameEvent">GameEvent</param>
     public void MessageCompletedBetsOnKill(GameEvent gameEvent)
     {
         if (_completedBets.Count == 0) return;

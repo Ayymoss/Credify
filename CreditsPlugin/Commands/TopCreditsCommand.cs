@@ -46,6 +46,6 @@ public class TopCreditsCommand : Command
         var output = PrimaryLogic.TopCredits!.OrderByDescending(entry => entry.Credits).Select((creditEntry, index) =>
             $"#{index + 1} {names[creditEntry.ClientId]} (Color::White)- {creditEntry.Credits:N0}");
 
-        gameEvent.Origin.Tell(output);
+        await gameEvent.Origin.TellAsync(output);
     }
 }

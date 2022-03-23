@@ -1,5 +1,6 @@
 ﻿using System.Text.Json;
 using Data.Abstractions;
+using Data.Models;
 using Data.Models.Client.Stats;
 using Microsoft.EntityFrameworkCore;
 using SharedLibraryCore;
@@ -10,7 +11,7 @@ namespace CreditsPlugin;
 
 public class PrimaryLogic
 {
-    public PrimaryLogic(IMetaService metaService, IDatabaseContextFactory contextFactory)
+    public PrimaryLogic(IMetaServiceV2 metaService, IDatabaseContextFactory contextFactory)
     {
         _metaService = metaService;
         _contextFactory = contextFactory;
@@ -18,7 +19,7 @@ public class PrimaryLogic
 
     public static List<TopCreditEntry> TopCredits;
     private readonly IDatabaseContextFactory _contextFactory;
-    private readonly IMetaService _metaService;
+    private readonly IMetaServiceV2 _metaService;
 
     /// <summary>
     /// Return true/false based on available funds
@@ -35,7 +36,7 @@ public class PrimaryLogic
     /// <param name="gameEvent">GameEvent</param>
     public async void InitialisePlayer(GameEvent gameEvent)
     {
-        var userCredits = (await _metaService.GetPersistentMeta(Plugin.CreditsKey, gameEvent.Origin))?.Value;
+        var userCredits = (await _metaService.GetPersistentMeta(Plugin.CreditsKey, gameEvent.Origin.ClientId))?.Value;
 
         if (userCredits is null)
         {
@@ -78,7 +79,7 @@ public class PrimaryLogic
     public async void WriteTopScore()
     {
         await _metaService!.RemovePersistentMeta(Plugin.CreditsTopKey);
-        await _metaService.AddPersistentMeta(Plugin.CreditsTopKey, JsonSerializer.Serialize(TopCredits));
+        await _metaService.SetPersistentMeta(Plugin.CreditsTopKey, JsonSerializer.Serialize(TopCredits));
     }
 
     /// <summary>
@@ -86,7 +87,7 @@ public class PrimaryLogic
     /// </summary>
     public async void ReadTopScore()
     {
-        var topCreditsValue = (await _metaService!.GetPersistentMeta(Plugin.CreditsTopKey)).FirstOrDefault()?.Value;
+        var topCreditsValue = (await _metaService.GetPersistentMeta(Plugin.CreditsTopKey)).Value;
 
         TopCredits = topCreditsValue is null
             ? new List<TopCreditEntry>()
