@@ -45,7 +45,7 @@ public class CreditCommand : Command
         if (gameEvent.Target != null)
         {
             gameEvent.Origin.Tell(
-                $"{gameEvent.Target.Name} (Color::White)has (Color::Cyan){gameEvent.Target.GetAdditionalProperty<int>("Credits"):N0} (Color::White)credits");
+                $"{gameEvent.Target.Name} (Color::White)has (Color::Cyan){gameEvent.Target.GetAdditionalProperty<int>(Plugin.CreditsKey):N0} (Color::White)credits");
             return;
         }
 

@@ -23,55 +23,16 @@ public class BetManager
 
     private readonly Dictionary<long, DateTime> _mapTime = new();
     private readonly Dictionary<long, int> _maxScore = new();
-    private readonly List<OpenBetData> _openBets = new();
-    private readonly List<CompletedBets> _completedBets = new();
+    private readonly List<BetData> _betList = new();
 
     // TODO: Check
-    // Still payout on Origin disconnect - Keep message in memory until they reconnect
-
-    /// <summary>
-    /// Prints queued messages to people whose bets have completed
-    /// </summary>
-    /// <param name="client">GameEvent</param>
-    public void MessageCompletedBetsOnKill(EFClient client)
-    {
-        var destroyBet = new List<CompletedBets>();
-
-        if (!_completedBets.Any()) return;
-
-        foreach (var completedBet in _completedBets.Where(completedBet =>
-                     completedBet.Origin.ClientId == client.ClientId))
-        {
-            if (completedBet.Message is not null)
-            {
-                client.Tell(completedBet.Message);
-                continue;
-            }
-
-            if (completedBet.Outcome == EOutcome.Won)
-            {
-                client.Tell(
-                    $"Your placed bet for {completedBet.Origin.Name} (Color::White)won! You (Color::Green)won (Color::Cyan){completedBet.PayOut + completedBet.InitAmount:N0} (Color::White)credits");
-                destroyBet.Add(completedBet);
-                continue;
-            }
-
-            client.Tell(
-                $"Your placed bet for {completedBet.Target.Name} (Color::White)lost! You (Color::Red)lost (Color::Cyan){completedBet.InitAmount:N0} (Color::White)credits");
-            destroyBet.Add(completedBet);
-        }
-
-        foreach (var completedBet in destroyBet)
-        {
-            _completedBets.Remove(completedBet);
-        }
-    }
+    // Clean up code - move app printouts to call origins, shouldn't really be handled here
 
     /// <summary>
     /// Prints a list of initialise bets in-game
     /// </summary>
-    /// <returns>IReadOnlyList <see cref="OpenBetData"/></returns>
-    public IReadOnlyList<OpenBetData> GetOpenBets() => _openBets;
+    /// <returns><see cref="BetData"/></returns>
+    public IReadOnlyList<BetData> GetOpenBets() => _betList;
 
     /// <summary>
     /// Gets player's ranked position for given server
@@ -126,7 +87,7 @@ public class BetManager
     /// <summary>
     /// Whether it's been 2 minutes since map change
     /// </summary>
-    /// <param name="client">EFClient</param>
+    /// <param name="client"><see cref="EFClient"/></param>
     /// <returns>Boolean. True if it has been more than 2 minutes</returns>
     public async Task<bool> CanBet(EFClient client)
     {
@@ -139,7 +100,7 @@ public class BetManager
     /// <summary>
     /// Main logic to instantiate a new bet
     /// </summary>
-    /// <param name="gameEvent">GameEvent</param>
+    /// <param name="gameEvent"><see cref="GameEvent"/></param>
     /// <param name="amount">Amount of credits</param>
     public async void OnBetCreated(GameEvent gameEvent, int amount)
     {
@@ -154,13 +115,17 @@ public class BetManager
             return;
         }
 
-        _openBets.Add(new OpenBetData
+        _betList.Add(new BetData
         {
             Origin = gameEvent.Origin,
             Target = gameEvent.Target,
             TargetRank = serverPlayerRank,
             TotalRanked = serverTotalRanked,
-            InitAmount = amount
+            InitAmount = amount,
+            PayOut = 0,
+            Message = null,
+            TargetWon = false,
+            BetCompleted = false
         });
 
         gameEvent.Origin.Tell(
@@ -172,10 +137,10 @@ public class BetManager
     /// <summary>
     /// Checks if provided GameEvent's EFClient has higher score on their server
     /// </summary>
-    /// <param name="client">GameEvent</param>
+    /// <param name="client"><see cref="EFClient"/></param>
     public void OnClientUpdated(EFClient client)
     {
-        if (_openBets.Count == 0) return;
+        if (_betList.Count == 0) return;
 
         var clientServerId = client.CurrentServer.EndPoint;
         lock (_maxScore)
@@ -186,9 +151,55 @@ public class BetManager
     }
 
     /// <summary>
+    /// Prints queued messages to people whose bets have completed
+    /// </summary>
+    /// <param name="client"><see cref="EFClient"/></param>
+    public void OnKillMessageSystem(EFClient client)
+    {
+        var expiredBet = new List<BetData>();
+
+        if (!_betList.Any()) return;
+        lock (expiredBet)
+        {
+            foreach (var completedBet in
+                     _betList.Where(completedBet => completedBet.Origin.ClientId == client.ClientId))
+            {
+                lock (completedBet)
+                {
+                    if (completedBet.BetCompleted == false) continue;
+
+                    if (completedBet.Message is not null)
+                    {
+                        client.Tell(completedBet.Message);
+                        continue;
+                    }
+
+                    if (completedBet.TargetWon)
+                    {
+                        client.Tell("Your bet (Color::Green)won (Color::Cyan)" +
+                                    $"{completedBet.PayOut + completedBet.InitAmount:N0} " +
+                                    $"(Color::White)credits on {completedBet.Target.Name}");
+                        expiredBet.Add(completedBet);
+                        continue;
+                    }
+
+                    client.Tell($"Your bet (Color::Red)lost (Color::Cyan){completedBet.InitAmount:N0} " +
+                                $"(Color::White)credits on {completedBet.Target.Name}");
+                    expiredBet.Add(completedBet);
+                }
+            }
+
+            foreach (var completedBet in expiredBet)
+            {
+                _betList.Remove(completedBet);
+            }
+        }
+    }
+
+    /// <summary>
     /// Main logic for map rotation - paying out and removing old bets
     /// </summary>
-    /// <param name="server">Server</param>
+    /// <param name="server"><see cref="Server"/></param>
     public void OnMatchEnd(Server server)
     {
         var serverId = server.EndPoint;
@@ -196,89 +207,54 @@ public class BetManager
         if (_mapTime.ContainsKey(serverId)) _mapTime[serverId] = DateTime.UtcNow;
         else _mapTime.Add(serverId, DateTime.UtcNow);
 
-        if (!_openBets.Any()) return;
-        var completedBets = new List<OpenBetData>();
-        foreach (var openBet in _openBets)
+        if (!_betList.Any()) return;
+        foreach (var openBet in _betList)
         {
-            lock (_completedBets)
+            lock (openBet)
             {
                 if (openBet.Target.State != EFClient.ClientState.Connected)
                 {
-                    _completedBets.Add(new CompletedBets
-                    {
-                        Origin = openBet.Origin,
-                        Message = $"(Color::Red)Your bet was removed due to {openBet.Target.CleanedName} leaving."
-                    });
-                    Console.WriteLine($"{Plugin.CreditsPrefix} Bet {openBet} removed due to target disconnecting");
-                    completedBets.Add(openBet);
+                    openBet.Message = $"(Color::Red)Your bet was removed due to {openBet.Target.CleanedName} leaving.";
+                    openBet.BetCompleted = true;
                     continue;
                 }
-            }
 
-            if (!Plugin.PrimaryLogic!.AvailableFunds(openBet.Origin, openBet.InitAmount))
-            {
-                _completedBets.Add(new CompletedBets
+                if (!Plugin.PrimaryLogic!.AvailableFunds(openBet.Origin, openBet.InitAmount))
                 {
-                    Origin = openBet.Origin,
-                    Message = "(Color::Red)Bet was removed due to you no longer having available credits."
-                });
-                completedBets.Add(openBet);
-                continue;
-            }
-
-            var previousCredits = openBet.Origin.GetAdditionalProperty<int>(Plugin.CreditsKey);
-            var payOut = openBet.InitAmount;
-
-            lock (_maxScore)
-            {
-                if (_maxScore[serverId] <= openBet.Target.Score)
-                {
-                    payOut = openBet.InitAmount * openBet.TargetRank / openBet.TotalRanked;
-
-                    Console.WriteLine(
-                        $"{Plugin.CreditsPrefix} {openBet.Origin.CleanedName} bet on {openBet.Target.CleanedName} and won {payOut + openBet.InitAmount:N0} credits");
-                    _completedBets.Add(new CompletedBets
-                    {
-                        Origin = openBet.Origin,
-                        Target = openBet.Target,
-                        InitAmount = openBet.InitAmount,
-                        PayOut = payOut,
-                        Outcome = EOutcome.Won
-                    });
-
-                    if (openBet.Origin.State == EFClient.ClientState.Connected)
-                        openBet.Origin.SetAdditionalProperty(Plugin.CreditsKey, previousCredits + payOut);
-                    else Plugin.PrimaryLogic.WriteCredits(openBet.Origin);
-
-                    completedBets.Add(openBet);
+                    openBet.Message = "(Color::Red)Bet was removed due to you no longer having available credits.";
+                    openBet.BetCompleted = true;
+                    continue;
                 }
-                else
+
+                var previousCredits = openBet.Origin.GetAdditionalProperty<int>(Plugin.CreditsKey);
+                var payOut = openBet.InitAmount;
+
+                lock (_maxScore)
                 {
-                    Console.WriteLine(
-                        $"{Plugin.CreditsPrefix} {openBet.Origin.CleanedName} bet on {openBet.Target.CleanedName} and lost {openBet.InitAmount:N0} credits");
-                    _completedBets.Add(new CompletedBets
+                    if (_maxScore[serverId] <= openBet.Target.Score)
                     {
-                        Origin = openBet.Origin,
-                        Target = openBet.Target,
-                        InitAmount = openBet.InitAmount,
-                        PayOut = payOut,
-                        Outcome = EOutcome.Loss
-                    });
+                        payOut = openBet.InitAmount * openBet.TargetRank / openBet.TotalRanked;
+                        
+                        openBet.PayOut = payOut;
+                        openBet.BetCompleted = true;
+                        openBet.TargetWon = true;
 
-                    if (openBet.Origin.State == EFClient.ClientState.Connected)
-                        openBet.Origin?.SetAdditionalProperty(Plugin.CreditsKey, previousCredits - payOut);
-                    else Plugin.PrimaryLogic.WriteCredits(openBet.Origin);
+                        if (openBet.Origin.State == EFClient.ClientState.Connected) 
+                            openBet.Origin.SetAdditionalProperty(Plugin.CreditsKey, previousCredits + payOut);
+                        else Plugin.PrimaryLogic.WriteCredits(openBet.Origin);
+                    }
+                    else
+                    {
+                        openBet.PayOut = payOut;
+                        openBet.BetCompleted = true;
 
-                    completedBets.Add(openBet);
+                        if (openBet.Origin.State == EFClient.ClientState.Connected)
+                            openBet.Origin?.SetAdditionalProperty(Plugin.CreditsKey, previousCredits - payOut);
+                        else Plugin.PrimaryLogic.WriteCredits(openBet.Origin);
+                    }
                 }
             }
         }
-
-        foreach (var completedBet in completedBets)
-        {
-            _openBets.Remove(completedBet);
-        }
-
 
         lock (_maxScore)
         {
@@ -287,27 +263,15 @@ public class BetManager
     }
 }
 
-public class OpenBetData
+public class BetData
 {
     public EFClient Origin { get; init; }
     public EFClient Target { get; init; }
     public int TargetRank { get; init; }
     public int TotalRanked { get; init; }
     public int InitAmount { get; init; }
-}
-
-public class CompletedBets
-{
-    public EFClient Origin { get; init; }
-    public EFClient Target { get; init; }
-    public int InitAmount { get; init; }
-    public int PayOut { get; init; }
-    public string Message { get; init; }
-    public EOutcome Outcome { get; init; }
-}
-
-public enum EOutcome
-{
-    Won,
-    Loss
+    public int PayOut { get; set; }
+    public string Message { get; set; }
+    public bool TargetWon { get; set; }
+    public bool BetCompleted { get; set; }
 }

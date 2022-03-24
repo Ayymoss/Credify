@@ -12,7 +12,7 @@ public class Plugin : IPlugin
         BetManager = new BetManager(contextFactory, statsConfig);
         PrimaryLogic = new PrimaryLogic(metaService, contextFactory);
     }
-    
+
     // TODO: Implement Team Betting
 
     public static BetManager BetManager;
@@ -29,12 +29,15 @@ public class Plugin : IPlugin
         switch (gameEvent.Type)
         {
             case GameEvent.EventType.Join: // Client Event
-                PrimaryLogic.InitialisePlayer(gameEvent.Origin); // Join event to check if the user has any credits. New usr=0
+                // Check if the user has any credits. New usr=0
+                PrimaryLogic.InitialisePlayer(gameEvent.Origin); 
                 break;
 
             case GameEvent.EventType.Kill: // Client Event
-                PrimaryLogic.IncrementCredits(gameEvent.Origin); // Kill event +1 Credit on Kill - Check if in Top and Sort.
-                BetManager.MessageCompletedBetsOnKill(gameEvent.Origin); // If bets have been made, return the expired bet to the completed player.
+                // Kill event +1 Credit on Kill - Check if in Top and Sort.
+                PrimaryLogic.IncrementCredits(gameEvent.Origin);
+                // If bets have been made, return the expired bet to the completed player.
+                BetManager.OnKillMessageSystem(gameEvent.Origin);
                 break;
 
             case GameEvent.EventType.Disconnect: // Client Event
@@ -62,7 +65,7 @@ public class Plugin : IPlugin
     {
         // Remove old top credit entry and write updated one.
         PrimaryLogic.WriteTopScore();
-        Console.WriteLine($"{CreditsPrefix} Plugin Unloaded");
+        Console.WriteLine($"{CreditsPrefix} Plugin Unloaded"); 
     }
 
     public Task OnTickAsync(Server server) => Task.CompletedTask;

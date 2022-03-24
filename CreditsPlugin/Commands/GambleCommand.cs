@@ -13,14 +13,14 @@ public class GambleCommand : Command
     {
         Name = "gamble";
         Alias = "gmb";
-        Description = "Gamble Credits - Payout = Amount * 10";
+        Description = "Gamble Credits - Payout = 7x";
         Permission = EFClient.Permission.User;
         RequiresTarget = false;
         Arguments = new[]
         {
             new CommandArgument
             {
-                Name = "1-10",
+                Name = "1 to 10",
                 Required = true
             },
             new CommandArgument

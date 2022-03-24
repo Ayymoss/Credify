@@ -35,14 +35,24 @@ public class PrimaryLogic
     /// <param name="client"></param>
     public async void InitialisePlayer(EFClient client)
     {
+        // Get pre-initialised credits
         var userCredits = (await _metaService.GetPersistentMeta(Plugin.CreditsKey, client.ClientId))?.Value;
 
+        // If null, get total kills, if no kills (ie: new player) set to 0
         if (userCredits is null)
         {
             await using var context = _contextFactory.CreateContext(false);
-            var pStats = await context.Set<EFClientStatistics>()
-                .FirstOrDefaultAsync(c => c.ClientId == client.ClientId);
-            userCredits = pStats?.Kills.ToString() ?? "0";
+            var clientTotalKills = await context.Set<EFClientStatistics>()
+                .Where(c => c.ClientId == client.ClientId)
+                .SumAsync(c => c.Kills);
+
+            // Arbitrary, if it's less than 100 and they exist don't bother sorting
+            if (clientTotalKills > 100)
+            {
+                OrderTop(client, clientTotalKills);
+            }
+
+            userCredits = clientTotalKills.ToString();
         }
 
         client.SetAdditionalProperty(Plugin.CreditsKey, int.Parse(userCredits));
@@ -67,7 +77,7 @@ public class PrimaryLogic
     /// <param name="client">EFClient</param>
     public async void WriteCredits(EFClient client) => await _metaService!.SetPersistentMeta(Plugin.CreditsKey,
         client.GetAdditionalProperty<int>(Plugin.CreditsKey).ToString(), client.ClientId);
-    
+
     /// <summary>
     /// Write Top Score back to database
     /// </summary>
