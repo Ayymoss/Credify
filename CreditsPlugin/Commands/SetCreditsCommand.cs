@@ -31,16 +31,16 @@ public class SetCreditsCommand : Command
         };
     }
 
-    public async override Task ExecuteAsync(GameEvent gameEvent)
+    public override Task ExecuteAsync(GameEvent gameEvent)
     {
-        if (gameEvent.Type != GameEvent.EventType.Command) return;
+        if (gameEvent.Type != GameEvent.EventType.Command) return Task.CompletedTask;
 
         var argStr = gameEvent.Data.Split(" ");
 
         if (!int.TryParse(argStr[1], out var argAmount))
         {
             gameEvent.Origin.Tell("(Color::Yellow)Error trying to parse second argument");
-            return;
+            return Task.CompletedTask;
         }
 
         gameEvent.Target = gameEvent.Owner.GetClientByName(argStr[0]).FirstOrDefault();
@@ -48,7 +48,7 @@ public class SetCreditsCommand : Command
         if (gameEvent.Target == null)
         {
             gameEvent.Origin.Tell("(Color::Yellow)Error trying to find user");
-            return;
+            return Task.CompletedTask;
         }
 
         // Check if target isn't null - Set credits, sort, and tell the origin and target.
@@ -62,5 +62,7 @@ public class SetCreditsCommand : Command
                     $"{gameEvent.Origin.Name} (Color::White)set your credits to (Color::Cyan){Math.Abs(argAmount):N0}(Color::White)");
             Plugin.PrimaryLogic?.OrderTop(gameEvent.Target, Math.Abs(argAmount));
         }
+
+        return Task.CompletedTask;
     }
 }

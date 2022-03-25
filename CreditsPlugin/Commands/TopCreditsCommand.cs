@@ -39,7 +39,7 @@ public class TopCreditsCommand : Command
         // Get top credits, format for returning.
         await using var context = _contextFactory.CreateContext(false);
         var names = await context.Clients
-            .Where(client => PrimaryLogic.TopCredits!.Select(credit => credit.ClientId).Contains(client.ClientId))
+            .Where(client => PrimaryLogic.TopCredits.Select(credit => credit.ClientId).Contains(client.ClientId))
             .Select(client => new {client.ClientId, client.CurrentAlias.Name})
             .ToDictionaryAsync(selector => selector.ClientId, selector => selector.Name);
 

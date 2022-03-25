@@ -31,39 +31,39 @@ public class GambleCommand : Command
         };
     }
 
-    public override async Task ExecuteAsync(GameEvent gameEvent)
+    public override Task ExecuteAsync(GameEvent gameEvent)
     {
-        if (gameEvent.Type != GameEvent.EventType.Command) return;
+        if (gameEvent.Type != GameEvent.EventType.Command) return Task.CompletedTask;
 
         var argStr = gameEvent.Data.Split(" ");
         if (!int.TryParse(argStr[0], out var argRange))
         {
             gameEvent.Origin.Tell("(Color::Yellow)Error trying to parse first argument");
-            return;
+            return Task.CompletedTask;
         }
 
         if (!int.TryParse(argStr[1], out var argAmount))
         {
             gameEvent.Origin.Tell("(Color::Yellow)Error trying to parse second argument");
-            return;
+            return Task.CompletedTask;
         }
 
         if (argRange is > 10 or < 1)
         {
             gameEvent.Origin.Tell("(Color::Yellow)Accepted number range is 1 to 10");
-            return;
+            return Task.CompletedTask;
         }
 
         if (argAmount <= 0)
         {
             gameEvent.Origin.Tell("(Color::Yellow)Minimum amount is 1");
-            return;
+            return Task.CompletedTask;
         }
 
         if (!Plugin.PrimaryLogic!.AvailableFunds(gameEvent.Origin, argAmount))
         {
             gameEvent.Origin.Tell("(Color::Yellow)Insufficient credits");
-            return;
+            return Task.CompletedTask;
         }
 
         var rand = new Random();
@@ -84,5 +84,6 @@ public class GambleCommand : Command
 
         gameEvent.Origin.SetAdditionalProperty(Plugin.CreditsKey, currentCredits);
         Plugin.PrimaryLogic.OrderTop(gameEvent.Origin, currentCredits);
+        return Task.CompletedTask;
     }
 }

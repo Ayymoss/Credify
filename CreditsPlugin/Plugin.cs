@@ -11,26 +11,27 @@ public class Plugin : IPlugin
     {
         BetManager = new BetManager(contextFactory, statsConfig);
         PrimaryLogic = new PrimaryLogic(metaService, contextFactory);
+
     }
 
-    // TODO: Implement Team Betting
-
+    private IManager Manager { get; set; }
     public static BetManager BetManager;
     public static PrimaryLogic PrimaryLogic;
     public const string CreditsKey = "Credits_Amount";
     public const string CreditsTopKey = "Credits_TopList";
-    public const string CreditsPrefix = "[Credits]";
+    private const string CreditsPrefix = "[Credits]";
+    
     public string Name => "Credits";
     public float Version => 0.1f;
     public string Author => "Amos";
 
-    public async Task OnEventAsync(GameEvent gameEvent, Server server)
+    public Task OnEventAsync(GameEvent gameEvent, Server server)
     {
         switch (gameEvent.Type)
         {
             case GameEvent.EventType.Join: // Client Event
                 // Check if the user has any credits. New usr=0
-                PrimaryLogic.InitialisePlayer(gameEvent.Origin); 
+                PrimaryLogic.InitialisePlayer(gameEvent.Origin);
                 break;
 
             case GameEvent.EventType.Kill: // Client Event
@@ -52,20 +53,27 @@ public class Plugin : IPlugin
                 BetManager.OnMatchEnd(server); // Add each server to dictionary with time last rotation.
                 break;
         }
+
+        return Task.CompletedTask;
     }
 
-    public async Task OnLoadAsync(IManager manager)
+    public Task OnLoadAsync(IManager manager)
     {
-        // Pull top credit data on IW4MAdmin load and deserialise. 
+        // Assign manager to class level property
+        Manager = manager;
         PrimaryLogic.ReadTopScore();
-        Console.WriteLine($"{CreditsPrefix} Plugin Loaded. Version: {Version}");
+        
+        Console.WriteLine($"{CreditsPrefix} Loaded - Version: {Version}");
+        return Task.CompletedTask;
     }
 
-    public async Task OnUnloadAsync()
+    public Task OnUnloadAsync()
     {
-        // Remove old top credit entry and write updated one.
+        foreach (var client in Manager.GetActiveClients()) PrimaryLogic.WriteCredits(client);
         PrimaryLogic.WriteTopScore();
-        Console.WriteLine($"{CreditsPrefix} Plugin Unloaded"); 
+        
+        Console.WriteLine($"{CreditsPrefix} Unloaded");
+        return Task.CompletedTask;
     }
 
     public Task OnTickAsync(Server server) => Task.CompletedTask;

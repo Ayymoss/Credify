@@ -25,9 +25,15 @@ public class BetManager
     private readonly Dictionary<long, int> _maxScore = new();
     private readonly List<BetData> _betList = new();
 
-    // TODO: Check
-    // Clean up code - move app printouts to call origins, shouldn't really be handled here
+    // TODO: Implement Team Betting
+    // TODO: Clean up code - move app printouts to call origins, shouldn't really be handled here
+    // TODO: Allow keyword "all" on amount
 
+    public async void GetClientsOnServer(GameEvent gameEvent)
+    {
+        
+    }
+    
     /// <summary>
     /// Prints a list of initialise bets in-game
     /// </summary>
@@ -89,12 +95,11 @@ public class BetManager
     /// </summary>
     /// <param name="client"><see cref="EFClient"/></param>
     /// <returns>Boolean. True if it has been more than 2 minutes</returns>
-    public async Task<bool> CanBet(EFClient client)
+    public Task<bool> CanBet(EFClient client)
     {
         var clientServerId = client.CurrentServer.EndPoint;
 
-        if (!_mapTime.ContainsKey(clientServerId)) return false;
-        return _mapTime[clientServerId].AddMinutes(2) >= DateTime.UtcNow;
+        return !_mapTime.ContainsKey(clientServerId) ? Task.FromResult(false) : Task.FromResult(_mapTime[clientServerId].AddMinutes(2) >= DateTime.UtcNow);
     }
 
     /// <summary>
@@ -140,7 +145,7 @@ public class BetManager
     /// <param name="client"><see cref="EFClient"/></param>
     public void OnClientUpdated(EFClient client)
     {
-        if (_betList.Count == 0) return;
+        if (!_betList.Any()) return;
 
         var clientServerId = client.CurrentServer.EndPoint;
         lock (_maxScore)
@@ -234,12 +239,12 @@ public class BetManager
                     if (_maxScore[serverId] <= openBet.Target.Score)
                     {
                         payOut = openBet.InitAmount * openBet.TargetRank / openBet.TotalRanked;
-                        
+
                         openBet.PayOut = payOut;
                         openBet.BetCompleted = true;
                         openBet.TargetWon = true;
 
-                        if (openBet.Origin.State == EFClient.ClientState.Connected) 
+                        if (openBet.Origin.State == EFClient.ClientState.Connected)
                             openBet.Origin.SetAdditionalProperty(Plugin.CreditsKey, previousCredits + payOut);
                         else Plugin.PrimaryLogic.WriteCredits(openBet.Origin);
                     }

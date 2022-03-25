@@ -1,6 +1,7 @@
 ﻿using System.Text.Json;
 using Data.Abstractions;
 using Data.Models.Client.Stats;
+using Data.Models.Server;
 using Microsoft.EntityFrameworkCore;
 using SharedLibraryCore;
 using SharedLibraryCore.Database.Models;
@@ -19,6 +20,8 @@ public class PrimaryLogic
     public static List<TopCreditEntry> TopCredits;
     private readonly IDatabaseContextFactory _contextFactory;
     private readonly IMetaServiceV2 _metaService;
+    
+    // TODO: Handle IW4MAdmin Unloading - Write back all clients' credits
 
     /// <summary>
     /// Return true/false based on available funds
@@ -75,8 +78,7 @@ public class PrimaryLogic
     /// Write back player credits to database
     /// </summary>
     /// <param name="client">EFClient</param>
-    public async void WriteCredits(EFClient client) => await _metaService!.SetPersistentMeta(Plugin.CreditsKey,
-        client.GetAdditionalProperty<int>(Plugin.CreditsKey).ToString(), client.ClientId);
+    public async void WriteCredits(EFClient client) => await _metaService.SetPersistentMeta(Plugin.CreditsKey, client.GetAdditionalProperty<int>(Plugin.CreditsKey).ToString(), client.ClientId);
 
     /// <summary>
     /// Write Top Score back to database
@@ -98,7 +100,7 @@ public class PrimaryLogic
             ? new List<TopCreditEntry>()
             : JsonSerializer.Deserialize<List<TopCreditEntry>>(topCreditsValue)!;
     }
-
+    
     /// <summary>
     /// Return true if duplicate exists
     /// </summary>
@@ -154,3 +156,5 @@ public class TopCreditEntry
     public int ClientId { get; init; }
     public int Credits { get; set; }
 }
+
+

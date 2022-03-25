@@ -16,28 +16,26 @@ public class BetTeamCommand : Command
         Description = "Bet on a Team\'s Win - Can only do within first minute of game.";
         Permission = EFClient.Permission.User;
         RequiresTarget = false;
-        Arguments = new[]
-        {
-            new CommandArgument
-            {
-                Name = "Team",
-                Required = true
-            },
-            new CommandArgument
-            {
-                Name = "Amount",
-                Required = true
-            }
-        };
+        //Arguments = new[]
+        //{
+        //    new CommandArgument
+        //    {
+        //        Name = "Team",
+        //        Required = true
+        //    },
+        //    new CommandArgument
+        //    {
+        //        Name = "Amount",
+        //        Required = true
+        //    }
+        //};
     }
     
-    public override Task ExecuteAsync(GameEvent e)
+    public override Task ExecuteAsync(GameEvent gameEvent)
     {
-        if (e.Type != GameEvent.EventType.Command) return Task.CompletedTask;
+        if (gameEvent.Type != GameEvent.EventType.Command) return Task.CompletedTask;
 
-        //TODO: Implement command logic
-        e.Origin.Tell("Command Not Implemented...");
-
+       
         return Task.CompletedTask;
     }
 }

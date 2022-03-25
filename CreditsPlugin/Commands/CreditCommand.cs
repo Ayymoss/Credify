@@ -26,9 +26,9 @@ public class CreditCommand : Command
         };
     }
 
-    public async override Task ExecuteAsync(GameEvent gameEvent)
+    public override Task ExecuteAsync(GameEvent gameEvent)
     {
-        if (gameEvent.Type != GameEvent.EventType.Command) return;
+        if (gameEvent.Type != GameEvent.EventType.Command) return Task.CompletedTask;
 
         // Get argument from command.
         var argPlayer = gameEvent.Data;
@@ -38,7 +38,7 @@ public class CreditCommand : Command
         if (gameEvent.Data.Length != 0 && gameEvent.Target == null)
         {
             gameEvent.Origin.Tell("(Color::Yellow)Error trying to find user");
-            return;
+            return Task.CompletedTask;
         }
 
         // Return player's credits
@@ -46,11 +46,12 @@ public class CreditCommand : Command
         {
             gameEvent.Origin.Tell(
                 $"{gameEvent.Target.Name} (Color::White)has (Color::Cyan){gameEvent.Target.GetAdditionalProperty<int>(Plugin.CreditsKey):N0} (Color::White)credits");
-            return;
+            return Task.CompletedTask;
         }
 
         // If no target specified
         gameEvent.Origin.Tell(
             $"You have (Color::Cyan){gameEvent.Origin.GetAdditionalProperty<int>(Plugin.CreditsKey):N0} (Color::White)credits");
+        return Task.CompletedTask;
     }
 }
