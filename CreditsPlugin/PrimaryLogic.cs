@@ -20,8 +20,6 @@ public class PrimaryLogic
     public static List<TopCreditEntry> TopCredits;
     private readonly IDatabaseContextFactory _contextFactory;
     private readonly IMetaServiceV2 _metaService;
-    
-    // TODO: Handle IW4MAdmin Unloading - Write back all clients' credits
 
     /// <summary>
     /// Return true/false based on available funds

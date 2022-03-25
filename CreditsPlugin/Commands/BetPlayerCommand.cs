@@ -3,6 +3,7 @@ using SharedLibraryCore.Commands;
 using SharedLibraryCore.Configuration;
 using SharedLibraryCore.Database.Models;
 using SharedLibraryCore.Interfaces;
+using EFClient = Data.Models.Client.EFClient;
 
 namespace CreditsPlugin.Commands;
 
@@ -71,7 +72,7 @@ public class BetPlayerCommand : Command
 
         if (gameEvent.Target != null)
         {
-            Plugin.BetManager.OnBetCreated(gameEvent, argAmount);
+            Plugin.BetManager.CreatePlayerBet(gameEvent, argAmount);
         }
     }
 }

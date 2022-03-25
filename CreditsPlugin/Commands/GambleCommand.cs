@@ -36,12 +36,20 @@ public class GambleCommand : Command
         if (gameEvent.Type != GameEvent.EventType.Command) return Task.CompletedTask;
 
         var argStr = gameEvent.Data.Split(" ");
+        
+        
+        
         if (!int.TryParse(argStr[0], out var argRange))
         {
             gameEvent.Origin.Tell("(Color::Yellow)Error trying to parse first argument");
             return Task.CompletedTask;
         }
 
+        if (argStr[1] == "all")
+        {
+            argStr[1] = gameEvent.Origin.GetAdditionalProperty<string>(Plugin.CreditsKey);
+        }
+        
         if (!int.TryParse(argStr[1], out var argAmount))
         {
             gameEvent.Origin.Tell("(Color::Yellow)Error trying to parse second argument");

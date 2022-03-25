@@ -26,8 +26,21 @@ public class OpenBetsCommand : Command
         }
 
         gameEvent.Origin.Tell("(Color::Cyan)--Open Bets--");
-        await gameEvent.Origin.TellAsync(openBets.Select((value, i) =>
-            $"#(Color::Cyan){i + 1} (Color::White)- (Color::Green){value.Origin.CleanedName} (Color::White)- (Color::Red){value.Target.CleanedName} (Color::White)- (Color::Cyan){value.InitAmount:N0}")
-        );
+
+        string target = null;
+        var index = 0;
+        var stringList = new List<string>();
+        foreach (var bet in openBets)
+        {
+            if (bet.Team == EFClient.TeamType.Allies) target = "Allies";
+            if (bet.Team == EFClient.TeamType.Axis) target = "Axis";
+            if (bet.TargetPlayer != null) target = bet.TargetPlayer.CleanedName;
+
+            stringList.Add($"#(Color::Cyan){index + 1} (Color::White)- (Color::Green){bet.Origin.CleanedName} " +
+                           $"(Color::White)- (Color::Red){target} (Color::White)- (Color::Cyan){bet.InitAmount:N0}");
+            index++;
+        }
+
+        await gameEvent.Origin.TellAsync(stringList);
     }
 }
