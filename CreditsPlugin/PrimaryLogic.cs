@@ -1,9 +1,7 @@
 ﻿using System.Text.Json;
 using Data.Abstractions;
 using Data.Models.Client.Stats;
-using Data.Models.Server;
 using Microsoft.EntityFrameworkCore;
-using SharedLibraryCore;
 using SharedLibraryCore.Database.Models;
 using SharedLibraryCore.Interfaces;
 
@@ -34,7 +32,7 @@ public class PrimaryLogic
     /// Load player's credits from database, else create new cached credit
     /// </summary>
     /// <param name="client"></param>
-    public async void InitialisePlayer(EFClient client)
+    public async void OnJoin(EFClient client)
     {
         // Get pre-initialised credits
         var userCredits = (await _metaService.GetPersistentMeta(Plugin.CreditsKey, client.ClientId))?.Value;
@@ -76,7 +74,7 @@ public class PrimaryLogic
     /// Write back player credits to database
     /// </summary>
     /// <param name="client">EFClient</param>
-    public async void WriteCredits(EFClient client) => await _metaService.SetPersistentMeta(Plugin.CreditsKey, client.GetAdditionalProperty<int>(Plugin.CreditsKey).ToString(), client.ClientId);
+    public async void OnDisconnect(EFClient client) => await _metaService.SetPersistentMeta(Plugin.CreditsKey, client.GetAdditionalProperty<int>(Plugin.CreditsKey).ToString(), client.ClientId);
 
     /// <summary>
     /// Write Top Score back to database

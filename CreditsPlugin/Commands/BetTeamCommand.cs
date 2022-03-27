@@ -36,26 +36,32 @@ public class BetTeamCommand : Command
         if (gameEvent.Type != GameEvent.EventType.Command) return;
 
         var argStr = gameEvent.Data.Split(" ");
-        var teamType = EFClient.TeamType.Unknown;
-        var teamList = new List<string> {"axis", "allies", "t", "ct"};
+        var teamName = "Unknown";
+        var teamList = new List<string> {"axis", "allies", "t", "ct", "red", "blue"};
 
         if (!teamList.Contains(argStr[0]))
         {
-            gameEvent.Origin.Tell("(Color::Yellow)Error trying to parse team");
+            await gameEvent.Origin.TellAsync(new[]
+            {
+                "(Color::Yellow)Unknown Team",
+                $"Your Team: {Plugin.BetManager.TeamEnumToString(gameEvent.Origin.Team)}",
+                $"Other Teams: {string.Join(", ", teamList)}"
+            });
+
             return;
         }
-        
+
         if (argStr[1] == "all")
         {
-            argStr[1] = gameEvent.Origin.GetAdditionalProperty<string>(Plugin.CreditsKey);
+            argStr[1] = gameEvent.Origin.GetAdditionalProperty<int>(Plugin.CreditsKey).ToString();
         }
-        
+
         if (!int.TryParse(argStr[1], out var argAmount))
         {
             gameEvent.Origin.Tell("(Color::Yellow)Error trying to parse amount");
             return;
         }
-        
+
         if (argAmount <= 0)
         {
             gameEvent.Origin.Tell("(Color::Yellow)Minimum amount is 1");
@@ -68,15 +74,34 @@ public class BetTeamCommand : Command
             return;
         }
 
-        if (!await Plugin.BetManager.CanBet(gameEvent.Origin))
-        {
-            gameEvent.Origin.Tell("(Color::Yellow)Player bets are only accepted for the first 2 minutes of the map");
-            return;
-        }
-        
-        if (argStr[0] == teamList[0] || argStr[0] == teamList[2]) teamType = EFClient.TeamType.Axis;
-        if (argStr[0] == teamList[1] || argStr[0] == teamList[3]) teamType = EFClient.TeamType.Allies;
+        //if (!Plugin.BetManager.MaximumTimePassed(gameEvent.Origin))
+        //{
+        //    gameEvent.Origin.Tell(
+        //        $"(Color::Yellow)Bets only accepted during first {Plugin.CreditsMaximumBetTime} minutes");
+        //    return;
+        //}
 
-        Plugin.BetManager.CreateTeamBet(gameEvent, teamType, argAmount);
+        //if (!Plugin.BetManager.MinimumPlayers(gameEvent.Origin))
+        //{
+        //    gameEvent.Origin.Tell($"(Color::Yellow){Plugin.CreditsMinimumPlayers} players minimum are needed to bet");
+        //    return;
+        //}
+
+        if (argStr[0] == teamList[0] ||
+            argStr[0] == teamList[2] ||
+            argStr[0] == teamList[4])
+        {
+            teamName = Plugin.BetManager.TeamEnumToString(EFClient.TeamType.Axis);
+        }
+
+        if (argStr[0] == teamList[1] ||
+            argStr[0] == teamList[3] ||
+            argStr[0] == teamList[5])
+        {
+            teamName = Plugin.BetManager.TeamEnumToString(EFClient.TeamType.Allies);
+        }
+
+
+        Plugin.BetManager.CreateTeamBet(gameEvent, teamName, argAmount);
     }
 }

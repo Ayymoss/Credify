@@ -47,7 +47,7 @@ public class GambleCommand : Command
 
         if (argStr[1] == "all")
         {
-            argStr[1] = gameEvent.Origin.GetAdditionalProperty<string>(Plugin.CreditsKey);
+            argStr[1] = gameEvent.Origin.GetAdditionalProperty<int>(Plugin.CreditsKey).ToString();
         }
         
         if (!int.TryParse(argStr[1], out var argAmount))

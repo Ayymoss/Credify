@@ -38,6 +38,11 @@ public class BetPlayerCommand : Command
 
         var argStr = gameEvent.Data.Split(" ");
 
+        if (argStr[1] == "all")
+        {
+            argStr[1] = gameEvent.Origin.GetAdditionalProperty<int>(Plugin.CreditsKey).ToString();
+        }
+
         if (!int.TryParse(argStr[1], out var argAmount))
         {
             gameEvent.Origin.Tell("(Color::Yellow)Error trying to parse second argument");
@@ -64,11 +69,18 @@ public class BetPlayerCommand : Command
             return;
         }
 
-        if (!await Plugin.BetManager.CanBet(gameEvent.Origin))
-        {
-            gameEvent.Origin.Tell("(Color::Yellow)Player bets are only accepted for the first 2 minutes of the map");
-            return;
-        }
+        //if (!Plugin.BetManager.MaximumTimePassed(gameEvent.Origin))
+        //{
+        //    gameEvent.Origin.Tell(
+        //        $"(Color::Yellow)Bets only accepted during first {Plugin.CreditsMaximumBetTime} minutes");
+        //    return;
+        //}
+
+        //if (!Plugin.BetManager.MinimumPlayers(gameEvent.Origin))
+        //{
+        //    gameEvent.Origin.Tell($"(Color::Yellow){Plugin.CreditsMinimumPlayers} players minimum are needed to bet");
+        //    return;
+        //}
 
         if (gameEvent.Target != null)
         {
