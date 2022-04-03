@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using SharedLibraryCore;
 using SharedLibraryCore.Configuration;
 using SharedLibraryCore.Interfaces;
-using EFClient = Data.Models.Client.EFClient;
+using Data.Models.Client;
 
 namespace CreditsPlugin.Commands;
 

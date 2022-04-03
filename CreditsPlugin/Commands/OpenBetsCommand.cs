@@ -12,7 +12,7 @@ public class OpenBetsCommand : Command
         Name = "openbets";
         Description = "Lists all open bets";
         Alias = "ob";
-        Permission = EFClient.Permission.User;
+        Permission = Data.Models.Client.EFClient.Permission.User;
         RequiresTarget = false;
     }
 

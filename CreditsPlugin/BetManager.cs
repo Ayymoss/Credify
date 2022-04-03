@@ -117,7 +117,6 @@ public class BetManager
 
         if (!_mapTime.ContainsKey(clientServerId)) return false;
         return _mapTime[clientServerId].AddMinutes(Plugin.CreditsMaximumBetTime) >= DateTime.UtcNow;
-
     }
 
     /// <summary>
@@ -396,7 +395,7 @@ public class BetManager
     /// Main logic for map rotation - paying out and removing old bets
     /// </summary>
     /// <param name="server"><see cref="Server"/></param>
-    public void OnMatchEnd(Server server)
+    public void OnMapEnd(Server server)
     {
         var serverId = server.EndPoint;
 
@@ -439,8 +438,17 @@ public class BetManager
                             openBet.TargetWon = true;
 
                             if (openBet.Origin.State == EFClient.ClientState.Connected)
+                            {
+                                // Payout ONLY the "payOut" as stake is never removed
                                 openBet.Origin.SetAdditionalProperty(Plugin.CreditsKey, previousCredits + payOut);
-                            else Plugin.PrimaryLogic.OnDisconnect(openBet.Origin);
+                            }
+                            else
+                            {
+                                Plugin.PrimaryLogic.OnDisconnect(openBet.Origin);
+                            }
+
+                            Plugin.PrimaryLogic.StatisticsState.CreditsSpent += openBet.InitAmount;
+                            Plugin.PrimaryLogic.StatisticsState.CreditsPaid += payOut + openBet.InitAmount;
                         }
                         else
                         {
@@ -449,8 +457,15 @@ public class BetManager
                             openBet.TargetWon = false;
 
                             if (openBet.Origin.State == EFClient.ClientState.Connected)
+                            {
                                 openBet.Origin?.SetAdditionalProperty(Plugin.CreditsKey, previousCredits - payOut);
-                            else Plugin.PrimaryLogic.OnDisconnect(openBet.Origin);
+                            }
+                            else
+                            {
+                                Plugin.PrimaryLogic.OnDisconnect(openBet.Origin);
+                            }
+
+                            Plugin.PrimaryLogic.StatisticsState.CreditsSpent += openBet.InitAmount;
                         }
 
                         _maxPlayerScore.Remove(serverId);
@@ -481,9 +496,16 @@ public class BetManager
                                 openBet.TargetWon = true;
 
                                 if (openBet.Origin.State == EFClient.ClientState.Connected)
-                                    openBet.Origin.SetAdditionalProperty(Plugin.CreditsKey,
-                                        previousCredits + payOut);
-                                else Plugin.PrimaryLogic.OnDisconnect(openBet.Origin);
+                                {
+                                    openBet.Origin.SetAdditionalProperty(Plugin.CreditsKey, previousCredits + payOut);
+                                }
+                                else
+                                {
+                                    Plugin.PrimaryLogic.OnDisconnect(openBet.Origin);
+                                }
+
+                                Plugin.PrimaryLogic.StatisticsState.CreditsSpent += openBet.InitAmount;
+                                Plugin.PrimaryLogic.StatisticsState.CreditsPaid += payOut + openBet.InitAmount;
                             }
                             else
                             {
@@ -492,9 +514,15 @@ public class BetManager
                                 openBet.TargetWon = false;
 
                                 if (openBet.Origin.State == EFClient.ClientState.Connected)
-                                    openBet.Origin?.SetAdditionalProperty(Plugin.CreditsKey,
-                                        previousCredits - payOut);
-                                else Plugin.PrimaryLogic.OnDisconnect(openBet.Origin);
+                                {
+                                    openBet.Origin.SetAdditionalProperty(Plugin.CreditsKey, previousCredits - payOut);
+                                }
+                                else
+                                {
+                                    Plugin.PrimaryLogic.OnDisconnect(openBet.Origin);
+                                }
+
+                                Plugin.PrimaryLogic.StatisticsState.CreditsSpent += openBet.InitAmount;
                             }
                         }
 
@@ -509,9 +537,16 @@ public class BetManager
                                 openBet.TargetWon = true;
 
                                 if (openBet.Origin.State == EFClient.ClientState.Connected)
-                                    openBet.Origin.SetAdditionalProperty(Plugin.CreditsKey,
-                                        previousCredits + payOut);
-                                else Plugin.PrimaryLogic.OnDisconnect(openBet.Origin);
+                                {
+                                    openBet.Origin.SetAdditionalProperty(Plugin.CreditsKey, previousCredits + payOut);
+                                }
+                                else
+                                {
+                                    Plugin.PrimaryLogic.OnDisconnect(openBet.Origin);
+                                }
+
+                                Plugin.PrimaryLogic.StatisticsState.CreditsSpent += openBet.InitAmount;
+                                Plugin.PrimaryLogic.StatisticsState.CreditsPaid += payOut + openBet.InitAmount;
                             }
                             else
                             {
@@ -520,9 +555,15 @@ public class BetManager
                                 openBet.TargetWon = false;
 
                                 if (openBet.Origin.State == EFClient.ClientState.Connected)
-                                    openBet.Origin?.SetAdditionalProperty(Plugin.CreditsKey,
-                                        previousCredits - payOut);
-                                else Plugin.PrimaryLogic.OnDisconnect(openBet.Origin);
+                                {
+                                    openBet.Origin.SetAdditionalProperty(Plugin.CreditsKey, previousCredits - payOut);
+                                }
+                                else
+                                {
+                                    Plugin.PrimaryLogic.OnDisconnect(openBet.Origin);
+                                }
+
+                                Plugin.PrimaryLogic.StatisticsState.CreditsSpent += openBet.InitAmount;
                             }
                         }
 

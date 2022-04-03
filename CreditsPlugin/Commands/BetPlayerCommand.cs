@@ -1,7 +1,6 @@
 ﻿using SharedLibraryCore;
 using SharedLibraryCore.Commands;
 using SharedLibraryCore.Configuration;
-using SharedLibraryCore.Database.Models;
 using SharedLibraryCore.Interfaces;
 using EFClient = Data.Models.Client.EFClient;
 

@@ -1,8 +1,9 @@
-﻿using SharedLibraryCore;
+﻿using Data.Models.Client;
+using SharedLibraryCore;
 using SharedLibraryCore.Commands;
 using SharedLibraryCore.Configuration;
 using SharedLibraryCore.Interfaces;
-using EFClient = Data.Models.Client.EFClient;
+
 
 namespace CreditsPlugin.Commands;
 
@@ -36,10 +37,8 @@ public class GambleCommand : Command
         if (gameEvent.Type != GameEvent.EventType.Command) return Task.CompletedTask;
 
         var argStr = gameEvent.Data.Split(" ");
-        
-        
-        
-        if (!int.TryParse(argStr[0], out var argRange))
+
+        if (!int.TryParse(argStr[0], out var argUserChoice))
         {
             gameEvent.Origin.Tell("(Color::Yellow)Error trying to parse first argument");
             return Task.CompletedTask;
@@ -49,14 +48,14 @@ public class GambleCommand : Command
         {
             argStr[1] = gameEvent.Origin.GetAdditionalProperty<int>(Plugin.CreditsKey).ToString();
         }
-        
+
         if (!int.TryParse(argStr[1], out var argAmount))
         {
             gameEvent.Origin.Tell("(Color::Yellow)Error trying to parse second argument");
             return Task.CompletedTask;
         }
 
-        if (argRange is > 10 or < 1)
+        if (argUserChoice is > 10 or < 1)
         {
             gameEvent.Origin.Tell("(Color::Yellow)Accepted number range is 1 to 10");
             return Task.CompletedTask;
@@ -68,7 +67,7 @@ public class GambleCommand : Command
             return Task.CompletedTask;
         }
 
-        if (!Plugin.PrimaryLogic!.AvailableFunds(gameEvent.Origin, argAmount))
+        if (!Plugin.PrimaryLogic.AvailableFunds(gameEvent.Origin, argAmount))
         {
             gameEvent.Origin.Tell("(Color::Yellow)Insufficient credits");
             return Task.CompletedTask;
@@ -78,16 +77,19 @@ public class GambleCommand : Command
         var randNum = rand.Next(1, 11);
         var currentCredits = gameEvent.Origin.GetAdditionalProperty<int>(Plugin.CreditsKey);
 
-        if (randNum == argRange)
+        if (randNum == argUserChoice)
         {
             currentCredits += argAmount * 7;
-            gameEvent.Origin.Tell($"Congratulations, you won (Color::Cyan){argAmount * 10:N0} (Color::White)tokens!");
+            gameEvent.Origin.Tell($"Congratulations, you won (Color::Cyan){argAmount * 7:N0} (Color::White)tokens!");
+            Plugin.PrimaryLogic.StatisticsState.CreditsSpent += argAmount;
+            Plugin.PrimaryLogic.StatisticsState.CreditsPaid += argAmount + argAmount * 7;
         }
         else
         {
             currentCredits -= argAmount;
             gameEvent.Origin.Tell(
-                $"Unlucky, you lost (Color::Cyan){argAmount:N0} (Color::White)credits. You chose (Color::Cyan){argRange}(Color::White), the number was (Color::Cyan){randNum}(Color::White)");
+                $"Unlucky, you lost (Color::Cyan){argAmount:N0} (Color::White)credits. You chose (Color::Cyan){argUserChoice}(Color::White), the number was (Color::Cyan){randNum}(Color::White)");
+            Plugin.PrimaryLogic.StatisticsState.CreditsSpent -= argAmount;
         }
 
         gameEvent.Origin.SetAdditionalProperty(Plugin.CreditsKey, currentCredits);

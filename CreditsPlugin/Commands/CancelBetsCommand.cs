@@ -1,8 +1,7 @@
-﻿using SharedLibraryCore;
-using SharedLibraryCore.Commands;
+﻿using Data.Models.Client;
+using SharedLibraryCore;
 using SharedLibraryCore.Configuration;
 using SharedLibraryCore.Interfaces;
-using EFClient = Data.Models.Client.EFClient;
 
 namespace CreditsPlugin.Commands;
 
@@ -21,7 +20,7 @@ public class CancelBetsCommand : Command
     public override async Task ExecuteAsync(GameEvent gameEvent)
     {
         if (gameEvent.Type != GameEvent.EventType.Command) return;
-        
+
         //if (!Plugin.BetManager.MaximumTimePassed(gameEvent.Origin))
         //{
         //    gameEvent.Origin.Tell(

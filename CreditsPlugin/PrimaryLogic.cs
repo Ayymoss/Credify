@@ -18,6 +18,7 @@ public class PrimaryLogic
     public static List<TopCreditEntry> TopCredits;
     private readonly IDatabaseContextFactory _contextFactory;
     private readonly IMetaServiceV2 _metaService;
+    public StatisticsState StatisticsState = new();
 
     /// <summary>
     /// Return true/false based on available funds
@@ -52,6 +53,8 @@ public class PrimaryLogic
             }
 
             userCredits = clientTotalKills.ToString();
+
+            StatisticsState.CreditsEarned += clientTotalKills;
         }
 
         client.SetAdditionalProperty(Plugin.CreditsKey, int.Parse(userCredits));
@@ -62,28 +65,26 @@ public class PrimaryLogic
     /// Increment cached credits
     /// </summary>
     /// <param name="client">GameEvent</param>
-    public void IncrementCredits(EFClient client)
+    public void OnKill(EFClient client)
     {
         var userCredits = client.GetAdditionalProperty<int>(Plugin.CreditsKey);
         userCredits++;
         client.SetAdditionalProperty(Plugin.CreditsKey, userCredits);
         OrderTop(client, userCredits);
+        StatisticsState.CreditsEarned++;
     }
 
     /// <summary>
     /// Write back player credits to database
     /// </summary>
     /// <param name="client">EFClient</param>
-    public async void OnDisconnect(EFClient client) => await _metaService.SetPersistentMeta(Plugin.CreditsKey, client.GetAdditionalProperty<int>(Plugin.CreditsKey).ToString(), client.ClientId);
+    public async void OnDisconnect(EFClient client) => await _metaService.SetPersistentMeta(Plugin.CreditsKey,
+        client.GetAdditionalProperty<int>(Plugin.CreditsKey).ToString(), client.ClientId);
 
     /// <summary>
     /// Write Top Score back to database
     /// </summary>
-    public async void WriteTopScore()
-    {
-        await _metaService!.RemovePersistentMeta(Plugin.CreditsTopKey);
-        await _metaService.SetPersistentMetaValue(Plugin.CreditsTopKey, TopCredits);
-    }
+    public async void WriteTopScore() => await _metaService.SetPersistentMetaValue(Plugin.CreditsTopKey, TopCredits);
 
     /// <summary>
     /// Read Top Score from Database
@@ -96,7 +97,26 @@ public class PrimaryLogic
             ? new List<TopCreditEntry>()
             : JsonSerializer.Deserialize<List<TopCreditEntry>>(topCreditsValue)!;
     }
-    
+
+    /// <summary>
+    /// Write statistics to the database
+    /// </summary>
+    public async void WriteStatistics()
+    {
+        await _metaService.SetPersistentMetaValue(Plugin.CreditsStatistics, StatisticsState);
+    }
+
+    /// <summary>
+    /// Read statistics from the database
+    /// </summary>
+    public async void ReadStatistics()
+    {
+        var statistics = (await _metaService.GetPersistentMeta(Plugin.CreditsStatistics))?.Value;
+        if (statistics is null) return;
+
+        StatisticsState = JsonSerializer.Deserialize<StatisticsState>(statistics);
+    }
+
     /// <summary>
     /// Return true if duplicate exists
     /// </summary>
@@ -153,4 +173,9 @@ public class TopCreditEntry
     public int Credits { get; set; }
 }
 
-
+public class StatisticsState
+{
+    public int CreditsSpent { get; set; }
+    public int CreditsEarned { get; set; }
+    public int CreditsPaid { get; set; }
+}
