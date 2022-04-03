@@ -74,18 +74,18 @@ public class BetTeamCommand : Command
             return;
         }
 
-        //if (!Plugin.BetManager.MaximumTimePassed(gameEvent.Origin))
-        //{
-        //    gameEvent.Origin.Tell(
-        //        $"(Color::Yellow)Bets only accepted during first {Plugin.CreditsMaximumBetTime} minutes");
-        //    return;
-        //}
+        if (!Plugin.BetManager.MaximumTimePassed(gameEvent.Origin))
+        {
+            gameEvent.Origin.Tell(
+                $"(Color::Yellow)Bets only accepted during first {Plugin.CreditsBetWindow} seconds");
+            return;
+        }
 
-        //if (!Plugin.BetManager.MinimumPlayers(gameEvent.Origin))
-        //{
-        //    gameEvent.Origin.Tell($"(Color::Yellow){Plugin.CreditsMinimumPlayers} players minimum are needed to bet");
-        //    return;
-        //}
+        if (!Plugin.BetManager.MinimumPlayers(gameEvent.Origin))
+        {
+            gameEvent.Origin.Tell($"(Color::Yellow){Plugin.CreditsMinimumPlayers} players minimum are needed to bet");
+            return;
+        }
 
         if (argStr[0] == teamList[0] ||
             argStr[0] == teamList[2] ||

@@ -12,7 +12,7 @@ public class CancelBetsCommand : Command
     {
         Name = "cancelbets";
         Description = "Cancel your open bets";
-        Alias = "cb";
+        Alias = "cnclb";
         Permission = EFClient.Permission.User;
         RequiresTarget = false;
     }
@@ -21,12 +21,12 @@ public class CancelBetsCommand : Command
     {
         if (gameEvent.Type != GameEvent.EventType.Command) return;
 
-        //if (!Plugin.BetManager.MaximumTimePassed(gameEvent.Origin))
-        //{
-        //    gameEvent.Origin.Tell(
-        //        $"(Color::Yellow)Bets only accepted during first {Plugin.CreditsMaximumBetTime} minutes");
-        //    return;
-        //}
+        if (!Plugin.BetManager.MaximumTimePassed(gameEvent.Origin))
+        {
+            gameEvent.Origin.Tell(
+                $"(Color::Yellow)Bets only accepted during first {Plugin.CreditsBetWindow} seconds");
+            return;
+        }
 
         var cancelledBets = Plugin.BetManager.CancelBets(gameEvent.Origin);
         if (cancelledBets == 0)

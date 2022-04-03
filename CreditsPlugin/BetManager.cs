@@ -116,7 +116,7 @@ public class BetManager
         var clientServerId = client.CurrentServer.EndPoint;
 
         if (!_mapTime.ContainsKey(clientServerId)) return false;
-        return _mapTime[clientServerId].AddMinutes(Plugin.CreditsMaximumBetTime) >= DateTime.UtcNow;
+        return _mapTime[clientServerId].AddSeconds(Plugin.CreditsBetWindow) >= DateTime.UtcNow;
     }
 
     /// <summary>
@@ -271,6 +271,13 @@ public class BetManager
 
         if (client.Team is EFClient.TeamType.Spectator or EFClient.TeamType.Unknown) return;
 
+        var completedMessages = Plugin.BetManager.CompletedBetsMessages(client);
+        if (completedMessages is not null && completedMessages.Any())
+        {
+            client.Tell(
+                "(Color::Yellow)You have claimable bets. (Color::White)Type (Color::Cyan)!cb (Color::White)to claim them");
+        }
+
         lock (_maxServerScore)
         {
             // Server doesn't exist in dictionary
@@ -311,12 +318,11 @@ public class BetManager
     }
 
     /// <summary>
-    /// Prints queued messages to people whose bets have completed
+    /// Tracks team score if bet exist
     /// </summary>
     /// <param name="client"><see cref="EFClient"/></param>
     public void OnKill(EFClient client)
     {
-        var expiredBet = new List<BetData>();
         var clientServerId = client.CurrentServer.EndPoint;
 
         if (!_betList.Any()) return;
@@ -329,68 +335,86 @@ public class BetManager
                 _maxServerScore[clientServerId][client.ClientId].Score = client.Score;
             }
         }
+    }
 
-        lock (expiredBet)
+    /// <summary>
+    /// Prints queued messages to people whose bets have completed
+    /// </summary>
+    /// <param name="client"><see cref="EFClient"/></param>
+    /// <returns>List of Messages</returns>
+    public List<string> CompletedBetsMessages(EFClient client)
+    {
+        var clientMessages = new List<string>();
+
+        if (!_betList.Any()) return null;
+
+        foreach (var completedBet in _betList.Where(completedBet =>
+                     completedBet.Origin.ClientId == client.ClientId))
         {
-            foreach (var completedBet in
-                     _betList.Where(completedBet => completedBet.Origin.ClientId == client.ClientId))
+            lock (completedBet)
             {
-                lock (completedBet)
+                if (!completedBet.BetCompleted) continue;
+                if (completedBet.Message is not null)
                 {
-                    if (completedBet.BetCompleted == false) continue;
+                    clientMessages.Add(completedBet.Message);
+                    continue;
+                }
 
-                    if (completedBet.Message is not null)
-                    {
-                        client.Tell(completedBet.Message);
-                        expiredBet.Add(completedBet);
-                        continue;
-                    }
-
-                    // Win condition
-                    if (completedBet.TargetWon)
-                    {
-                        if (completedBet.TargetPlayer != null)
-                        {
-                            client.Tell("Your bet (Color::Green)won (Color::Cyan)" +
-                                        $"{completedBet.PayOut + completedBet.InitAmount:N0} " +
-                                        $"(Color::White)credits on {completedBet.TargetPlayer.Name}");
-                        }
-
-                        if (completedBet.TargetTeam != null)
-                        {
-                            client.Tell("Your bet (Color::Green)won (Color::Cyan)" +
-                                        $"{completedBet.PayOut + completedBet.InitAmount:N0} " +
-                                        $"(Color::White)credits on {completedBet.TargetTeam}");
-                        }
-
-                        expiredBet.Add(completedBet);
-                        continue;
-                    }
-
-                    // Loss condition
+                // Win condition
+                if (completedBet.TargetWon)
+                {
                     if (completedBet.TargetPlayer != null)
                     {
-                        client.Tell($"Your bet (Color::Red)lost (Color::Cyan){completedBet.InitAmount:N0} " +
-                                    $"(Color::White)credits on {completedBet.TargetPlayer.Name}");
+                        clientMessages.Add("Your bet (Color::Green)won (Color::Cyan)" +
+                                           $"{completedBet.PayOut + completedBet.InitAmount:N0} " +
+                                           $"(Color::White)credits on {completedBet.TargetPlayer.Name}");
                     }
 
                     if (completedBet.TargetTeam != null)
                     {
-                        client.Tell($"Your bet (Color::Red)lost (Color::Cyan){completedBet.InitAmount:N0} " +
-                                    $"(Color::White)credits on {completedBet.TargetTeam}");
+                        clientMessages.Add("Your bet (Color::Green)won (Color::Cyan)" +
+                                           $"{completedBet.PayOut + completedBet.InitAmount:N0} " +
+                                           $"(Color::White)credits on {completedBet.TargetTeam}");
                     }
 
-                    expiredBet.Add(completedBet);
+                    continue;
+                }
+
+                // Loss condition
+                if (completedBet.TargetPlayer != null)
+                {
+                    clientMessages.Add($"Your bet (Color::Red)lost (Color::Cyan){completedBet.InitAmount:N0} " +
+                                       $"(Color::White)credits on {completedBet.TargetPlayer.Name}");
+                }
+
+                if (completedBet.TargetTeam != null)
+                {
+                    clientMessages.Add($"Your bet (Color::Red)lost (Color::Cyan){completedBet.InitAmount:N0} " +
+                                       $"(Color::White)credits on {completedBet.TargetTeam}");
                 }
             }
+        }
 
-            foreach (var completedBet in expiredBet)
-            {
-                _betList.Remove(completedBet);
-            }
+
+        return clientMessages;
+    }
+
+    /// <summary>
+    /// Removes expired bets from the list
+    /// </summary>
+    /// <param name="client"><see cref="EFClient"/></param>
+    public void RemoveCompletedBets(EFClient client)
+    {
+        var expiredBet = _betList.Where(completedBet => completedBet.Origin.ClientId == client.ClientId)
+            .Where(completedBet => completedBet.BetCompleted).ToList();
+
+        foreach (var destroyBet in expiredBet)
+        {
+            _betList.Remove(destroyBet);
         }
     }
 
+    // TODO: Redo this function. Yuck
     /// <summary>
     /// Main logic for map rotation - paying out and removing old bets
     /// </summary>
@@ -487,7 +511,7 @@ public class BetManager
                         {
                             if (openBet.TargetTeam == "Allies")
                             {
-                                payOut = openBet.InitAmount * openBet.TeamRankAverage;
+                                payOut = openBet.InitAmount * openBet.TeamRankAverage / openBet.TotalRanked;
 
                                 openBet.PayOut = payOut;
                                 openBet.BetCompleted = true;
@@ -528,7 +552,7 @@ public class BetManager
                         {
                             if (openBet.TargetTeam == "Axis")
                             {
-                                payOut = openBet.InitAmount * openBet.TeamRankAverage;
+                                payOut = openBet.InitAmount * openBet.TeamRankAverage / openBet.TotalRanked;
 
                                 openBet.PayOut = payOut;
                                 openBet.BetCompleted = true;

@@ -57,7 +57,7 @@ public class GambleCommand : Command
 
         if (argUserChoice is > 10 or < 1)
         {
-            gameEvent.Origin.Tell("(Color::Yellow)Accepted number range is 1 to 10");
+            gameEvent.Origin.Tell("(Color::Yellow)Accepted range is 1 to 10");
             return Task.CompletedTask;
         }
 

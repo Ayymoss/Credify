@@ -18,19 +18,10 @@ public class Plugin : IPlugin
     public static PrimaryLogic PrimaryLogic;
     public const string CreditsKey = "Credits_Amount";
     public const string CreditsTopKey = "Credits_TopList";
-    public const string CreditsStatistics = "Credits_Statistics";
+    public const string CreditsStatisticsKey = "Credits_Statistics";
     private const string CreditsPrefix = "[Credits]";
     public const int CreditsMinimumPlayers = 10;
-    public const int CreditsMaximumBetTime = 120;
-
-    // TODO: Uncomment Cancel and BetT time check logic
-    // TODO: Add Total Payout/Spent credits lifetime commands (statistics)
-
-    // TEST LIST
-    // Player Bets
-    // Completed Bets
-    // Bet Cancel
-    // Open Bets
+    public const int CreditsBetWindow = 120; // Seconds
 
     private readonly DateTime _date = DateTime.Now;
     public string Name => "Credits";
@@ -47,15 +38,16 @@ public class Plugin : IPlugin
                 break;
 
             case GameEvent.EventType.Kill: // Client Event
-                // Kill event +1 Credit on Kill - Check if in Top and Sort.
+                // Kill event +1 Credit on Kill - Check if in Top and Sort
                 PrimaryLogic.OnKill(gameEvent.Origin);
-                // If bets have been made, return the expired bet to the completed player.
+                // If bet entries, start tracking score
                 BetManager.OnKill(gameEvent.Origin);
                 break;
 
             case GameEvent.EventType.Disconnect: // Client Event
-                // Disconnect event to write back credits to database.
+                // Disconnect event to write back credits to database
                 PrimaryLogic.OnDisconnect(gameEvent.Origin);
+                // Remove client from score list
                 BetManager.OnDisconnect(gameEvent.Origin);
                 break;
 
@@ -66,7 +58,8 @@ public class Plugin : IPlugin
             case GameEvent.EventType.MapEnd: // Server Event
                 BetManager.OnMapEnd(server); // Add each server to dictionary with time last rotation.
                 break;
-            case GameEvent.EventType.JoinTeam:
+            
+            case GameEvent.EventType.JoinTeam: // Client Event
                 BetManager.OnJoinTeam(gameEvent.Origin); // Add each server to dict and update teams
                 break;
         }
@@ -87,7 +80,11 @@ public class Plugin : IPlugin
 
     public Task OnUnloadAsync()
     {
-        foreach (var client in Manager.GetActiveClients()) PrimaryLogic.OnDisconnect(client);
+        foreach (var client in Manager.GetActiveClients())
+        {
+            PrimaryLogic.OnDisconnect(client);
+        }
+        
         PrimaryLogic.WriteStatistics();
         PrimaryLogic.WriteTopScore();
 

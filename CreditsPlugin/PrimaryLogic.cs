@@ -45,7 +45,7 @@ public class PrimaryLogic
     /// Write statistics to the database
     /// </summary>
     public async void WriteStatistics() =>
-        await _metaService.SetPersistentMetaValue(Plugin.CreditsStatistics, StatisticsState);
+        await _metaService.SetPersistentMetaValue(Plugin.CreditsStatisticsKey, StatisticsState);
 
     /// <summary>
     /// Read Top Score from Database
@@ -64,7 +64,7 @@ public class PrimaryLogic
     /// </summary>
     public async void ReadStatistics()
     {
-        var statistics = (await _metaService.GetPersistentMeta(Plugin.CreditsStatistics))?.Value;
+        var statistics = (await _metaService.GetPersistentMeta(Plugin.CreditsStatisticsKey))?.Value;
         if (statistics is null) return;
 
         StatisticsState = JsonSerializer.Deserialize<StatisticsState>(statistics);
