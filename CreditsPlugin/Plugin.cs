@@ -23,9 +23,8 @@ public class Plugin : IPlugin
     public const int CreditsMinimumPlayers = 10;
     public const int CreditsBetWindow = 120; // Seconds
 
-    private readonly DateTime _date = DateTime.Now;
     public string Name => "Credits";
-    public float Version => float.Parse(_date.ToString("yyyyMMdd"));
+    public float Version => 20220403f;
     public string Author => "Amos";
 
     public Task OnEventAsync(GameEvent gameEvent, Server server)
