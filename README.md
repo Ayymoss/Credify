@@ -35,5 +35,7 @@ Credits are global and not server specific. When you run !topcredits you will se
 
 ## Requirements
 .NET Core 6
+
 IW4MAdmin version 2022.03.25.1 or later.
+
 IW4Admin Stats Plugin (Provided with IW4MAdmin)
