@@ -1,9 +1,16 @@
-# CreditPlugin
-Plugin for IW4MAdmin - tested with MW2 and CS:GO
+# CreditPlugin - Fun
+Plugin for IW4MAdmin - Tested with MW2 and CS:GO
 
 Betting system that allows people to gamble their hard earned credits by betting on a Team or player's outcome. 
 
 They can also mindlessly gamble the credits in a 0-10 RNG battle.
+
+If a new player joins the will be given their total kills as credits if they have any total kills. If not, they'll have 0 to start with. 
+Each kill grants 1 credit.
+
+Betting against a team or player requires a minimim of 10 players.
+
+Credits are global and not server specific. When you run !topcredits you will see a global result. Team/player bets are server specific.
 
 # Commands
 ## User Commands
