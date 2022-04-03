@@ -24,8 +24,8 @@ public class StatisticsCommand : Command
         gameEvent.Origin.TellAsync(new[]
         {
             "--Credit Statistics--",
-            $"Total Spent: (Color::Cyan){Plugin.PrimaryLogic.StatisticsState.CreditsSpent}",
             $"Total Earned: (Color::Cyan){Plugin.PrimaryLogic.StatisticsState.CreditsEarned}",
+            $"Total Spent: (Color::Cyan){Plugin.PrimaryLogic.StatisticsState.CreditsSpent}",
             $"Total Paid: (Color::Cyan){Plugin.PrimaryLogic.StatisticsState.CreditsPaid}"
         });
 

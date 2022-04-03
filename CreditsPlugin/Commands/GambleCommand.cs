@@ -80,16 +80,19 @@ public class GambleCommand : Command
         if (randNum == argUserChoice)
         {
             currentCredits += argAmount * 7;
-            gameEvent.Origin.Tell($"Congratulations, you won (Color::Cyan){argAmount * 7:N0} (Color::White)tokens!");
+            gameEvent.Origin.Tell($"You won (Color::Cyan){argAmount * 7:N0} (Color::White)tokens!");
             Plugin.PrimaryLogic.StatisticsState.CreditsSpent += argAmount;
             Plugin.PrimaryLogic.StatisticsState.CreditsPaid += argAmount + argAmount * 7;
         }
         else
         {
             currentCredits -= argAmount;
-            gameEvent.Origin.Tell(
-                $"Unlucky, you lost (Color::Cyan){argAmount:N0} (Color::White)credits. You chose (Color::Cyan){argUserChoice}(Color::White), the number was (Color::Cyan){randNum}(Color::White)");
-            Plugin.PrimaryLogic.StatisticsState.CreditsSpent -= argAmount;
+            gameEvent.Origin.TellAsync(new []
+                {
+                    $"You lost (Color::Cyan){argAmount:N0} (Color::White)credits", 
+                    $"You chose (Color::Cyan){argUserChoice}(Color::White), the number was (Color::Cyan){randNum}(Color::White)"
+                });
+            Plugin.PrimaryLogic.StatisticsState.CreditsSpent += argAmount;
         }
 
         gameEvent.Origin.SetAdditionalProperty(Plugin.CreditsKey, currentCredits);

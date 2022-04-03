@@ -173,7 +173,7 @@ public class BetManager
         var index = 0;
 
         foreach (var client in gameEvent.Owner.GetClientsAsList()
-                     .Where(client => TeamEnumToString(client.Team) == teamName))
+                     .Where(client => client.TeamName == teamName.ToLower()))
         {
             var serverPlayerRank = await GetPlayerRankedPosition(client.ClientId, clientServerId);
             if (serverPlayerRank == 0) continue;
@@ -467,8 +467,6 @@ public class BetManager
 
                             Plugin.PrimaryLogic.StatisticsState.CreditsSpent += openBet.InitAmount;
                         }
-
-                        _maxPlayerScore.Remove(serverId);
                     }
                 }
 
@@ -487,7 +485,7 @@ public class BetManager
 
                         if (axisScore < alliesScore) // Allies Won
                         {
-                            if (openBet.TargetTeam == TeamEnumToString(EFClient.TeamType.Allies))
+                            if (openBet.TargetTeam == "Allies")
                             {
                                 payOut = openBet.InitAmount * openBet.TeamRankAverage;
 
@@ -528,7 +526,7 @@ public class BetManager
 
                         if (axisScore > alliesScore) // Axis Won
                         {
-                            if (openBet.TargetTeam == TeamEnumToString(EFClient.TeamType.Axis))
+                            if (openBet.TargetTeam == "Axis")
                             {
                                 payOut = openBet.InitAmount * openBet.TeamRankAverage;
 
@@ -566,14 +564,22 @@ public class BetManager
                                 Plugin.PrimaryLogic.StatisticsState.CreditsSpent += openBet.InitAmount;
                             }
                         }
-
-                        foreach (var serverScore in _maxServerScore[serverId].Values)
-                        {
-                            serverScore.Score = 0;
-                        }
                     }
                 }
             }
+        }
+
+        lock (_maxServerScore)
+        {
+            foreach (var serverScore in _maxServerScore[serverId].Values)
+            {
+                serverScore.Score = 0;
+            }
+        }
+
+        lock (_maxPlayerScore)
+        {
+            _maxPlayerScore.Remove(serverId);
         }
     }
 
@@ -586,8 +592,8 @@ public class BetManager
         var clientServerId = client.CurrentServer.EndPoint;
         lock (_maxServerScore)
         {
-            if (_maxServerScore.ContainsKey(clientServerId) ||
-                _maxServerScore[clientServerId].ContainsKey(client.ClientId))
+            if (!_maxServerScore.ContainsKey(clientServerId)) return;
+            if (_maxServerScore[clientServerId].ContainsKey(client.ClientId))
             {
                 _maxServerScore[clientServerId].Remove(client.ClientId);
             }

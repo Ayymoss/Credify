@@ -22,18 +22,19 @@ public class Plugin : IPlugin
     private const string CreditsPrefix = "[Credits]";
     public const int CreditsMinimumPlayers = 10;
     public const int CreditsMaximumBetTime = 120;
-    
+
     // TODO: Uncomment Cancel and BetT time check logic
     // TODO: Add Total Payout/Spent credits lifetime commands (statistics)
-    
+
     // TEST LIST
     // Player Bets
     // Completed Bets
     // Bet Cancel
     // Open Bets
 
+    private readonly DateTime _date = DateTime.Now;
     public string Name => "Credits";
-    public float Version => 0.1f;
+    public float Version => float.Parse(_date.ToString("yyyyMMdd"));
     public string Author => "Amos";
 
     public Task OnEventAsync(GameEvent gameEvent, Server server)
@@ -53,7 +54,8 @@ public class Plugin : IPlugin
                 break;
 
             case GameEvent.EventType.Disconnect: // Client Event
-                PrimaryLogic.OnDisconnect(gameEvent.Origin); // Disconnect event to write back credits to database.
+                // Disconnect event to write back credits to database.
+                PrimaryLogic.OnDisconnect(gameEvent.Origin);
                 BetManager.OnDisconnect(gameEvent.Origin);
                 break;
 
@@ -79,7 +81,7 @@ public class Plugin : IPlugin
         PrimaryLogic.ReadStatistics();
         PrimaryLogic.ReadTopScore();
 
-        Console.WriteLine($"{CreditsPrefix} Loaded - Version: {Version}");
+        Console.WriteLine($"{CreditsPrefix} loaded ({Version})");
         return Task.CompletedTask;
     }
 
@@ -88,8 +90,8 @@ public class Plugin : IPlugin
         foreach (var client in Manager.GetActiveClients()) PrimaryLogic.OnDisconnect(client);
         PrimaryLogic.WriteStatistics();
         PrimaryLogic.WriteTopScore();
-        
-        Console.WriteLine($"{CreditsPrefix} Unloaded");
+
+        Console.WriteLine($"{CreditsPrefix} unloaded");
         return Task.CompletedTask;
     }
 

@@ -30,6 +30,47 @@ public class PrimaryLogic
         amount <= client?.GetAdditionalProperty<int>(Plugin.CreditsKey);
 
     /// <summary>
+    /// Write back player credits to database
+    /// </summary>
+    /// <param name="client">EFClient</param>
+    public async void OnDisconnect(EFClient client) => await _metaService.SetPersistentMeta(Plugin.CreditsKey,
+        client.GetAdditionalProperty<int>(Plugin.CreditsKey).ToString(), client.ClientId);
+
+    /// <summary>
+    /// Write Top Score back to database
+    /// </summary>
+    public async void WriteTopScore() => await _metaService.SetPersistentMetaValue(Plugin.CreditsTopKey, TopCredits);
+
+    /// <summary>
+    /// Write statistics to the database
+    /// </summary>
+    public async void WriteStatistics() =>
+        await _metaService.SetPersistentMetaValue(Plugin.CreditsStatistics, StatisticsState);
+
+    /// <summary>
+    /// Read Top Score from Database
+    /// </summary>
+    public async void ReadTopScore()
+    {
+        var topCreditsValue = (await _metaService.GetPersistentMeta(Plugin.CreditsTopKey))?.Value;
+
+        TopCredits = topCreditsValue is null
+            ? new List<TopCreditEntry>()
+            : JsonSerializer.Deserialize<List<TopCreditEntry>>(topCreditsValue)!;
+    }
+
+    /// <summary>
+    /// Read statistics from the database
+    /// </summary>
+    public async void ReadStatistics()
+    {
+        var statistics = (await _metaService.GetPersistentMeta(Plugin.CreditsStatistics))?.Value;
+        if (statistics is null) return;
+
+        StatisticsState = JsonSerializer.Deserialize<StatisticsState>(statistics);
+    }
+
+    /// <summary>
     /// Load player's credits from database, else create new cached credit
     /// </summary>
     /// <param name="client"></param>
@@ -72,49 +113,6 @@ public class PrimaryLogic
         client.SetAdditionalProperty(Plugin.CreditsKey, userCredits);
         OrderTop(client, userCredits);
         StatisticsState.CreditsEarned++;
-    }
-
-    /// <summary>
-    /// Write back player credits to database
-    /// </summary>
-    /// <param name="client">EFClient</param>
-    public async void OnDisconnect(EFClient client) => await _metaService.SetPersistentMeta(Plugin.CreditsKey,
-        client.GetAdditionalProperty<int>(Plugin.CreditsKey).ToString(), client.ClientId);
-
-    /// <summary>
-    /// Write Top Score back to database
-    /// </summary>
-    public async void WriteTopScore() => await _metaService.SetPersistentMetaValue(Plugin.CreditsTopKey, TopCredits);
-
-    /// <summary>
-    /// Read Top Score from Database
-    /// </summary>
-    public async void ReadTopScore()
-    {
-        var topCreditsValue = (await _metaService.GetPersistentMeta(Plugin.CreditsTopKey))?.Value;
-
-        TopCredits = topCreditsValue is null
-            ? new List<TopCreditEntry>()
-            : JsonSerializer.Deserialize<List<TopCreditEntry>>(topCreditsValue)!;
-    }
-
-    /// <summary>
-    /// Write statistics to the database
-    /// </summary>
-    public async void WriteStatistics()
-    {
-        await _metaService.SetPersistentMetaValue(Plugin.CreditsStatistics, StatisticsState);
-    }
-
-    /// <summary>
-    /// Read statistics from the database
-    /// </summary>
-    public async void ReadStatistics()
-    {
-        var statistics = (await _metaService.GetPersistentMeta(Plugin.CreditsStatistics))?.Value;
-        if (statistics is null) return;
-
-        StatisticsState = JsonSerializer.Deserialize<StatisticsState>(statistics);
     }
 
     /// <summary>
