@@ -18,7 +18,7 @@ Credits are global and not server specific. When you run !topcredits you will se
 ```
   !credits <optional name> (!cr) - Returns yours or someone's credits.
   !topcredits (!tcr) - List top players by credits.
-  !gamble <0-10> <amount> (!gmb) - Gambles your credits, 1 in 10 chance, return is double your money.
+  !gamble <0-10> <amount> (!gmb) - Gambles your credits, 1 in 10 chance, return is 7x your stake.
   !betplayer <name> <amount> (!betp) - Bet on a player to win - Payout is proportionate based on their ELO.
   !betteam <name> <amount> (!bett) - Bet on a team to win - Payout is proportionate based team's average ELO.
   !claimbets (!cb) - Claim any expired/completed bets you've previously made. (No credits lost if unclaimed)
