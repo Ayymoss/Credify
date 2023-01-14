@@ -15,7 +15,7 @@ public class PrimaryLogic
         _contextFactory = contextFactory;
     }
 
-    public static List<TopCreditEntry> TopCredits;
+    public static List<TopCreditEntry> TopCredits = null!;
     private readonly IDatabaseContextFactory _contextFactory;
     private readonly IMetaServiceV2 _metaService;
     public StatisticsState StatisticsState = new();
@@ -27,7 +27,7 @@ public class PrimaryLogic
     /// <param name="amount">Amount of credits to check EFClient has</param>
     /// <returns>Boolean. True if has funds. False if doesn't.</returns>
     public bool AvailableFunds(EFClient client, int amount) =>
-        amount <= client?.GetAdditionalProperty<int>(Plugin.CreditsKey);
+        amount <= client.GetAdditionalProperty<int>(Plugin.CreditsKey);
 
     /// <summary>
     /// Write back player credits to database
@@ -67,7 +67,9 @@ public class PrimaryLogic
         var statistics = (await _metaService.GetPersistentMeta(Plugin.CreditsStatisticsKey))?.Value;
         if (statistics is null) return;
 
-        StatisticsState = JsonSerializer.Deserialize<StatisticsState>(statistics);
+        var json = JsonSerializer.Deserialize<StatisticsState>(statistics);
+        if (json is null) Console.WriteLine("Failed to deserialize statistics");
+        else StatisticsState = json;
     }
 
     /// <summary>
@@ -133,7 +135,7 @@ public class PrimaryLogic
     /// <param name="amount">Amount of Credits from Additional Properties</param>
     public void OrderTop(EFClient client, int amount)
     {
-        lock (TopCredits!)
+        lock (TopCredits)
         {
             // If the top hasn't got 5 entries yet add user - check for duplicates.
             if (TopCredits.Count < 5 && !ExistInTop(client.ClientId))
@@ -142,25 +144,27 @@ public class PrimaryLogic
             }
 
             //If the target's credits are greater than last item OR already exists in top, sort & update top.
-            if (amount > TopCredits.Last().Credits || ExistInTop(client.ClientId))
-            {
-                var existingCredEntry = TopCredits.FirstOrDefault(credit => credit.ClientId == client.ClientId);
-                // Doesn't exist in top - Create new entry and sort
-                if (existingCredEntry is null)
-                {
-                    TopCredits.Add(new TopCreditEntry
-                    {
-                        ClientId = client.ClientId,
-                        Credits = amount
-                    });
-                }
-                else // Exists already in top, just set credits and update
-                {
-                    existingCredEntry.Credits = amount;
-                }
+            if (amount <= TopCredits.Last().Credits && !ExistInTop(client.ClientId)) return;
 
-                TopCredits = TopCredits.OrderByDescending(credit => credit.Credits).Take(5).ToList();
+            var existingCredEntry = TopCredits.FirstOrDefault(credit => credit.ClientId == client.ClientId);
+            // Doesn't exist in top - Create new entry and sort
+            if (existingCredEntry is null)
+            {
+                TopCredits.Add(new TopCreditEntry
+                {
+                    ClientId = client.ClientId,
+                    Credits = amount
+                });
             }
+            else // Exists already in top, just set credits and update
+            {
+                existingCredEntry.Credits = amount;
+            }
+
+            TopCredits = TopCredits
+                .OrderByDescending(credit => credit.Credits)
+                .Take(5)
+                .ToList();
         }
     }
 }

@@ -79,10 +79,10 @@ public class GambleCommand : Command
 
         if (randNum == argUserChoice)
         {
-            currentCredits += argAmount * 7;
-            gameEvent.Origin.Tell($"You won (Color::Cyan){argAmount * 7:N0} (Color::White)tokens!");
+            currentCredits += argAmount * 8;
+            gameEvent.Origin.Tell($"You won (Color::Cyan){argAmount * 8:N0} (Color::White)tokens!");
             Plugin.PrimaryLogic.StatisticsState.CreditsSpent += argAmount;
-            Plugin.PrimaryLogic.StatisticsState.CreditsPaid += argAmount + argAmount * 7;
+            Plugin.PrimaryLogic.StatisticsState.CreditsPaid += argAmount + argAmount * 8;
         }
         else
         {
