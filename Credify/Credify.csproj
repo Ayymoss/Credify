@@ -7,7 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="RaidMax.IW4MAdmin.SharedLibraryCore" Version="2022.10.13.1" />
+    <PackageReference Include="RaidMax.IW4MAdmin.SharedLibraryCore" Version="2023.4.15.3" />
   </ItemGroup>
 
   <ItemGroup>
@@ -15,5 +15,5 @@
       <HintPath>bin\Debug\net6.0\Stats.dll</HintPath>
     </Reference>
   </ItemGroup>
-
+  
 </Project>

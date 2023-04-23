@@ -1,56 +1,43 @@
 ﻿using System.Text.Json;
+using Credify.Models;
 using Data.Abstractions;
 using Data.Models.Client.Stats;
 using Microsoft.EntityFrameworkCore;
+using SharedLibraryCore;
 using SharedLibraryCore.Database.Models;
 using SharedLibraryCore.Interfaces;
 
-namespace CreditsPlugin;
+namespace Credify;
 
-public class PrimaryLogic
+public class BetLogic
 {
-    public PrimaryLogic(IMetaServiceV2 metaService, IDatabaseContextFactory contextFactory)
+    private readonly IDatabaseContextFactory _contextFactory;
+    private readonly CredifyConfiguration _credifyConfig;
+    private readonly IMetaServiceV2 _metaService;
+    public List<TopCreditEntry> TopCredits { get; private set; } = new();
+    public StatisticsState StatisticsState { get; private set; } = new();
+
+    public BetLogic(IMetaServiceV2 metaService, IDatabaseContextFactory contextFactory, CredifyConfiguration credifyConfig)
     {
         _metaService = metaService;
         _contextFactory = contextFactory;
+        _credifyConfig = credifyConfig;
     }
 
-    public static List<TopCreditEntry> TopCredits = null!;
-    private readonly IDatabaseContextFactory _contextFactory;
-    private readonly IMetaServiceV2 _metaService;
-    public StatisticsState StatisticsState = new();
-
-    /// <summary>
-    /// Return true/false based on available funds
-    /// </summary>
-    /// <param name="client">EFClient</param>
-    /// <param name="amount">Amount of credits to check EFClient has</param>
-    /// <returns>Boolean. True if has funds. False if doesn't.</returns>
     public bool AvailableFunds(EFClient client, int amount) =>
         amount <= client.GetAdditionalProperty<int>(Plugin.CreditsKey);
 
-    /// <summary>
-    /// Write back player credits to database
-    /// </summary>
-    /// <param name="client">EFClient</param>
-    public async void OnDisconnect(EFClient client) => await _metaService.SetPersistentMeta(Plugin.CreditsKey,
-        client.GetAdditionalProperty<int>(Plugin.CreditsKey).ToString(), client.ClientId);
+    public async Task OnDisconnectAsync(EFClient client) =>
+        await _metaService.SetPersistentMeta(Plugin.CreditsKey,
+            client.GetAdditionalProperty<int>(Plugin.CreditsKey).ToString(), client.ClientId);
 
-    /// <summary>
-    /// Write Top Score back to database
-    /// </summary>
-    public async void WriteTopScore() => await _metaService.SetPersistentMetaValue(Plugin.CreditsTopKey, TopCredits);
+    public async Task WriteTopScoreAsync() =>
+        await _metaService.SetPersistentMetaValue(Plugin.CreditsTopKey, TopCredits);
 
-    /// <summary>
-    /// Write statistics to the database
-    /// </summary>
-    public async void WriteStatistics() =>
+    public async Task WriteStatisticsAsync() =>
         await _metaService.SetPersistentMetaValue(Plugin.CreditsStatisticsKey, StatisticsState);
 
-    /// <summary>
-    /// Read Top Score from Database
-    /// </summary>
-    public async void ReadTopScore()
+    public async Task ReadTopScoreAsync()
     {
         var topCreditsValue = (await _metaService.GetPersistentMeta(Plugin.CreditsTopKey))?.Value;
 
@@ -59,10 +46,7 @@ public class PrimaryLogic
             : JsonSerializer.Deserialize<List<TopCreditEntry>>(topCreditsValue)!;
     }
 
-    /// <summary>
-    /// Read statistics from the database
-    /// </summary>
-    public async void ReadStatistics()
+    public async Task ReadStatisticsAsync()
     {
         var statistics = (await _metaService.GetPersistentMeta(Plugin.CreditsStatisticsKey))?.Value;
         if (statistics is null) return;
@@ -72,11 +56,7 @@ public class PrimaryLogic
         else StatisticsState = json;
     }
 
-    /// <summary>
-    /// Load player's credits from database, else create new cached credit
-    /// </summary>
-    /// <param name="client"></param>
-    public async void OnJoin(EFClient client)
+    public async Task OnJoinAsync(EFClient client)
     {
         // Get pre-initialised credits
         var userCredits = (await _metaService.GetPersistentMeta(Plugin.CreditsKey, client.ClientId))?.Value;
@@ -101,13 +81,9 @@ public class PrimaryLogic
         }
 
         client.SetAdditionalProperty(Plugin.CreditsKey, int.Parse(userCredits));
-        client.Tell($"You have (Color::Cyan){int.Parse(userCredits):N0} (Color::White)credits");
+        client.Tell(_credifyConfig.Translations.UserCredits.FormatExt($"{int.Parse(userCredits):N0}"));
     }
 
-    /// <summary>
-    /// Increment cached credits
-    /// </summary>
-    /// <param name="client">GameEvent</param>
     public void OnKill(EFClient client)
     {
         var userCredits = client.GetAdditionalProperty<int>(Plugin.CreditsKey);
@@ -117,22 +93,12 @@ public class PrimaryLogic
         StatisticsState.CreditsEarned++;
     }
 
-    /// <summary>
-    /// Return true if duplicate exists
-    /// </summary>
-    /// <param name="targetClientId">Client ID from EFClient</param>
-    /// <returns>Boolean. True if exist. False if doesn't</returns>
     private bool ExistInTop(int targetClientId)
     {
-        var topResult = TopCredits?.FirstOrDefault(i => i.ClientId == targetClientId);
-        return topResult != null;
+        var topResult = TopCredits.FirstOrDefault(i => i.ClientId == targetClientId);
+        return topResult is not null;
     }
 
-    /// <summary>
-    /// Order (Used on kill update/gamble)
-    /// </summary>
-    /// <param name="client">EFClient</param>
-    /// <param name="amount">Amount of Credits from Additional Properties</param>
     public void OrderTop(EFClient client, int amount)
     {
         lock (TopCredits)
@@ -167,17 +133,4 @@ public class PrimaryLogic
                 .ToList();
         }
     }
-}
-
-public class TopCreditEntry
-{
-    public int ClientId { get; init; }
-    public int Credits { get; set; }
-}
-
-public class StatisticsState
-{
-    public int CreditsSpent { get; set; }
-    public int CreditsEarned { get; set; }
-    public int CreditsPaid { get; set; }
 }

@@ -3,15 +3,21 @@ using SharedLibraryCore;
 using SharedLibraryCore.Configuration;
 using SharedLibraryCore.Interfaces;
 
-namespace CreditsPlugin.Commands;
+namespace Credify.Commands;
 
 public class ClaimBetsCommand : Command
 {
-    public ClaimBetsCommand(CommandConfiguration config, ITranslationLookup translationLookup) :
+    private readonly BetManager _betManager;
+    private readonly CredifyConfiguration _credifyConfig;
+
+    public ClaimBetsCommand(CommandConfiguration config, ITranslationLookup translationLookup, BetManager betManager,
+        CredifyConfiguration credifyConfig) :
         base(config, translationLookup)
     {
+        _betManager = betManager;
+        _credifyConfig = credifyConfig;
         Name = "claimbets";
-        Description = "Claims your completed bets";
+        Description = credifyConfig.Translations.CommandClaimCompletedBetsDescription;
         Alias = "cb";
         Permission = EFClient.Permission.User;
         RequiresTarget = false;
@@ -19,18 +25,16 @@ public class ClaimBetsCommand : Command
 
     public override async Task ExecuteAsync(GameEvent gameEvent)
     {
-        if (gameEvent.Type != GameEvent.EventType.Command) return;
-
         // If bets have been made, return the expired bet to the completed player.
-        var completedMessages = Plugin.BetManager.CompletedBetsMessages(gameEvent.Origin);
+        var completedMessages = _betManager.CompletedBetsMessages(gameEvent.Origin);
 
         if (completedMessages is not null && completedMessages.Any())
         {
             await gameEvent.Origin.TellAsync(completedMessages);
-            Plugin.BetManager.RemoveCompletedBets(gameEvent.Origin);
+            _betManager.RemoveCompletedBets(gameEvent.Origin);
             return;
         }
 
-        gameEvent.Origin.Tell("(Color::Yellow)You have no completed bets to claim");
+        gameEvent.Origin.Tell(_credifyConfig.Translations.NoCompletedBetsToClaim);
     }
 }

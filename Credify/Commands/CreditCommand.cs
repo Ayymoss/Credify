@@ -1,18 +1,21 @@
-﻿using SharedLibraryCore;
+﻿using Data.Models.Client;
+using SharedLibraryCore;
 using SharedLibraryCore.Commands;
 using SharedLibraryCore.Configuration;
 using SharedLibraryCore.Interfaces;
-using Data.Models.Client;
 
-namespace CreditsPlugin.Commands;
+namespace Credify.Commands;
 
 public class CreditCommand : Command
 {
-    public CreditCommand(CommandConfiguration config, ITranslationLookup translationLookup) :
+    private readonly CredifyConfiguration _credifyConfig;
+
+    public CreditCommand(CommandConfiguration config, ITranslationLookup translationLookup, CredifyConfiguration credifyConfig) :
         base(config, translationLookup)
     {
+        _credifyConfig = credifyConfig;
         Name = "credits";
-        Description = "Check your credits.";
+        Description = credifyConfig.Translations.CommandCheckCreditsDescription;
         Alias = "cr";
         Permission = EFClient.Permission.User;
         RequiresTarget = false;
@@ -28,8 +31,6 @@ public class CreditCommand : Command
 
     public override Task ExecuteAsync(GameEvent gameEvent)
     {
-        if (gameEvent.Type != GameEvent.EventType.Command) return Task.CompletedTask;
-
         // Get argument from command.
         var argPlayer = gameEvent.Data;
         gameEvent.Target = gameEvent.Owner.GetClientByName(argPlayer).FirstOrDefault();
@@ -37,21 +38,21 @@ public class CreditCommand : Command
         // Check for valid target.
         if (gameEvent.Data.Length != 0 && gameEvent.Target == null)
         {
-            gameEvent.Origin.Tell("(Color::Yellow)Error trying to find user");
+            gameEvent.Origin.Tell(_credifyConfig.Translations.ErrorFindingTargetUser);
             return Task.CompletedTask;
         }
 
         // Return player's credits
         if (gameEvent.Target != null)
         {
-            gameEvent.Origin.Tell(
-                $"{gameEvent.Target.Name} (Color::White)has (Color::Cyan){gameEvent.Target.GetAdditionalProperty<int>(Plugin.CreditsKey):N0} (Color::White)credits");
+            gameEvent.Origin.Tell(_credifyConfig.Translations.TargetCredits.FormatExt(gameEvent.Target.Name,
+                $"{gameEvent.Target.GetAdditionalProperty<int>(Plugin.CreditsKey):N0}"));
             return Task.CompletedTask;
         }
 
         // If no target specified
-        gameEvent.Origin.Tell(
-            $"You have (Color::Cyan){gameEvent.Origin.GetAdditionalProperty<int>(Plugin.CreditsKey):N0} (Color::White)credits");
+        gameEvent.Origin.Tell(_credifyConfig.Translations.OriginCredits
+            .FormatExt($"{gameEvent.Origin.GetAdditionalProperty<int>(Plugin.CreditsKey):N0}"));
         return Task.CompletedTask;
     }
 }
