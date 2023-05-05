@@ -13,7 +13,7 @@ public class CreditHelpCommand : Command
         layout)
     {
         _credifyConfig = credifyConfig;
-        Name = "creditshelp";
+        Name = "credifyhelp";
         Description = credifyConfig.Translations.CommandHelpDescription;
         Alias = "crhelp";
         Permission = EFClient.Permission.User;
@@ -28,9 +28,15 @@ public class CreditHelpCommand : Command
             _credifyConfig.Translations.HelpHelp,
             _credifyConfig.Translations.HelpStatistics,
             _credifyConfig.Translations.HelpTopCredits,
+            _credifyConfig.Translations.HelpPayCredits,
             _credifyConfig.Translations.HelpBetPlayer,
             _credifyConfig.Translations.HelpBetTeam,
+            _credifyConfig.Translations.HelpOpenBets,
             _credifyConfig.Translations.HelpClaimBets,
+            _credifyConfig.Translations.HelpShop,
+            _credifyConfig.Translations.HelpShopInventory,
+            _credifyConfig.Translations.HelpShopBuy,
+            _credifyConfig.Translations.HelpLotto,
             _credifyConfig.Translations.HelpGamble
         });
     }

@@ -7,18 +7,18 @@ namespace Credify.Commands;
 
 public class StatisticsCommand : Command
 {
-    private readonly BetLogic _betLogic;
+    private readonly PersistenceManager _persistenceManager;
     private readonly CredifyConfiguration _credifyConfig;
 
-    public StatisticsCommand(CommandConfiguration config, ITranslationLookup translationLookup, BetLogic betLogic,
+    public StatisticsCommand(CommandConfiguration config, ITranslationLookup translationLookup, PersistenceManager persistenceManager,
         CredifyConfiguration credifyConfig) :
         base(config, translationLookup)
     {
-        _betLogic = betLogic;
+        _persistenceManager = persistenceManager;
         _credifyConfig = credifyConfig;
-        Name = "creditstats";
+        Name = "credifytats";
         Description = credifyConfig.Translations.CommandStatisticsDescription;
-        Alias = "statscr";
+        Alias = "crstats";
         Permission = EFClient.Permission.User;
         RequiresTarget = false;
     }
@@ -27,10 +27,11 @@ public class StatisticsCommand : Command
     {
         await gameEvent.Origin.TellAsync(new[]
         {
-            _credifyConfig.Translations.CreditStatisticsTitle,
-            _credifyConfig.Translations.TotalEarnedCredits.FormatExt(_betLogic.StatisticsState.CreditsEarned),
-            _credifyConfig.Translations.TotalSpentCredits.FormatExt(_betLogic.StatisticsState.CreditsSpent),
-            _credifyConfig.Translations.TotalWonCredits.FormatExt(_betLogic.StatisticsState.CreditsPaid)
+            _credifyConfig.Translations.StatsHeader,
+            _credifyConfig.Translations.StatsBankCredits.FormatExt($"{_persistenceManager.BankCredits:N0}"),
+            _credifyConfig.Translations.StatsTotalEarnedCredits.FormatExt($"{_persistenceManager.StatisticsState.CreditsEarned:N0}"),
+            _credifyConfig.Translations.StatsTotalSpentCredits.FormatExt($"{_persistenceManager.StatisticsState.CreditsSpent:N0}"),
+            _credifyConfig.Translations.StatsTotalWonCredits.FormatExt($"{_persistenceManager.StatisticsState.CreditsWon:N0}")
         });
     }
 }

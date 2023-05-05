@@ -9,22 +9,22 @@ namespace Credify.Commands;
 
 public class BetPlayerCommand : Command
 {
-    private readonly BetLogic _betLogic;
+    private readonly PersistenceManager _persistenceManager;
     private readonly BetManager _betManager;
     private readonly CredifyConfiguration _credifyConfig;
 
-    public BetPlayerCommand(CommandConfiguration config, ITranslationLookup translationLookup, BetLogic betLogic, BetManager betManager,
+    public BetPlayerCommand(CommandConfiguration config, ITranslationLookup translationLookup, PersistenceManager persistenceManager, BetManager betManager,
         CredifyConfiguration credifyConfig) :
         base(config, translationLookup)
     {
-        _betLogic = betLogic;
+        _persistenceManager = persistenceManager;
         _betManager = betManager;
         _credifyConfig = credifyConfig;
-        Name = "betplayer";
-        Alias = "betp";
+        Name = "credifybetplayer";
+        Alias = "crbp";
         Description = credifyConfig.Translations.CommandBetPlayerDescription;
         Permission = EFClient.Permission.User;
-        RequiresTarget = false;
+        RequiresTarget = true;
         Arguments = new[]
         {
             new CommandArgument
@@ -42,24 +42,16 @@ public class BetPlayerCommand : Command
 
     public override async Task ExecuteAsync(GameEvent gameEvent)
     {
-        var argStr = gameEvent.Data.Split(" ");
+        var amount = gameEvent.Data;
 
-        if (argStr[1] == "all")
+        if (amount == "all")
         {
-            argStr[1] = gameEvent.Origin.GetAdditionalProperty<int>(Plugin.CreditsKey).ToString();
+            amount = gameEvent.Origin.GetAdditionalProperty<int>(Plugin.CreditsKey).ToString();
         }
 
-        if (!int.TryParse(argStr[1], out var argAmount))
+        if (!uint.TryParse(amount, out var argAmount))
         {
             gameEvent.Origin.Tell(_credifyConfig.Translations.ErrorParsingSecondArgument);
-            return;
-        }
-
-        gameEvent.Target = gameEvent.Owner.GetClientByName(argStr[0]).FirstOrDefault();
-
-        if (gameEvent.Target == null)
-        {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.ErrorFindingTargetUser);
             return;
         }
 
@@ -69,7 +61,7 @@ public class BetPlayerCommand : Command
             return;
         }
 
-        if (!_betLogic.AvailableFunds(gameEvent.Origin, argAmount))
+        if (!_persistenceManager.AvailableFunds(gameEvent.Origin, argAmount))
         {
             gameEvent.Origin.Tell(_credifyConfig.Translations.InsufficientCredits);
             return;
@@ -78,20 +70,17 @@ public class BetPlayerCommand : Command
         if (!_betManager.MaximumTimePassed(gameEvent.Origin))
         {
             gameEvent.Origin.Tell(_credifyConfig.Translations.BetWindowRestriction
-                .FormatExt(_betManager.CreditsBetWindow.Humanize()));
+                .FormatExt(_credifyConfig.Core.CreditsTeamPlayerBetWindow.Humanize()));
             return;
         }
 
         if (!_betManager.MinimumPlayers(gameEvent.Origin))
         {
             gameEvent.Origin.Tell(_credifyConfig.Translations.MinimumPlayersNeeded
-                .FormatExt(_credifyConfig.MinimumPlayersRequiredForPlayerAndTeamBets));
+                .FormatExt(_credifyConfig.Core.MinimumPlayersRequiredForPlayerAndTeamBets));
             return;
         }
 
-        if (gameEvent.Target != null)
-        {
-            await _betManager.CreatePlayerBet(gameEvent, argAmount);
-        }
+        if (gameEvent.Target != null) await _betManager.CreatePlayerBet(gameEvent, argAmount);
     }
 }

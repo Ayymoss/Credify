@@ -8,20 +8,20 @@ namespace Credify.Commands;
 
 public class SetCreditsCommand : Command
 {
-    private readonly BetLogic _betLogic;
+    private readonly PersistenceManager _persistenceManager;
     private readonly CredifyConfiguration _credifyConfig;
 
-    public SetCreditsCommand(CommandConfiguration config, ITranslationLookup translationLookup, BetLogic betLogic,
+    public SetCreditsCommand(CommandConfiguration config, ITranslationLookup translationLookup, PersistenceManager persistenceManager,
         CredifyConfiguration credifyConfig) :
         base(config, translationLookup)
     {
-        _betLogic = betLogic;
+        _persistenceManager = persistenceManager;
         _credifyConfig = credifyConfig;
-        Name = "setcredits";
+        Name = "credifysetcredits";
         Description = credifyConfig.Translations.CommandSetCreditsDescription;
-        Alias = "scr";
+        Alias = "crset";
         Permission = EFClient.Permission.Owner;
-        RequiresTarget = false;
+        RequiresTarget = true;
         Arguments = new[]
         {
             new CommandArgument
@@ -37,35 +37,23 @@ public class SetCreditsCommand : Command
         };
     }
 
-    public override Task ExecuteAsync(GameEvent gameEvent)
+    public override async Task ExecuteAsync(GameEvent gameEvent)
     {
-        var argStr = gameEvent.Data.Split(" ");
+        var amount = gameEvent.Data;
 
-        if (!int.TryParse(argStr[1], out var argAmount))
+        if (!long.TryParse(amount, out var argAmount))
         {
             gameEvent.Origin.Tell(_credifyConfig.Translations.ErrorParsingSecondArgument);
-            return Task.CompletedTask;
+            return;
         }
-
-        gameEvent.Target = gameEvent.Owner.GetClientByName(argStr[0]).FirstOrDefault();
-
-        if (gameEvent.Target == null)
-        {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.ErrorFindingUser);
-            return Task.CompletedTask;
-        }
-
-        // Check if target isn't null - Set credits, sort, and tell the origin and target.
-        if (gameEvent.Target == null) return Task.CompletedTask;
 
         gameEvent.Target.SetAdditionalProperty(Plugin.CreditsKey, Math.Abs(argAmount));
-        gameEvent.Origin.Tell(
-            _credifyConfig.Translations.SetCreditsForTarget.FormatExt(gameEvent.Target.Name, $"{Math.Abs(argAmount):N0}"));
+        gameEvent.Origin.Tell(_credifyConfig.Translations.SetCreditsForTarget
+            .FormatExt(gameEvent.Target.Name, $"{Math.Abs(argAmount):N0}"));
         if (gameEvent.Origin.ClientId != gameEvent.Target.ClientId)
-            gameEvent.Target.Tell(
-                _credifyConfig.Translations.CreditsSetByOrigin.FormatExt(gameEvent.Origin.Name, $"{Math.Abs(argAmount):N0}"));
-        _betLogic.OrderTop(gameEvent.Target, Math.Abs(argAmount));
-
-        return Task.CompletedTask;
+            gameEvent.Target.Tell(_credifyConfig.Translations.CreditsSetByOrigin
+                .FormatExt(gameEvent.Origin.Name, $"{Math.Abs(argAmount):N0}"));
+        _persistenceManager.OrderTop(gameEvent.Target, Math.Abs(argAmount));
+        await _persistenceManager.WriteClientCredits(gameEvent.Target, argAmount);
     }
 }

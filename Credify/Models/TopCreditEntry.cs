@@ -1,7 +1,7 @@
 namespace Credify.Models;
 
-public class TopCreditEntry
+public record TopCreditEntry
 {
     public int ClientId { get; init; }
-    public int Credits { get; set; }
+    public long Credits { get; set; }
 }

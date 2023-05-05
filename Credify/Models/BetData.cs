@@ -2,7 +2,7 @@
 
 namespace Credify.Models;
 
-public class BetData
+public record BetData
 {
     public EFClient Origin { get; init; } = null!;
     public EFClient? TargetPlayer { get; init; }
@@ -11,8 +11,8 @@ public class BetData
     public int TeamRankAverage { get; init; }
     public int TargetPlayerRank { get; init; }
     public int TotalRanked { get; init; }
-    public int InitAmount { get; init; }
-    public int PayOut { get; set; }
+    public long InitAmount { get; init; }
+    public long PayOut { get; set; }
     public string? Message { get; set; }
     public bool TargetWon { get; set; }
     public bool BetCompleted { get; set; }

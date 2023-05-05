@@ -17,9 +17,9 @@ public class CancelBetsCommand : Command
     {
         _betManager = betManager;
         _credifyConfig = credifyConfig;
-        Name = "cancelbets";
+        Name = "credifycancelbets";
         Description = credifyConfig.Translations.CommandCancelOpenBetsDescription;
-        Alias = "cnclb";
+        Alias = "crcnb";
         Permission = EFClient.Permission.User;
         RequiresTarget = false;
     }
@@ -29,7 +29,7 @@ public class CancelBetsCommand : Command
         if (!_betManager.MaximumTimePassed(gameEvent.Origin))
         {
             gameEvent.Origin.Tell(_credifyConfig.Translations.BetsOnlyAcceptedDuringWindow
-                .FormatExt(_betManager.CreditsBetWindow.Humanize()));
+                .FormatExt(_credifyConfig.Core.CreditsTeamPlayerBetWindow.Humanize()));
             return Task.CompletedTask;
         }
 

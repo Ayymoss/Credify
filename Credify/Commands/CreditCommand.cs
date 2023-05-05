@@ -9,12 +9,14 @@ namespace Credify.Commands;
 public class CreditCommand : Command
 {
     private readonly CredifyConfiguration _credifyConfig;
+    private readonly PersistenceManager _persistenceManager;
 
-    public CreditCommand(CommandConfiguration config, ITranslationLookup translationLookup, CredifyConfiguration credifyConfig) :
+    public CreditCommand(CommandConfiguration config, ITranslationLookup translationLookup, CredifyConfiguration credifyConfig, PersistenceManager persistenceManager) :
         base(config, translationLookup)
     {
         _credifyConfig = credifyConfig;
-        Name = "credits";
+        _persistenceManager = persistenceManager;
+        Name = "credify";
         Description = credifyConfig.Translations.CommandCheckCreditsDescription;
         Alias = "cr";
         Permission = EFClient.Permission.User;
@@ -29,7 +31,7 @@ public class CreditCommand : Command
         };
     }
 
-    public override Task ExecuteAsync(GameEvent gameEvent)
+    public override async Task ExecuteAsync(GameEvent gameEvent)
     {
         // Get argument from command.
         var argPlayer = gameEvent.Data;
@@ -39,20 +41,25 @@ public class CreditCommand : Command
         if (gameEvent.Data.Length != 0 && gameEvent.Target == null)
         {
             gameEvent.Origin.Tell(_credifyConfig.Translations.ErrorFindingTargetUser);
-            return Task.CompletedTask;
+            return;
         }
+
+        var credits = await _persistenceManager.GetClientCredits(gameEvent.Origin);
 
         // Return player's credits
         if (gameEvent.Target != null)
         {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.TargetCredits.FormatExt(gameEvent.Target.Name,
-                $"{gameEvent.Target.GetAdditionalProperty<int>(Plugin.CreditsKey):N0}"));
-            return Task.CompletedTask;
+            credits = await _persistenceManager.GetClientCredits(gameEvent.Target);
+            gameEvent.Origin.Tell(_credifyConfig.Translations.TargetCredits.FormatExt(gameEvent.Target.Name, $"{credits:N0}"));
+            return;
         }
 
         // If no target specified
-        gameEvent.Origin.Tell(_credifyConfig.Translations.OriginCredits
-            .FormatExt($"{gameEvent.Origin.GetAdditionalProperty<int>(Plugin.CreditsKey):N0}"));
-        return Task.CompletedTask;
+        await gameEvent.Origin.TellAsync(new[]
+        {
+            _credifyConfig.Translations.OriginCredits.FormatExt($"{credits:N0}"),
+            _credifyConfig.Translations.ServerBankCredits.FormatExt($"{_persistenceManager.BankCredits:N0}")
+        });
+
     }
 }

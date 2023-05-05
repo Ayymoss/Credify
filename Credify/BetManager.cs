@@ -3,7 +3,6 @@ using System.Linq.Expressions;
 using Credify.Models;
 using Data.Abstractions;
 using Data.Models.Client.Stats;
-using IW4MAdmin.Plugins.Stats;
 using Microsoft.EntityFrameworkCore;
 using SharedLibraryCore;
 using SharedLibraryCore.Database.Models;
@@ -15,7 +14,7 @@ public class BetManager
 {
     #region Fields
 
-    private readonly BetLogic _betLogic;
+    private readonly PersistenceManager _persistenceManager;
     private readonly StatsConfiguration _configStats;
     private readonly CredifyConfiguration _credifyConfig;
     private readonly IDatabaseContextFactory _contextFactory;
@@ -28,14 +27,14 @@ public class BetManager
     private readonly SemaphoreSlim _onKill = new(1, 1);
     private readonly SemaphoreSlim _onUpdate = new(1, 1);
     private readonly SemaphoreSlim _onDisconnect = new(1, 1);
-    public TimeSpan CreditsBetWindow = TimeSpan.FromSeconds(120);
 
     #endregion
 
-    public BetManager(BetLogic betLogic, IDatabaseContextFactory contextFactory, StatsConfiguration statsConfigStats,
+    public BetManager(PersistenceManager persistenceManager, IDatabaseContextFactory contextFactory,
+        StatsConfiguration statsConfigStats,
         CredifyConfiguration credifyConfig)
     {
-        _betLogic = betLogic;
+        _persistenceManager = persistenceManager;
         _configStats = statsConfigStats;
         _credifyConfig = credifyConfig;
         _contextFactory = contextFactory;
@@ -45,14 +44,17 @@ public class BetManager
 
     public IReadOnlyList<BetData> GetBetsList() => _betList;
 
+    private static bool IsSpectatorOrUnknown(EFClient.TeamType team) =>
+        team is EFClient.TeamType.Spectator or EFClient.TeamType.Unknown;
+
     public bool MinimumPlayers(EFClient client) =>
-        client.CurrentServer.GetClientsAsList().Count >= _credifyConfig.MinimumPlayersRequiredForPlayerAndTeamBets;
+        client.CurrentServer.GetClientsAsList().Count >= _credifyConfig.Core.MinimumPlayersRequiredForPlayerAndTeamBets;
 
     #endregion
 
     #region Bet Management
 
-    public async Task CreatePlayerBet(GameEvent gameEvent, int amount)
+    public async Task CreatePlayerBet(GameEvent gameEvent, long amount)
     {
         var clientServerId = await gameEvent.Origin.CurrentServer.GetIdForServer();
         var serverPlayerRank = await GetPlayerRankedPosition(gameEvent.Origin.ClientId, clientServerId);
@@ -60,7 +62,8 @@ public class BetManager
 
         if (serverPlayerRank == 0)
         {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.TargetPlayerNeedsToBeRanked.FormatExt(gameEvent.Target.Name));
+            gameEvent.Origin.Tell(
+                _credifyConfig.Translations.TargetPlayerNeedsToBeRanked.FormatExt(gameEvent.Target.Name));
             return;
         }
 
@@ -75,10 +78,11 @@ public class BetManager
             BetCompleted = false
         });
 
-        gameEvent.Origin.Tell(_credifyConfig.Translations.BetCreatedOnTarget.FormatExt(gameEvent.Target.Name, $"{amount:N0}"));
+        gameEvent.Origin.Tell(
+            _credifyConfig.Translations.BetCreatedOnTarget.FormatExt(gameEvent.Target.Name, $"{amount:N0}"));
     }
 
-    public async void CreateTeamBet(GameEvent gameEvent, string teamName, int amount)
+    public async void CreateTeamBet(GameEvent gameEvent, string teamName, long amount)
     {
         var clientServerId = await gameEvent.Origin.CurrentServer.GetIdForServer();
         var serverTotalRanked = await GetTotalRankedPlayers(clientServerId);
@@ -117,31 +121,31 @@ public class BetManager
         gameEvent.Origin.Tell(_credifyConfig.Translations.BetCreatedOnTarget.FormatExt(teamName, $"{amount:N0}"));
     }
 
-    private async Task CompleteBet(BetData openBet, int previousCredits, bool targetWon)
+    private async Task CompleteBet(BetData openBet, long previousCredits, bool targetWon)
     {
         openBet.BetCompleted = true;
         openBet.TargetWon = targetWon;
 
-        if (openBet.Origin.State == EFClient.ClientState.Connected)
+        if (openBet.Origin.State is EFClient.ClientState.Connected)
         {
             openBet.Origin.SetAdditionalProperty(Plugin.CreditsKey,
                 targetWon ? previousCredits + openBet.PayOut : previousCredits - openBet.PayOut);
         }
         else
         {
-            await _betLogic.OnDisconnectAsync(openBet.Origin);
+            await _persistenceManager.WriteClientCredits(openBet.Origin);
         }
 
-        _betLogic.StatisticsState.CreditsSpent += openBet.InitAmount;
+        _persistenceManager.StatisticsState.CreditsSpent += openBet.InitAmount;
 
         if (targetWon)
         {
-            _betLogic.StatisticsState.CreditsPaid += openBet.PayOut + openBet.InitAmount;
+            _persistenceManager.StatisticsState.CreditsWon += openBet.PayOut + openBet.InitAmount;
             await openBet.Origin.CurrentServer.BroadcastAsync(new[]
             {
-                _credifyConfig.Translations.GambleWonAnnouncement.FormatExt(Plugin.PluginName, openBet.Origin.CleanedName,
-                    $"{openBet.PayOut + openBet.InitAmount:N0}"),
-                _credifyConfig.Translations.GambleWonInstructions.FormatExt(Plugin.PluginName, "!crhelp"),
+                _credifyConfig.Translations.GambleWonAnnouncement.FormatExt(Plugin.PluginName,
+                    openBet.Origin.CleanedName,
+                    $"{openBet.PayOut + openBet.InitAmount:N0}", "!crbet"),
             }, Utilities.IW4MAdminClient());
         }
     }
@@ -151,10 +155,7 @@ public class BetManager
         var expiredBet = _betList.Where(completedBet => completedBet.Origin.ClientId == client.ClientId)
             .Where(completedBet => completedBet.BetCompleted).ToList();
 
-        foreach (var destroyBet in expiredBet)
-        {
-            _betList.Remove(destroyBet);
-        }
+        foreach (var bet in expiredBet) _betList.Remove(bet);
     }
 
     #endregion
@@ -166,20 +167,10 @@ public class BetManager
         try
         {
             await _onUpdate.WaitAsync();
-
             if (!_betList.Any()) return;
-
             var clientServerId = client.CurrentServer.EndPoint;
-
-            if (!_maxPlayerScore.ContainsKey(clientServerId))
-            {
-                _maxPlayerScore.TryAdd(clientServerId, client.Score);
-            }
-
-            if (_maxPlayerScore[clientServerId] < client.Score)
-            {
-                _maxPlayerScore[clientServerId] = client.Score;
-            }
+            if (!_maxPlayerScore.ContainsKey(clientServerId)) _maxPlayerScore.TryAdd(clientServerId, client.Score);
+            if (_maxPlayerScore[clientServerId] < client.Score) _maxPlayerScore[clientServerId] = client.Score;
         }
         finally
         {
@@ -192,9 +183,7 @@ public class BetManager
         try
         {
             await _onJoinTeam.WaitAsync();
-
             if (IsSpectatorOrUnknown(client.Team)) return;
-
             var clientServerId = client.CurrentServer.EndPoint;
             NotifyClaimableBets(client);
             UpdateClientScoreAndTeam(client, clientServerId);
@@ -210,17 +199,11 @@ public class BetManager
         try
         {
             await _onKill.WaitAsync();
-
             var clientServerId = client.CurrentServer.EndPoint;
-
             if (!_betList.Any()) return;
-
-
             if (_maxServerScore.ContainsKey(clientServerId) ||
                 _maxServerScore[clientServerId].ContainsKey(client.ClientId))
-            {
                 _maxServerScore[clientServerId][client.ClientId].Score = client.Score;
-            }
         }
         finally
         {
@@ -235,7 +218,6 @@ public class BetManager
             await _onMapEnd.WaitAsync();
             var serverId = server.EndPoint;
             UpdateMapTime(serverId);
-
             if (!_betList.Any()) return;
             await ProcessBets(serverId);
         }
@@ -251,12 +233,9 @@ public class BetManager
         {
             await _onDisconnect.WaitAsync();
             var clientServerId = client.CurrentServer.EndPoint;
-
             if (!_maxServerScore.ContainsKey(clientServerId)) return;
             if (_maxServerScore[clientServerId].ContainsKey(client.ClientId))
-            {
                 _maxServerScore[clientServerId].Remove(client.ClientId);
-            }
         }
         finally
         {
@@ -268,18 +247,11 @@ public class BetManager
 
     #region Helper Methods
 
-    private bool IsSpectatorOrUnknown(EFClient.TeamType team)
-    {
-        return team is EFClient.TeamType.Spectator or EFClient.TeamType.Unknown;
-    }
-
     private void NotifyClaimableBets(EFClient client)
     {
         var completedMessages = CompletedBetsMessages(client);
         if (completedMessages is not null && completedMessages.Any())
-        {
             client.Tell(_credifyConfig.Translations.ClaimableBetsAvailable);
-        }
     }
 
     private void UpdateClientScoreAndTeam(EFClient client, long clientServerId)
@@ -350,32 +322,25 @@ public class BetManager
                 if (completedBet.TargetWon)
                 {
                     if (completedBet.TargetPlayer != null)
-                    {
-                        clientMessages.Add(_credifyConfig.Translations.BetWonOnTarget.FormatExt($"{completedBet.InitAmount:N0}",
+                        clientMessages.Add(_credifyConfig.Translations.BetWonOnTarget.FormatExt(
+                            $"{completedBet.InitAmount:N0}",
                             completedBet.TargetPlayer.Name));
-                    }
-
                     if (completedBet.TargetTeam != null)
-                    {
-                        clientMessages.Add(_credifyConfig.Translations.BetWonOnTarget.FormatExt($"{completedBet.InitAmount:N0}",
+                        clientMessages.Add(_credifyConfig.Translations.BetWonOnTarget.FormatExt(
+                            $"{completedBet.InitAmount:N0}",
                             completedBet.TargetTeam));
-                    }
-
                     continue;
                 }
 
                 // Loss condition
                 if (completedBet.TargetPlayer != null)
-                {
-                    clientMessages.Add(_credifyConfig.Translations.BetLostOnTarget.FormatExt($"{completedBet.InitAmount:N0}",
+                    clientMessages.Add(_credifyConfig.Translations.BetLostOnTarget.FormatExt(
+                        $"{completedBet.InitAmount:N0}",
                         completedBet.TargetPlayer.Name));
-                }
-
                 if (completedBet.TargetTeam != null)
-                {
-                    clientMessages.Add(_credifyConfig.Translations.BetLostOnTarget.FormatExt($"{completedBet.InitAmount:N0}",
-                        completedBet.TargetTeam));
-                }
+                    clientMessages.Add(
+                        _credifyConfig.Translations.BetLostOnTarget.FormatExt($"{completedBet.InitAmount:N0}",
+                            completedBet.TargetTeam));
             }
         }
 
@@ -392,24 +357,17 @@ public class BetManager
     {
         foreach (var openBet in _betList)
         {
-            if (!_betLogic.AvailableFunds(openBet.Origin, openBet.InitAmount))
+            if (!_persistenceManager.AvailableFunds(openBet.Origin, openBet.InitAmount))
             {
                 RemoveBetDueToInsufficientFunds(openBet);
                 continue;
             }
 
-            var previousCredits = openBet.Origin.GetAdditionalProperty<int>(Plugin.CreditsKey);
+            var previousCredits = openBet.Origin.GetAdditionalProperty<long>(Plugin.CreditsKey);
             openBet.PayOut = openBet.InitAmount;
 
-            if (openBet.TargetPlayer != null)
-            {
-                await ProcessPlayerBet(serverId, openBet, previousCredits);
-            }
-
-            if (openBet.TargetTeam != null)
-            {
-                await ProcessTeamBet(serverId, openBet, previousCredits);
-            }
+            if (openBet.TargetPlayer != null) await ProcessPlayerBet(serverId, openBet, previousCredits);
+            if (openBet.TargetTeam != null) await ProcessTeamBet(serverId, openBet, previousCredits);
         }
 
         ResetServerScores(serverId);
@@ -421,7 +379,7 @@ public class BetManager
         openBet.BetCompleted = true;
     }
 
-    private async Task ProcessPlayerBet(long serverId, BetData openBet, int previousCredits)
+    private async Task ProcessPlayerBet(long serverId, BetData openBet, long previousCredits)
     {
         if (openBet.TargetPlayer.State != EFClient.ClientState.Connected)
         {
@@ -432,75 +390,53 @@ public class BetManager
         _maxPlayerScore.TryGetValue(serverId, out var result);
         if (result <= openBet.TargetPlayer.Score)
         {
-            openBet.PayOut = openBet.InitAmount * openBet.TargetPlayerRank / openBet.TotalRanked;
+            var taxBook = new TaxBook(openBet.InitAmount * (openBet.TargetPlayerRank / openBet.TotalRanked),
+                openBet.InitAmount, _credifyConfig.Core.BankTax);
+            _persistenceManager.AddBankCredits(taxBook.Tax);
+            openBet.PayOut = taxBook.NetChange;
+
             await CompleteBet(openBet, previousCredits, true);
         }
-        else
-        {
-            await CompleteBet(openBet, previousCredits, false);
-        }
+        else await CompleteBet(openBet, previousCredits, false);
     }
 
     private void RemoveBetDueToPlayerLeaving(BetData openBet)
     {
-        openBet.Message = _credifyConfig.Translations.BetRemovedDueToTargetLeaving.FormatExt(openBet.TargetPlayer.CleanedName);
+        openBet.Message = _credifyConfig.Translations.BetRemovedDueToTargetLeaving
+            .FormatExt(openBet.TargetPlayer.CleanedName);
         openBet.BetCompleted = true;
     }
 
-    private async Task ProcessTeamBet(long serverId, BetData openBet, int previousCredits)
+    private async Task ProcessTeamBet(long serverId, BetData openBet, long previousCredits)
     {
-        var alliesScore = _maxServerScore[serverId].Values.Where(state =>
-                state.TeamName.Equals("allies", StringComparison.InvariantCultureIgnoreCase))
-            .Sum(state => state.Score);
+        var scores = _maxServerScore[serverId].Values
+            .GroupBy(state => state.TeamName, StringComparer.InvariantCultureIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.Sum(state => state.Score));
 
-        var axisScore = _maxServerScore[serverId].Values.Where(state =>
-                state.TeamName.Equals("axis", StringComparison.InvariantCultureIgnoreCase))
-            .Sum(state => state.Score);
+        var alliesScore = scores.TryGetValue("allies", out var aScore) ? aScore : 0;
+        var axisScore = scores.TryGetValue("axis", out var axScore) ? axScore : 0;
 
-        if (axisScore < alliesScore) // Allies Won
-        {
-            await ProcessAlliesWin(openBet, previousCredits);
-        }
-
-        if (axisScore > alliesScore) // Axis Won
-        {
-            await ProcessAxisWin(openBet, previousCredits);
-        }
+        var winningTeam = alliesScore > axisScore ? "Allies" : "Axis";
+        await ProcessTeamWin(openBet, previousCredits, winningTeam);
     }
 
-    private async Task ProcessAlliesWin(BetData openBet, int previousCredits)
+    private async Task ProcessTeamWin(BetData openBet, long previousCredits, string winningTeam)
     {
-        if (openBet.TargetTeam == "Allies")
+        var isWin = openBet.TargetTeam!.Equals(winningTeam, StringComparison.InvariantCultureIgnoreCase);
+        if (isWin)
         {
-            openBet.PayOut = openBet.InitAmount * openBet.TeamRankAverage / openBet.TotalRanked;
-            await CompleteBet(openBet, previousCredits, true);
+            var taxBook = new TaxBook(openBet.InitAmount * (openBet.TeamRankAverage / openBet.TotalRanked),
+                openBet.InitAmount, _credifyConfig.Core.BankTax);
+            _persistenceManager.AddBankCredits(taxBook.Tax);
+            openBet.PayOut = taxBook.NetChange;
         }
-        else
-        {
-            await CompleteBet(openBet, previousCredits, false);
-        }
-    }
 
-    private async Task ProcessAxisWin(BetData openBet, int previousCredits)
-    {
-        if (openBet.TargetTeam == "Axis")
-        {
-            openBet.PayOut = openBet.InitAmount * openBet.TeamRankAverage / openBet.TotalRanked;
-            await CompleteBet(openBet, previousCredits, true);
-        }
-        else
-        {
-            await CompleteBet(openBet, previousCredits, false);
-        }
+        await CompleteBet(openBet, previousCredits, isWin);
     }
 
     private void ResetServerScores(long serverId)
     {
-        foreach (var serverScore in _maxServerScore[serverId].Values)
-        {
-            serverScore.Score = 0;
-        }
-
+        foreach (var state in _maxServerScore[serverId].Values) state.Score = 0;
         _maxPlayerScore.TryRemove(serverId, out _);
     }
 
@@ -543,7 +479,7 @@ public class BetManager
         var clientServerId = client.CurrentServer.EndPoint;
 
         if (!_mapTime.ContainsKey(clientServerId)) return false;
-        return _mapTime[clientServerId].AddSeconds(CreditsBetWindow.TotalSeconds) >= DateTime.UtcNow;
+        return _mapTime[clientServerId].Add(_credifyConfig.Core.CreditsTeamPlayerBetWindow) >= DateTime.UtcNow;
     }
 
     public int CancelBets(EFClient client)

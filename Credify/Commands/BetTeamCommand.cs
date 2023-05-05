@@ -10,17 +10,17 @@ namespace Credify.Commands;
 public class BetTeamCommand : Command
 {
     private readonly BetManager _betManager;
-    private readonly BetLogic _betLogic;
+    private readonly PersistenceManager _persistenceManager;
     private readonly CredifyConfiguration _credifyConfig;
 
-    public BetTeamCommand(CommandConfiguration config, ITranslationLookup translationLookup, BetManager betManager, BetLogic betLogic,
+    public BetTeamCommand(CommandConfiguration config, ITranslationLookup translationLookup, BetManager betManager, PersistenceManager persistenceManager,
         CredifyConfiguration credifyConfig) : base(config, translationLookup)
     {
         _betManager = betManager;
-        _betLogic = betLogic;
+        _persistenceManager = persistenceManager;
         _credifyConfig = credifyConfig;
-        Name = "betteam";
-        Alias = "bett";
+        Name = "credifybetteam";
+        Alias = "crbt";
         Description = credifyConfig.Translations.CommandBetOnTeamWinDescription;
         Permission = Data.Models.Client.EFClient.Permission.User;
         RequiresTarget = false;
@@ -61,7 +61,7 @@ public class BetTeamCommand : Command
             argStr[1] = gameEvent.Origin.GetAdditionalProperty<int>(Plugin.CreditsKey).ToString();
         }
 
-        if (!int.TryParse(argStr[1], out var argAmount))
+        if (!long.TryParse(argStr[1], out var argAmount))
         {
             gameEvent.Origin.Tell(_credifyConfig.Translations.ErrorParsingAmount);
             return;
@@ -73,7 +73,7 @@ public class BetTeamCommand : Command
             return;
         }
 
-        if (!_betLogic.AvailableFunds(gameEvent.Origin, argAmount))
+        if (!_persistenceManager.AvailableFunds(gameEvent.Origin, argAmount))
         {
             gameEvent.Origin.Tell(_credifyConfig.Translations.InsufficientCredits);
             return;
@@ -81,15 +81,15 @@ public class BetTeamCommand : Command
 
         if (!_betManager.MaximumTimePassed(gameEvent.Origin))
         {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.InsufficientCreditsForBet
-                .FormatExt(_betManager.CreditsBetWindow.Humanize()));
+            gameEvent.Origin.Tell(_credifyConfig.Translations.BetWindowRestriction
+                .FormatExt(_credifyConfig.Core.CreditsTeamPlayerBetWindow.Humanize()));
             return;
         }
 
         if (!_betManager.MinimumPlayers(gameEvent.Origin))
         {
             gameEvent.Origin.Tell(_credifyConfig.Translations.BetWindowRestriction
-                .FormatExt(_credifyConfig.MinimumPlayersRequiredForPlayerAndTeamBets));
+                .FormatExt(_credifyConfig.Core.MinimumPlayersRequiredForPlayerAndTeamBets));
             return;
         }
 

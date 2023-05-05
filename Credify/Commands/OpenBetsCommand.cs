@@ -16,9 +16,9 @@ public class OpenBetsCommand : Command
     {
         _betManager = betManager;
         _credifyConfig = credifyConfig;
-        Name = "openbets";
-        Description = credifyConfig.Translations.ListAllOpenBets;
-        Alias = "ob";
+        Name = "credifyopenbets";
+        Description = credifyConfig.Translations.CommandListAllOpenBetsDescription;
+        Alias = "crob";
         Permission = Data.Models.Client.EFClient.Permission.User;
         RequiresTarget = false;
     }

@@ -6,14 +6,15 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="RaidMax.IW4MAdmin.SharedLibraryCore" Version="2023.4.15.3" />
-  </ItemGroup>
 
   <ItemGroup>
     <Reference Include="Stats">
-      <HintPath>bin\Debug\net6.0\Stats.dll</HintPath>
+      <HintPath>..\Stats.dll</HintPath>
     </Reference>
   </ItemGroup>
   
+  <ItemGroup>
+    <PackageReference Include="RaidMax.IW4MAdmin.SharedLibraryCore" Version="2023.4.15.3" />
+  </ItemGroup>
+    
 </Project>

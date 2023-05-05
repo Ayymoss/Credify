@@ -16,9 +16,9 @@ public class ClaimBetsCommand : Command
     {
         _betManager = betManager;
         _credifyConfig = credifyConfig;
-        Name = "claimbets";
+        Name = "credifyclaimbets";
         Description = credifyConfig.Translations.CommandClaimCompletedBetsDescription;
-        Alias = "cb";
+        Alias = "crcb";
         Permission = EFClient.Permission.User;
         RequiresTarget = false;
     }
