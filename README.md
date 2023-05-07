@@ -1,41 +1,44 @@
-## CreditPlugin - Fun
-Plugin for IW4MAdmin - Tested with MW2 and CS:GO
+## Credify - An IW4MAdmin Plugin
 
-Betting system that allows people to gamble their hard earned credits by betting on a Team or player's outcome. 
+Credify is an engaging betting system for IW4MAdmin that lets players gamble their in-game credits on team or player outcomes. Players can also participate in mindless gambling using their credits.
 
-They can also mindlessly gamble the credits in a 0-10 RNG battle.
+When new players join, they receive credits equal to their total kills (if any), otherwise they start with 0 credits. Each kill grants 1 credit. Betting requires a minimum of 10 players.
 
-If a new player joins the will be given their total kills as credits if they have any total kills. If not, they'll have 0 to start with. 
-Each kill grants 1 credit.
-
-Betting against a team or player requires a minimim of 10 players.
-
-Credits are global and not server specific. When you run !topcredits you will see a global result. Team/player bets are server specific.
+Credits are global, not server-specific, and can be viewed with the !crtop command. However, team/player bets are server-specific.
 
 ## Commands
 ### User Commands
 
 ```
-  !credits <optional name> (!cr) - Returns yours or someone's credits.
-  !topcredits (!tcr) - List top players by credits.
-  !gamble <0-10> <amount> (!gmb) - Gambles your credits, 1 in 10 chance, return is 7x your stake.
-  !betplayer <name> <amount> (!betp) - Bet on a player to win - Payout is proportionate based on their ELO.
-  !betteam <name> <amount> (!bett) - Bet on a team to win - Payout is proportionate based team's average ELO.
-  !claimbets (!cb) - Claim any expired/completed bets you've previously made. (No credits lost if unclaimed)
-  !openbets (!ob) - Lists current bets on your server. (ID - Origin - Target - Amount)
-  !cancelbets (!cnclb) - Cancels your existing, open bets.
-  !creditstats (!statscr) - Lists the current credits statistics, ie: how many have been earned, spent and how has been won.
+  !crhelp - Displays help for the plugin
+  
+  !cr <optional name> - Returns yours or someone's credits
+  !crpay <name> <amount> - Pay someone credits
+  !crstats - Displays global credits statistics
+  !crtop - List top players by credits
+  
+  !crsl - Displays the current lotto pot and who has entered
+  !crlotto <amount> - Buy lotto ticket(s) for a chance to win the pot
+  
+  !crbet <amount> - Gamble credits in a tiered win/loss system
+  !crbetp <name> <amount> - Bet on a player to win - Payout is proportionate based on their ELO
+  !crbett <team> <amount> - Bet on a team to win - Payout is proportionate based team's average ELO
+  !crcb - Claim any expired/completed bets you've previously made. (No credits lost if unclaimed)
+  !crob - Lists current bets on your server. (ID - Origin - Target - Amount)
+  !crcnb - Cancels your open bets
+  
+  !crshop - Displays the shop
+  !crbuy <ID> - Buy an item from the shop
+  !crinv - Displays your inventory
 ```
-  **Small note, you can use the keyword "all" in place of the amount. Of course, you will be staking everything you have.**
+  - Use "all" instead of an amount to stake everything.
   
 ### Admin Commands
 ```
-!setcredits <name> <amount> (!scr) - Set a player's credits.
+!crset <name> <amount> - Set a player's credits
 ```
 
 ## Requirements
-.NET Core 6
+.NET 6
 
-IW4MAdmin version 2022.03.25.1 or later.
-
-IW4Admin Stats Plugin (Provided with IW4MAdmin)
+IW4MAdmin v2023.4.15.3 or later.
