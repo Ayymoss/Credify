@@ -21,19 +21,23 @@ public class LotteryManager
     }
 
     public void SetManager(IManager manager) => _manager = manager;
-    public bool HasLotteryHappened => DateTimeOffset.UtcNow >= NextOccurrence;
+    public bool HasLotteryHappened => DateTimeOffset.Now >= NextOccurrence;
     public async Task ReadLotteryAsync() => Lottery = await _persistenceManager.ReadLotteryAsync();
     private async Task WriteLotteryAsync() => await _persistenceManager.WriteLotteryAsync(Lottery);
 
     public async Task CalculateNextOccurrence()
     {
-        if (NextOccurrence < DateTimeOffset.UtcNow)
+        if (NextOccurrence < DateTimeOffset.Now)
         {
             var next = await _persistenceManager.ReadNextLotteryAsync();
-            if (next is null || next < DateTimeOffset.UtcNow)
+            if (next is null || next < DateTimeOffset.Now)
             {
-                var nextLotteryDate = DateTimeOffset.UtcNow.Date.Add(_credifyConfig.Core.LotteryFrequency);
-                NextOccurrence = nextLotteryDate.Add(_credifyConfig.Core.LotteryFrequencyAtTime);
+                var currentDate = DateTimeOffset.Now;
+                var nextLotteryDate = currentDate.Date
+                    .AddDays(_credifyConfig.Core.LotteryFrequency.TotalDays)
+                    .Add(_credifyConfig.Core.LotteryFrequencyAtTime);
+
+                NextOccurrence = nextLotteryDate;
                 await _persistenceManager.WriteNextLotteryAsync(NextOccurrence);
             }
             else
@@ -111,7 +115,7 @@ public class LotteryManager
         foreach (var server in _manager.GetServers())
         {
             server.Broadcast(_credifyConfig.Translations.AnnounceLottoWinner
-                .FormatExt(name, _persistenceManager.BankCredits, $"{winPercentage:N1}"));
+                .FormatExt(name, $"{_persistenceManager.BankCredits:N0}", $"{winPercentage:N1}"));
         }
     }
 }

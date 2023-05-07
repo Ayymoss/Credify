@@ -136,11 +136,11 @@ public class BetManager
             await _persistenceManager.WriteClientCredits(openBet.Origin);
         }
 
-        _persistenceManager.StatisticsState.CreditsSpent += openBet.InitAmount;
+        _persistenceManager.StatisticsState.CreditsSpent += (ulong)openBet.InitAmount;
 
         if (targetWon)
         {
-            _persistenceManager.StatisticsState.CreditsWon += openBet.PayOut + openBet.InitAmount;
+            _persistenceManager.StatisticsState.CreditsWon += (ulong)(openBet.PayOut + openBet.InitAmount);
             await openBet.Origin.CurrentServer.BroadcastAsync(new[]
             {
                 _credifyConfig.Translations.GambleWonAnnouncement.FormatExt(Plugin.PluginName,
@@ -392,7 +392,7 @@ public class BetManager
         {
             var taxBook = new TaxBook(openBet.InitAmount * (openBet.TargetPlayerRank / openBet.TotalRanked),
                 openBet.InitAmount, _credifyConfig.Core.BankTax);
-            _persistenceManager.AddBankCredits(taxBook.Tax);
+            await _persistenceManager.AddBankCredits(taxBook.Tax);
             openBet.PayOut = taxBook.NetChange;
 
             await CompleteBet(openBet, previousCredits, true);
@@ -427,7 +427,7 @@ public class BetManager
         {
             var taxBook = new TaxBook(openBet.InitAmount * (openBet.TeamRankAverage / openBet.TotalRanked),
                 openBet.InitAmount, _credifyConfig.Core.BankTax);
-            _persistenceManager.AddBankCredits(taxBook.Tax);
+            await _persistenceManager.AddBankCredits(taxBook.Tax);
             openBet.PayOut = taxBook.NetChange;
         }
 

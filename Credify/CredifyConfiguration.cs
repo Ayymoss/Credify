@@ -134,7 +134,7 @@ public class Translations
     public string TicketHolder { get; set; } = "[(Color::Cyan)#{{index}} (Color::White)@ (Color::Green){{tickets}}(Color::White)] {{name}}";
     public string ShowLottoHeader { get; set; } = "(Color::Cyan)--Ticket Holders--";
     public string LottoNextDraw { get; set; } = "Next draw in (Color::Cyan){{nextDrawHumanized}}";
-    public string NoTicketHolders { get; set; } = "(Color::Yellow)No ticket holders. (Color::White)Buy some tickets! (Color::Cyan)!lotto";
+    public string NoTicketHolders { get; set; } = "(Color::Yellow)No ticket holders. (Color::White)Buy some tickets! (Color::Cyan)!crlotto";
     public string CommandShowLottoDescription { get; set; } = "Shows the current lotto holders";
     public string ShopItemFormat { get; set; } = "[(Color::Accent){{id}} (Color::White)@ (Color::Green)${{price}}(Color::White)] (Color::Yellow){{name}}";
     public string ShopItemFormatClient { get; set; } = "[(Color::Green){{count}}x (Color::White)of (Color::Accent){{id}}(Color::White)] (Color::Yellow){{name}}";

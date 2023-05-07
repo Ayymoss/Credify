@@ -97,11 +97,11 @@ public class BetCommand : Command
         if (result is GambleResult.Won or GambleResult.Jackpot)
         {
             netProfit = taxBook.NetChange;
-            _persistenceManager.StatisticsState.CreditsWon += netProfit;
+            _persistenceManager.StatisticsState.CreditsWon += (ulong)netProfit;
         }
 
-        _persistenceManager.AddBankCredits(taxBook.Tax);
-        _persistenceManager.StatisticsState.CreditsSpent += initialStake;
+        await _persistenceManager.AddBankCredits(taxBook.Tax);
+        _persistenceManager.StatisticsState.CreditsSpent += (ulong)initialStake;
         var newClientBalance = await _persistenceManager
             .AlterClientCredits(netProfit, client: gameEvent.Origin);
         await AnnounceResult(result, gameEvent.Origin, netProfit, taxBook.Tax, newClientBalance);

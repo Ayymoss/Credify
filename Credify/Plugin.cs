@@ -9,9 +9,7 @@ using SharedLibraryCore.Interfaces.Events;
 namespace Credify;
 
 // TODO:
-// Debug lottery
-// Confirm buy shop
-
+// Confirmation for buys?
 
 public class Plugin : IPluginV2
 {
@@ -25,6 +23,8 @@ public class Plugin : IPluginV2
     public const string CreditsLotteryKey = "Credits_Lottery";
     public const string CreditsNextLotteryKey = "Credits_NextLottery";
     public const string CreditsShopKey = "Credits_Shop";
+    public const string CreditsBankCreditsKey = "Credits_Bank";
+
     public const string PluginName = "Credify";
     public string Name => PluginName;
     public string Version => "2023-05-05";
@@ -108,6 +108,8 @@ public class Plugin : IPluginV2
             await _lotteryManager.PickWinner();
             await _lotteryManager.CalculateNextOccurrence();
         }
+
+        Utilities.ExecuteAfterDelay(TimeSpan.FromMinutes(1), LotteryDelayCheck, token);
     }
 
     private async Task AdvertisementDelay(IManager manager, CancellationToken token)

@@ -59,9 +59,9 @@ public class LottoCommand : Command
             return;
         }
 
+        await _persistenceManager.AddBankCredits(ticketsCost);
         await _persistenceManager.AlterClientCredits(-ticketsCost, client: gameEvent.Origin);
         var totalTickets = await _lotteryManager.AddToLottery(gameEvent.Origin, credits);
-
         gameEvent.Origin.Tell(_credifyConfig.Translations.BoughtLottoTickets
             .FormatExt($"{credits:N0}", $"{ticketsCost:N0}", $"{totalTickets:N0}"));
     }

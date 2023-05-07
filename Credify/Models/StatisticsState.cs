@@ -2,7 +2,7 @@ namespace Credify.Models;
 
 public record StatisticsState
 {
-    public long CreditsSpent { get; set; }
-    public long CreditsEarned { get; set; }
-    public long CreditsWon { get; set; }
+    public ulong CreditsSpent { get; set; }
+    public ulong CreditsEarned { get; set; }
+    public ulong CreditsWon { get; set; }
 }

@@ -27,7 +27,12 @@ public class PersistenceManager
     }
 
     public void ResetBank() => BankCredits = 0;
-    public void AddBankCredits(long credits) => BankCredits += credits;
+
+    public async Task AddBankCredits(long credits)
+    {
+        BankCredits += credits;
+        await WriteBankCredits();
+    }
 
     public bool AvailableFunds(EFClient client, long amount) =>
         amount <= client.GetAdditionalProperty<long>(Plugin.CreditsKey);
@@ -55,6 +60,8 @@ public class PersistenceManager
     public async Task WriteClientShopAsync(EFClient client, List<ClientShopItem> shopItems) =>
         await _metaService.SetPersistentMetaValue(Plugin.CreditsShopKey, shopItems, client.ClientId);
 
+    private async Task WriteBankCredits() =>
+        await _metaService.SetPersistentMeta(Plugin.CreditsBankCreditsKey, BankCredits.ToString());
 
     public async Task ReadTopScoreAsync()
     {
@@ -88,18 +95,18 @@ public class PersistenceManager
 
     public async Task ReadBankCreditsAsync()
     {
-        var bankCredits = (await _metaService.GetPersistentMeta(Plugin.CreditsTopKey))?.Value;
+        var bankCredits = (await _metaService.GetPersistentMeta(Plugin.CreditsBankCreditsKey))?.Value;
 
         BankCredits = bankCredits is null
             ? 0
             : long.Parse(bankCredits);
     }
 
-    public async Task<DateTime?> ReadNextLotteryAsync()
+    public async Task<DateTimeOffset?> ReadNextLotteryAsync()
     {
         var nextLotto = (await _metaService.GetPersistentMeta(Plugin.CreditsNextLotteryKey))?.Value;
         if (nextLotto is null) return null;
-        return DateTime.Parse(nextLotto);
+        return DateTimeOffset.Parse(nextLotto);
     }
 
     public async Task<List<Lottery>> ReadLotteryAsync()
@@ -182,7 +189,7 @@ public class PersistenceManager
             }
 
             userCredits = clientTotalKills.ToString();
-            StatisticsState.CreditsEarned += clientTotalKills;
+            StatisticsState.CreditsEarned += (ulong)clientTotalKills;
         }
 
         var credits = long.Parse(userCredits);

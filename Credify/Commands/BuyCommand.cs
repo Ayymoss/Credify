@@ -88,7 +88,7 @@ public class BuyCommand : Command
             clientItem.Amount++;
         }
         
-        _persistenceManager.StatisticsState.CreditsSpent += serverItem.Cost;
+        _persistenceManager.StatisticsState.CreditsSpent += (ulong)serverItem.Cost;
         await _persistenceManager.AlterClientCredits(-serverItem.Cost, client: gameEvent.Origin);
         await _persistenceManager.WriteClientShopAsync(gameEvent.Origin, clientItems);
         gameEvent.Origin.Tell(_credifyConfig.Translations.BoughtItem
