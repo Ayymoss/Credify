@@ -8,9 +8,6 @@ using SharedLibraryCore.Interfaces.Events;
 
 namespace Credify;
 
-// TODO:
-// Confirmation for buys?
-
 public class Plugin : IPluginV2
 {
     private readonly PersistenceManager _persistenceManager;
@@ -27,7 +24,7 @@ public class Plugin : IPluginV2
 
     public const string PluginName = "Credify";
     public string Name => PluginName;
-    public string Version => "2023-05-05";
+    public string Version => "2023-05-09";
     public string Author => "Amos";
 
     public Plugin(PersistenceManager persistenceManager, BetManager betManager, CredifyConfiguration config,

@@ -78,8 +78,8 @@ public class BetManager
             BetCompleted = false
         });
 
-        gameEvent.Origin.Tell(
-            _credifyConfig.Translations.BetCreatedOnTarget.FormatExt(gameEvent.Target.Name, $"{amount:N0}"));
+        gameEvent.Origin.Tell(_credifyConfig.Translations.BetCreatedOnTarget
+            .FormatExt(gameEvent.Target.Name, $"{amount:N0}"));
     }
 
     public async void CreateTeamBet(GameEvent gameEvent, string teamName, long amount)

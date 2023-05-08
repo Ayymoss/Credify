@@ -13,7 +13,8 @@ public class BetTeamCommand : Command
     private readonly PersistenceManager _persistenceManager;
     private readonly CredifyConfiguration _credifyConfig;
 
-    public BetTeamCommand(CommandConfiguration config, ITranslationLookup translationLookup, BetManager betManager, PersistenceManager persistenceManager,
+    public BetTeamCommand(CommandConfiguration config, ITranslationLookup translationLookup, BetManager betManager,
+        PersistenceManager persistenceManager,
         CredifyConfiguration credifyConfig) : base(config, translationLookup)
     {
         _betManager = betManager;
@@ -42,15 +43,23 @@ public class BetTeamCommand : Command
     public override async Task ExecuteAsync(GameEvent gameEvent)
     {
         var argStr = gameEvent.Data.Split(" ");
-        var teamList = new List<string> {"axis", "allies", "t", "ct", "red", "blue"};
+        var teamList = new Dictionary<string, EFClient.TeamType>
+        {
+            {"axis", EFClient.TeamType.Axis},
+            {"allies", EFClient.TeamType.Allies},
+            {"t", EFClient.TeamType.Axis},
+            {"ct", EFClient.TeamType.Allies},
+            {"red", EFClient.TeamType.Axis},
+            {"blue", EFClient.TeamType.Allies}
+        };
 
-        if (!teamList.Contains(argStr[0]))
+        if (!teamList.TryGetValue(argStr[0], out var selectedTeam))
         {
             await gameEvent.Origin.TellAsync(new[]
             {
                 _credifyConfig.Translations.UnknownTeam,
                 _credifyConfig.Translations.YourTeam.FormatExt(_betManager.TeamEnumToString(gameEvent.Origin.Team)),
-                _credifyConfig.Translations.OtherTeams.FormatExt(string.Join(", ", teamList))
+                _credifyConfig.Translations.OtherTeams.FormatExt(string.Join(", ", teamList.Keys))
             });
 
             return;
@@ -58,7 +67,8 @@ public class BetTeamCommand : Command
 
         if (argStr[1] == "all")
         {
-            argStr[1] = gameEvent.Origin.GetAdditionalProperty<int>(Plugin.CreditsKey).ToString();
+            var allCredits = await _persistenceManager.GetClientCredits(gameEvent.Origin);
+            argStr[1] = allCredits.ToString();
         }
 
         if (!long.TryParse(argStr[1], out var argAmount))
@@ -93,17 +103,7 @@ public class BetTeamCommand : Command
             return;
         }
 
-        var teamName = string.Empty;
-        if (argStr[0] == teamList[0] || argStr[0] == teamList[2] || argStr[0] == teamList[4])
-        {
-            teamName = _betManager.TeamEnumToString(EFClient.TeamType.Axis);
-        }
-
-        if (argStr[0] == teamList[1] || argStr[0] == teamList[3] || argStr[0] == teamList[5])
-        {
-            teamName = _betManager.TeamEnumToString(EFClient.TeamType.Allies);
-        }
-
+        var teamName = _betManager.TeamEnumToString(selectedTeam);
         _betManager.CreateTeamBet(gameEvent, teamName, argAmount);
     }
 }

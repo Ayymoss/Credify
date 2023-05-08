@@ -12,14 +12,16 @@ public class ShowLottoCommand : Command
     private readonly IDatabaseContextFactory _contextFactory;
     private readonly CredifyConfiguration _credifyConfig;
     private readonly LotteryManager _lotteryManager;
+    private readonly PersistenceManager _persistenceManager;
 
     public ShowLottoCommand(CommandConfiguration config, ITranslationLookup translationLookup,
         IDatabaseContextFactory contextFactory, CredifyConfiguration credifyConfig,
-        LotteryManager lotteryManager) : base(config, translationLookup)
+        LotteryManager lotteryManager, PersistenceManager persistenceManager) : base(config, translationLookup)
     {
         _contextFactory = contextFactory;
         _credifyConfig = credifyConfig;
         _lotteryManager = lotteryManager;
+        _persistenceManager = persistenceManager;
         Name = "credifyshowlotto";
         Description = credifyConfig.Translations.CommandShowLottoDescription;
         Alias = "crsl";
@@ -32,7 +34,12 @@ public class ShowLottoCommand : Command
         var ticketHolders = _lotteryManager.Lottery.Any();
         if (!ticketHolders)
         {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.NoTicketHolders);
+            await gameEvent.Origin.TellAsync(new[]
+            {
+                _credifyConfig.Translations.NoTicketHolders,
+                _credifyConfig.Translations.NoTicketHoldersContinued
+                    .FormatExt($"{_persistenceManager.BankCredits:N0}", _lotteryManager.NextOccurrence.Humanize())
+            });
             return;
         }
 

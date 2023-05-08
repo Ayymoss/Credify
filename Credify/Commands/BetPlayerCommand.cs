@@ -46,7 +46,8 @@ public class BetPlayerCommand : Command
 
         if (amount == "all")
         {
-            amount = gameEvent.Origin.GetAdditionalProperty<int>(Plugin.CreditsKey).ToString();
+            var allCredits = await _persistenceManager.GetClientCredits(gameEvent.Origin);
+            amount = allCredits.ToString();
         }
 
         if (!uint.TryParse(amount, out var argAmount))

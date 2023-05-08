@@ -44,8 +44,12 @@ public class InventoryCommand : Command
         if (gameEvent.Data.Length != 0 && gameEvent.Target == null)
         {
             gameEvent.Target = gameEvent.Owner.GetClientByName(argPlayer).FirstOrDefault();
-            gameEvent.Origin.Tell(_credifyConfig.Translations.ErrorFindingTargetUser);
-            return;
+
+            if (gameEvent.Target is null)
+            {
+                gameEvent.Origin.Tell(_credifyConfig.Translations.ErrorFindingTargetUser);
+                return;
+            }
         }
 
         var client = gameEvent.Target ?? gameEvent.Origin;
