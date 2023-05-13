@@ -1,4 +1,6 @@
-﻿namespace Credify.Models;
+﻿using SharedLibraryCore.Database.Models;
+
+namespace Credify.Models;
 
 public class ServerShopItem
 {
@@ -13,4 +15,11 @@ public class ClientShopItem
 {
     public int Id { get; set; }
     public int Amount { get; set; }
+}
+
+public class ClientShopContext : ClientShopItem
+{
+    public int ClientId { get; set; }
+    public string ClientName { get; set; } = null!;
+    public DateTimeOffset Bought { get; set; }
 }

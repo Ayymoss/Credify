@@ -21,10 +21,13 @@ public class Plugin : IPluginV2
     public const string CreditsNextLotteryKey = "Credits_NextLottery";
     public const string CreditsShopKey = "Credits_Shop";
     public const string CreditsBankCreditsKey = "Credits_Bank";
+    public const string CreditsLastLottoWinner = "Credits_LastLottoWinner";
+    public const string CreditsRecentBoughtItems = "Credits_RecentBoughtItems";
+
 
     public const string PluginName = "Credify";
     public string Name => PluginName;
-    public string Version => "2023-05-09";
+    public string Version => "2023-05-13";
     public string Author => "Amos";
 
     public Plugin(PersistenceManager persistenceManager, BetManager betManager, CredifyConfiguration config,

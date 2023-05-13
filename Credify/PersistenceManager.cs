@@ -50,6 +50,35 @@ public class PersistenceManager
     public async Task WriteStatisticsAsync() =>
         await _metaService.SetPersistentMetaValue(Plugin.CreditsStatisticsKey, StatisticsState);
 
+    public async Task WriteLastLotteryWinner(int clientId, string client, long amount) =>
+        await _metaService.SetPersistentMeta(Plugin.CreditsLastLottoWinner, $"{clientId}::{client}::{amount}");
+
+    public async Task<(int ClientId, string ClientName, long PayOut)?> ReadLastLotteryWinner()
+    {
+        var winnerMeta = await _metaService.GetPersistentMeta(Plugin.CreditsLastLottoWinner);
+        if (winnerMeta is null) return null;
+        var data = winnerMeta.Value.Split("::", 3);
+        return (int.Parse(data[0]), data[1], long.Parse(data[2]));
+    }
+
+    public async Task WriteRecentBoughtItems(ClientShopContext item)
+    {
+        var items = await ReadRecentBoughtItems();
+        var ordered = items.OrderByDescending(x => x.Bought)
+            .Take(9)
+            .ToList();
+
+        ordered.Add(item);
+
+        await _metaService.SetPersistentMetaValue(Plugin.CreditsRecentBoughtItems, ordered);
+    }
+
+    public async Task<IEnumerable<ClientShopContext>> ReadRecentBoughtItems()
+    {
+        var items = await _metaService.GetPersistentMetaValue<List<ClientShopContext>>(Plugin.CreditsRecentBoughtItems);
+        return items ?? new List<ClientShopContext>();
+    }
+
     public async Task WriteLotteryAsync(List<Lottery> lotteries) =>
         await _metaService.SetPersistentMetaValue(Plugin.CreditsLotteryKey, lotteries);
 

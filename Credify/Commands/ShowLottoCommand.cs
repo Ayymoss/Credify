@@ -49,7 +49,14 @@ public class ShowLottoCommand : Command
             .Select(client => new {client.ClientId, client.CurrentAlias.Name})
             .ToDictionaryAsync(selector => selector.ClientId, selector => selector.Name);
 
-        var messages = new[]
+        var lastWinner = await _persistenceManager.ReadLastLotteryWinner();
+        
+        var lastWinnerPlaceholder = lastWinner is null 
+            ? _credifyConfig.Translations.NoLastWinner
+            : _credifyConfig.Translations.LastWinner
+                .FormatExt(lastWinner.Value.ClientName, lastWinner.Value.ClientId, $"{lastWinner.Value.PayOut:N0}");
+        
+        var headerMessages = new[]
         {
             _credifyConfig.Translations.ShowLottoHeader,
             _credifyConfig.Translations.LottoNextDraw.FormatExt(_lotteryManager.NextOccurrence.Humanize())
@@ -59,8 +66,13 @@ public class ShowLottoCommand : Command
             (creditEntry, index) => _credifyConfig.Translations.TicketHolder
                 .FormatExt(index + 1, $"{creditEntry.Tickets:N0}", names[creditEntry.ClientId])).ToArray();
 
-        messages = messages.Concat(ticketHolderNames).ToArray();
+        var footerMessages = new[]
+        {
+            lastWinnerPlaceholder
+        };
 
-        await gameEvent.Origin.TellAsync(messages);
+        headerMessages = headerMessages.Concat(ticketHolderNames).ToArray();
+        headerMessages = headerMessages.Concat(footerMessages).ToArray();
+        await gameEvent.Origin.TellAsync(headerMessages);
     }
 }
