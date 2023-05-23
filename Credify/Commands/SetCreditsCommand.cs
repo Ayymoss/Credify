@@ -47,7 +47,7 @@ public class SetCreditsCommand : Command
             return;
         }
 
-        gameEvent.Target.SetAdditionalProperty(Plugin.CreditsKey, Math.Abs(argAmount));
+        gameEvent.Target.SetAdditionalProperty(Plugin.Key, Math.Abs(argAmount));
         gameEvent.Origin.Tell(_credifyConfig.Translations.SetCreditsForTarget
             .FormatExt(gameEvent.Target.Name, $"{Math.Abs(argAmount):N0}"));
         if (gameEvent.Origin.ClientId != gameEvent.Target.ClientId)

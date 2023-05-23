@@ -11,9 +11,7 @@ public class InventoryCommand : Command
     private readonly PersistenceManager _persistenceManager;
 
     public InventoryCommand(CommandConfiguration config, ITranslationLookup layout, CredifyConfiguration credifyConfig,
-        PersistenceManager persistenceManager)
-        : base(config,
-            layout)
+        PersistenceManager persistenceManager) : base(config, layout)
     {
         _credifyConfig = credifyConfig;
         _persistenceManager = persistenceManager;

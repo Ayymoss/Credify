@@ -29,7 +29,7 @@ public class BetTeamCommand : Command
         {
             new CommandArgument
             {
-                Name = "Team",
+                Name = "Axis | Allies",
                 Required = true
             },
             new CommandArgument
@@ -92,7 +92,7 @@ public class BetTeamCommand : Command
         if (!_betManager.MaximumTimePassed(gameEvent.Origin))
         {
             gameEvent.Origin.Tell(_credifyConfig.Translations.BetWindowRestriction
-                .FormatExt(_credifyConfig.Core.CreditsTeamPlayerBetWindow.Humanize()));
+                .FormatExt(_credifyConfig.Core.TeamPlayerBetWindow.Humanize()));
             return;
         }
 

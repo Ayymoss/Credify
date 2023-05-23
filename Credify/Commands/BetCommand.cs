@@ -13,9 +13,7 @@ public class BetCommand : Command
     private readonly CredifyConfiguration _credifyConfig;
 
     public BetCommand(CommandConfiguration config, ITranslationLookup translationLookup,
-        PersistenceManager persistenceManager,
-        CredifyConfiguration credifyConfig) :
-        base(config, translationLookup)
+        PersistenceManager persistenceManager, CredifyConfiguration credifyConfig) : base(config, translationLookup)
     {
         _persistenceManager = persistenceManager;
         _credifyConfig = credifyConfig;
@@ -67,41 +65,51 @@ public class BetCommand : Command
         var randomNumber = Random.Shared.Next(0, 101);
         switch (randomNumber)
         {
-            case <= 50:
+            case <= 10:
                 result = GambleResult.Loss;
                 break;
-            case <= 55:
+            case <= 35:
                 result = GambleResult.Draw;
-                grossProfit = initialStake;
+                grossProfit = initialStake; // They receive back their initial stake
                 break;
-            case <= 90:
-                grossProfit = Convert.ToInt64(Math.Round(initialStake * 1.25));
+            case <= 60:
+                grossProfit = Convert.ToInt64(Math.Round(initialStake * 1.1));
+                result = GambleResult.Won;
+                break;
+            case <= 80:
+                grossProfit = Convert.ToInt64(Math.Round(initialStake * 2.2));
                 result = GambleResult.Won;
                 break;
             case <= 95:
-                grossProfit = Convert.ToInt64(Math.Round(initialStake * 2.5));
-                result = GambleResult.Won;
-                break;
-            case <= 98:
-                grossProfit = initialStake * 5;
+                grossProfit = Convert.ToInt64(Math.Round(initialStake * 4.4));
                 result = GambleResult.Won;
                 break;
             case <= 100:
-                grossProfit = initialStake * 10;
+                grossProfit = Convert.ToInt64(Math.Round(initialStake * 8.8));
                 result = GambleResult.Jackpot;
                 break;
         }
 
         var taxBook = new TaxBook(grossProfit, initialStake, _credifyConfig.Core.BankTax);
         var netProfit = -initialStake;
+
         if (result is GambleResult.Won or GambleResult.Jackpot)
         {
             netProfit = taxBook.NetChange;
             _persistenceManager.StatisticsState.CreditsWon += (ulong)netProfit;
         }
 
+        if (result is GambleResult.Draw)
+        {
+            netProfit = taxBook.NetChange;
+        }
+
+        if (result is not GambleResult.Draw)
+        {
+            _persistenceManager.StatisticsState.CreditsSpent += (ulong)initialStake;
+        }
+
         await _persistenceManager.AddBankCredits(taxBook.Tax);
-        _persistenceManager.StatisticsState.CreditsSpent += (ulong)initialStake;
         var newClientBalance = await _persistenceManager
             .AlterClientCredits(netProfit, client: gameEvent.Origin);
         await AnnounceResult(result, gameEvent.Origin, netProfit, taxBook.Tax, newClientBalance);

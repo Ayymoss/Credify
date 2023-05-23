@@ -6,6 +6,7 @@ public class CredifyConfiguration
 {
     public bool IsEnabled { get; set; } = true;
     public BaseConfiguration Core { get; set; } = new();
+    public ChatGameConfiguration ChatGame { get; set; } = new();
     public Shop Shop { get; set; } = new();
     public Translations Translations { get; set; } = new();
 }
@@ -14,10 +15,23 @@ public class BaseConfiguration
 {
     public int MinimumPlayersRequiredForPlayerAndTeamBets { get; set; } = 6;
     public double BankTax { get; set; } = 0.05;
-    public TimeSpan CredifyAdvertisementIntervalMinutes { get; set; } = TimeSpan.FromMinutes(15);
-    public TimeSpan CreditsTeamPlayerBetWindow { get; set; } = TimeSpan.FromMinutes(2);
-    public TimeSpan LotteryFrequency { get; set; } = TimeSpan.FromDays(5);
+    public TimeSpan AdvertisementIntervalMinutes { get; set; } = TimeSpan.FromMinutes(15);
+    public TimeSpan TeamPlayerBetWindow { get; set; } = TimeSpan.FromMinutes(2);
+    public TimeSpan LotteryFrequency { get; set; } = TimeSpan.FromDays(30);
     public TimeSpan LotteryFrequencyAtTime { get; set; } = new(15, 0, 0);
+}
+
+public class ChatGameConfiguration
+{
+    public bool IsEnabled { get; set; } = true;
+    public TimeSpan Frequency { get; set; } = TimeSpan.FromMinutes(10);
+    public TimeSpan CountdownTimeout { get; set; } = TimeSpan.FromSeconds(30);
+    public TimeSpan MathTestTimeout { get; set; } = TimeSpan.FromSeconds(10);
+    public TimeSpan TriviaTimeout { get; set; } = TimeSpan.FromSeconds(30);
+    public TimeSpan TypingTestTimeout { get; set; } = TimeSpan.FromSeconds(10);
+    public int MaxPayout { get; set; } = 1_000;
+    public int TypingTestTextLength { get; set; } = 10;
+    public TriviaToggle EnabledTriviaGames { get; set; } = new();
 }
 
 public class Shop
@@ -43,6 +57,14 @@ public class Shop
             CanBeBought = true
         }
     };
+}
+
+public class TriviaToggle
+{
+    public bool IsTriviaEnabled { get; set; } = true;
+    public bool IsCountdownEnabled { get; set; } = true;
+    public bool IsMathTestEnabled { get; set; } = true;
+    public bool IsTypingTestEnabled { get; set; } = true;
 }
 
 public class Translations
@@ -155,5 +177,33 @@ public class Translations
     public string RecentBuysTitle { get; set; } = "(Color::Accent)--Recent Shop Buys--";
     public string RecentBoughtItemEntry { get; set; } = "[{{index}}](Color::Accent) {{name}} (@{{clientId}}) (Color::White)bought (Color::Accent){{item}} (Color::White){{when}}";
     public string NoLastWinner { get; set; } = "(Color::Accent)Good luck!";
+    public string CommandRockPaperScissorsDescription { get; set; } = "Play rock paper scissors";
+    public string BadRpsArgument { get; set; } = "(Color::Yellow)Invalid argument. (Color::White)Use (Color::Accent)!crrps <rock|paper|scissors> <stake>";
+    public string RpsWonAnnouncement { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] (Color::Accent){{winnerName}} (Color::White)won (Color::Green)${{amount}}. (Color::White)Try your luck with (Color::Accent)!crrps";
+
+    #region Chat Games
+
+    public string ChatGameFriendlyTypingTestGame { get; set; } = "Fast Fingers";
+    public string ChatGameFriendlyMathTestGame { get; set; } = "Quick Maffs";
+    public string ChatGameFriendlyCountdownGame { get; set; } = "Countdown";
+    public string ChatGameFriendlyTriviaGame { get; set; } = "Trivia";
+    public string ChatGameGenericNoAnswer { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] (Color::Yellow)Times up! No one answered! (Color::White)The answer was (Color::Accent){{question}}";
+    public string ChatGameTypingTestNoAnswer { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] (Color::Yellow)Times up! No one answered!";
+    public string ChatGameTypingTestWinnerBroadcast { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] (Color::Accent){{name}} (Color::White)won (Color::Green)${{amount}} (Color::White)with a time of (Color::Accent){{time}} (Color::White)seconds!";
+    public string ChatGameMathTestWinnerBroadcast { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] (Color::Accent){{name}} (Color::White)won (Color::Green)${{amount}} (Color::White)with a time of (Color::Accent){{time}} (Color::White)seconds! (Color::White)The answer was (Color::Accent){{question}}";
+    public string ChatGameReactionTell { get; set; }= "You won (Color::Green)${{amount}}(Color::White). New balance (Color::Green)${{balance}}";
+    public string ChatGameReactionBroadcast { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] [(Color::Accent){{name}}(Color::White)] (Color::White)First to React! {{question}}";
+    public string ChatGameTriviaBroadcast { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] [(Color::Accent){{name}}(Color::White)] (Color::Yellow){{question}}";
+    public string ChatGameTriviaWinBroadcast { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] (Color::Accent){{count}} (Color::White)winner(s) with (Color::Green)${{amount}} (Color::White)paid out! The answer was (Color::Accent){{question}}";
+    public string ChatGameAlreadyAnswered { get; set; }= "(Color::Yellow)You already answered!";
+    public string ChatGameAnswerAccepted { get; set; } = "(Color::White)Your answer of (Color::Accent){{answer}} (Color::White)has been accepted! (Color::Yellow)Please wait for results";
+    public string ChatGameAnswerAcceptedDefinition { get; set; } = "Definition of (Color::Accent){{word}}(Color::White), (Color::Yellow){{definition}}";
+    public string ChatGameTriviaNoWinner { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] (Color::Yellow)No one answered correctly! (Color::White)The answer was (Color::Accent){{question}}";
+    public string ChatGameCountdownWordNotFound { get; set; } = "(Color::Yellow){{word}} (Color::White)was not found in the dictionary";
+    public string ChatGameCountdownWinBroadcast { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] (Color::Accent){{count}} (Color::White)winner(s) with (Color::Green)${{amount}} (Color::White)paid out! Accepted answers were (Color::Accent){{words}}";
+    public string ChatGameCountdownBroadcast { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] [(Color::Accent){{name}}(Color::White)] (Color::Yellow)Find the best word in these letters, (Color::Accent){{question}}";
+
+    #endregion
+
     // @formatter:on
 }

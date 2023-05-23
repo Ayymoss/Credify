@@ -128,7 +128,7 @@ public class BetManager
 
         if (openBet.Origin.State is EFClient.ClientState.Connected)
         {
-            openBet.Origin.SetAdditionalProperty(Plugin.CreditsKey,
+            openBet.Origin.SetAdditionalProperty(Plugin.Key,
                 targetWon ? previousCredits + openBet.PayOut : previousCredits - openBet.PayOut);
         }
         else
@@ -363,7 +363,7 @@ public class BetManager
                 continue;
             }
 
-            var previousCredits = openBet.Origin.GetAdditionalProperty<long>(Plugin.CreditsKey);
+            var previousCredits = openBet.Origin.GetAdditionalProperty<long>(Plugin.Key);
             openBet.PayOut = openBet.InitAmount;
 
             if (openBet.TargetPlayer != null) await ProcessPlayerBet(serverId, openBet, previousCredits);
@@ -479,7 +479,7 @@ public class BetManager
         var clientServerId = client.CurrentServer.EndPoint;
 
         if (!_mapTime.ContainsKey(clientServerId)) return false;
-        return _mapTime[clientServerId].Add(_credifyConfig.Core.CreditsTeamPlayerBetWindow) >= DateTime.UtcNow;
+        return _mapTime[clientServerId].Add(_credifyConfig.Core.TeamPlayerBetWindow) >= DateTime.UtcNow;
     }
 
     public int CancelBets(EFClient client)

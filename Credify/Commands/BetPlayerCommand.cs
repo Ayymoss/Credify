@@ -71,7 +71,7 @@ public class BetPlayerCommand : Command
         if (!_betManager.MaximumTimePassed(gameEvent.Origin))
         {
             gameEvent.Origin.Tell(_credifyConfig.Translations.BetWindowRestriction
-                .FormatExt(_credifyConfig.Core.CreditsTeamPlayerBetWindow.Humanize()));
+                .FormatExt(_credifyConfig.Core.TeamPlayerBetWindow.Humanize()));
             return;
         }
 

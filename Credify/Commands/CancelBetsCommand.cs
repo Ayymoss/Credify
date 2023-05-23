@@ -29,7 +29,7 @@ public class CancelBetsCommand : Command
         if (!_betManager.MaximumTimePassed(gameEvent.Origin))
         {
             gameEvent.Origin.Tell(_credifyConfig.Translations.BetsOnlyAcceptedDuringWindow
-                .FormatExt(_credifyConfig.Core.CreditsTeamPlayerBetWindow.Humanize()));
+                .FormatExt(_credifyConfig.Core.TeamPlayerBetWindow.Humanize()));
             return Task.CompletedTask;
         }
 
