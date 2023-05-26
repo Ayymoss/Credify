@@ -23,7 +23,6 @@ Credits are global, not server-specific, and can be viewed with the !crtop comma
   !crbet <amount> - Gamble credits in a tiered win/loss system
   !crbp <name> <amount> - Bet on a player to win - Payout is proportionate based on their ELO
   !crbt <team> <amount> - Bet on a team to win - Payout is proportionate based team's average ELO
-  !crcnb - Cancel your open bets
   !crcb - Claim any expired/completed bets you've previously made. (No credits lost if unclaimed)
   !crob - Lists current bets on your server. (ID - Origin - Target - Amount)
   !crcnb - Cancels your open bets
