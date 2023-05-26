@@ -26,7 +26,7 @@ Credits are global, not server-specific, and can be viewed with the !crtop comma
   !crcb - Claim any expired/completed bets you've previously made. (No credits lost if unclaimed)
   !crob - Lists current bets on your server. (ID - Origin - Target - Amount)
   !crcnb - Cancels your open bets
-  !crrps - Play rock paper scissors
+  !crrps <Rock | Paper | Scissors> <Amount> - Play rock paper scissors
   
   !crshop - Displays the shop
   !crbuy <ID> - Buy an item from the shop
