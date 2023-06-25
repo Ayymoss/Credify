@@ -31,17 +31,17 @@ public class PersistenceManager
     public async Task AddBankCredits(long credits)
     {
         BankCredits += credits;
-        await WriteBankCredits();
+        await WriteBankCreditsAsync();
     }
 
     public bool AvailableFunds(EFClient client, long amount) =>
-        amount <= client.GetAdditionalProperty<long>(Plugin.Key);
+        amount <= client.GetAdditionalProperty<long>(Plugin.CreditsAmount);
 
     public async Task WriteClientCredits(EFClient client, long? amount = null)
     {
-        await _metaService.SetPersistentMeta(Plugin.Key, amount is not null
+        await _metaService.SetPersistentMeta(Plugin.CreditsAmount, amount is not null
             ? amount.ToString()
-            : client.GetAdditionalProperty<long>(Plugin.Key).ToString(), client.ClientId);
+            : client.GetAdditionalProperty<long>(Plugin.CreditsAmount).ToString(), client.ClientId);
     }
 
     public async Task WriteTopScoreAsync() =>
@@ -89,7 +89,7 @@ public class PersistenceManager
     public async Task WriteClientShopAsync(EFClient client, List<ClientShopItem> shopItems) =>
         await _metaService.SetPersistentMetaValue(Plugin.ShopKey, shopItems, client.ClientId);
 
-    private async Task WriteBankCredits() =>
+    public async Task WriteBankCreditsAsync() =>
         await _metaService.SetPersistentMeta(Plugin.BankCreditsKey, BankCredits.ToString());
 
     public async Task ReadTopScoreAsync()
@@ -162,7 +162,7 @@ public class PersistenceManager
         long userCredits;
         if (client.IsIngame)
         {
-            userCredits = client.GetAdditionalProperty<long>(Plugin.Key);
+            userCredits = client.GetAdditionalProperty<long>(Plugin.CreditsAmount);
             return userCredits;
         }
 
@@ -184,9 +184,9 @@ public class PersistenceManager
         long credits, newCredits;
         if (client.IsIngame)
         {
-            credits = client.GetAdditionalProperty<long>(Plugin.Key);
+            credits = client.GetAdditionalProperty<long>(Plugin.CreditsAmount);
             newCredits = credits + amount;
-            client.SetAdditionalProperty(Plugin.Key, newCredits);
+            client.SetAdditionalProperty(Plugin.CreditsAmount, newCredits);
             OrderTop(client, newCredits);
             return newCredits;
         }
@@ -201,7 +201,7 @@ public class PersistenceManager
     private async Task<long> LoadUserCredits(EFClient client)
     {
         // Get pre-initialised credits
-        var userCredits = (await _metaService.GetPersistentMeta(Plugin.Key, client.ClientId))?.Value;
+        var userCredits = (await _metaService.GetPersistentMeta(Plugin.CreditsAmount, client.ClientId))?.Value;
 
         // If null, get total kills, if no kills (ie: new player) set to 0
         if (userCredits is null)
@@ -222,15 +222,15 @@ public class PersistenceManager
         }
 
         var credits = long.Parse(userCredits);
-        client.SetAdditionalProperty(Plugin.Key, credits);
+        client.SetAdditionalProperty(Plugin.CreditsAmount, credits);
         return credits;
     }
 
     public void OnKill(EFClient client)
     {
-        var userCredits = client.GetAdditionalProperty<long>(Plugin.Key);
+        var userCredits = client.GetAdditionalProperty<long>(Plugin.CreditsAmount);
         userCredits++;
-        client.SetAdditionalProperty(Plugin.Key, userCredits);
+        client.SetAdditionalProperty(Plugin.CreditsAmount, userCredits);
         OrderTop(client, userCredits);
         StatisticsState.CreditsEarned++;
     }
@@ -243,6 +243,7 @@ public class PersistenceManager
 
     public void OrderTop(EFClient client, long amount)
     {
+        if (client.ClientId is 0 or 1) return;
         lock (TopCredits)
         {
             // If the top hasn't got 5 entries yet add user - check for duplicates.
@@ -275,4 +276,7 @@ public class PersistenceManager
                 .ToList();
         }
     }
+
+    public void ResetTop() => TopCredits = new List<TopCreditEntry>();
+    public void ResetStatistics() => StatisticsState = new StatisticsState();
 }

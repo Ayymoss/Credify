@@ -23,6 +23,7 @@ public class ChatUtils
 
         foreach (var server in _manager.GetServers())
         {
+            if (server.ConnectedClients.Count is 0) continue;
             await server.BroadcastAsync(messages);
         }
     }
@@ -56,6 +57,4 @@ public class ChatUtils
         var bytes = Convert.FromBase64String(base64String);
         return Encoding.UTF8.GetString(bytes);
     }
-    
-    
 }

@@ -1,163 +1,69 @@
-﻿using Credify.Models;
+﻿using Credify.ChatGames.Blackjack;
 using SharedLibraryCore;
-using SharedLibraryCore.Commands;
 using SharedLibraryCore.Configuration;
-using SharedLibraryCore.Database.Models;
 using SharedLibraryCore.Interfaces;
 
 namespace Credify.Commands;
 
 public class BetCommand : Command
 {
-    private readonly PersistenceManager _persistenceManager;
+    private readonly BlackjackMeta _blackjackMeta;
     private readonly CredifyConfiguration _credifyConfig;
+    private readonly PersistenceManager _persistenceManager;
 
     public BetCommand(CommandConfiguration config, ITranslationLookup translationLookup,
-        PersistenceManager persistenceManager, CredifyConfiguration credifyConfig) : base(config, translationLookup)
+        BlackjackMeta blackjackMeta, CredifyConfiguration credifyConfig, PersistenceManager persistenceManager) : base(
+        config, translationLookup)
     {
-        _persistenceManager = persistenceManager;
+        _blackjackMeta = blackjackMeta;
         _credifyConfig = credifyConfig;
+        _persistenceManager = persistenceManager;
         Name = "credifybet";
         Alias = "crbet";
         Description = credifyConfig.Translations.CommandGambleCreditsDescription;
         Permission = Data.Models.Client.EFClient.Permission.User;
         RequiresTarget = false;
-        Arguments = new[]
-        {
-            new CommandArgument
-            {
-                Name = "Amount",
-                Required = true
-            }
-        };
     }
 
     public override async Task ExecuteAsync(GameEvent gameEvent)
     {
-        var initialStakeArg = gameEvent.Data;
-
-        if (initialStakeArg == "all")
+        if (!_credifyConfig.Blackjack.IsEnabled)
         {
-            var allCredits = await _persistenceManager.GetClientCredits(gameEvent.Origin);
-            initialStakeArg = allCredits.ToString();
-        }
-
-        if (!long.TryParse(initialStakeArg, out var initialStake))
-        {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.ErrorParsingSecondArgument);
+            gameEvent.Origin.Tell(_credifyConfig.Translations.BlackjackDisabled);
             return;
         }
 
-        if (initialStake < 10)
-        {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.MinimumAmount);
-            return;
-        }
-
-        if (!_persistenceManager.AvailableFunds(gameEvent.Origin, initialStake))
+        var funds = await _persistenceManager.GetClientCredits(gameEvent.Origin);
+        if (funds < 10)
         {
             gameEvent.Origin.Tell(_credifyConfig.Translations.InsufficientCredits);
             return;
         }
 
-        var grossProfit = 0L;
-        var result = GambleResult.Loss;
-        var randomNumber = Random.Shared.Next(0, 101);
-        switch (randomNumber)
+        var player = gameEvent.Origin;
+        if (!_blackjackMeta.IsPlayerPlaying(player))
         {
-            case <= 10:
-                result = GambleResult.Loss;
-                break;
-            case <= 35:
-                result = GambleResult.Draw;
-                grossProfit = initialStake; // They receive back their initial stake
-                break;
-            case <= 60:
-                grossProfit = Convert.ToInt64(Math.Round(initialStake * 1.1));
-                result = GambleResult.Won;
-                break;
-            case <= 80:
-                grossProfit = Convert.ToInt64(Math.Round(initialStake * 2.2));
-                result = GambleResult.Won;
-                break;
-            case <= 95:
-                grossProfit = Convert.ToInt64(Math.Round(initialStake * 4.4));
-                result = GambleResult.Won;
-                break;
-            case <= 100:
-                grossProfit = Convert.ToInt64(Math.Round(initialStake * 8.8));
-                result = GambleResult.Jackpot;
-                break;
+            await _blackjackMeta.JoinGame(gameEvent.Origin);
+
+            if (_credifyConfig.Blackjack.JoinAnnouncements)
+            {
+                foreach (var server in gameEvent.Origin.CurrentServer.Manager.GetServers())
+                {
+                    if (server.ConnectedClients.Count is 0) continue;
+                    server.Broadcast($"{_credifyConfig.Translations.BlackjackTitle} " +
+                                     $"{_credifyConfig.Translations.BlackjackJoinAnnouncement.FormatExt(gameEvent.Origin.CleanedName, _blackjackMeta.GetPlayerCount() - 1)}");
+                }
+            }
+            else
+            {
+                gameEvent.Origin.Tell($"{_credifyConfig.Translations.BlackjackTitle} " +
+                                      $"{_credifyConfig.Translations.BlackjackJoin}");
+            }
+
+            return;
         }
 
-        var taxBook = new TaxBook(grossProfit, initialStake, _credifyConfig.Core.BankTax);
-        var netProfit = -initialStake;
-
-        if (result is GambleResult.Won or GambleResult.Jackpot)
-        {
-            netProfit = taxBook.NetChange;
-            _persistenceManager.StatisticsState.CreditsWon += (ulong)netProfit;
-        }
-
-        if (result is GambleResult.Draw)
-        {
-            netProfit = taxBook.NetChange;
-        }
-
-        if (result is not GambleResult.Draw)
-        {
-            _persistenceManager.StatisticsState.CreditsSpent += (ulong)initialStake;
-        }
-
-        await _persistenceManager.AddBankCredits(taxBook.Tax);
-        var newClientBalance = await _persistenceManager
-            .AlterClientCredits(netProfit, client: gameEvent.Origin);
-        await AnnounceResult(result, gameEvent.Origin, netProfit, taxBook.Tax, newClientBalance);
-    }
-
-    private Task AnnounceResult(GambleResult gambleResult, EFClient client, long netProfit, long tax,
-        long newCreditBalance)
-    {
-        var announcement = string.Empty;
-        var message = string.Empty;
-
-        switch (gambleResult)
-        {
-            case GambleResult.Loss:
-                message = _credifyConfig.Translations.GambleLost.FormatExt($"{Math.Abs(netProfit):N0}", $"{tax:N0}",
-                    $"{newCreditBalance:N0}");
-                break;
-            case GambleResult.Draw:
-                message = _credifyConfig.Translations.GambleDraw.FormatExt($"{tax:N0}", $"{newCreditBalance:N0}");
-                break;
-            case GambleResult.Won:
-                message = _credifyConfig.Translations.GambleWon.FormatExt($"{netProfit:N0}", $"{tax:N0}",
-                    $"{newCreditBalance:N0}");
-                announcement = _credifyConfig.Translations.GambleWonAnnouncement.FormatExt(Plugin.PluginName,
-                    client.CleanedName, $"{netProfit:N0}", "!crbet");
-                break;
-            case GambleResult.Jackpot:
-                message = _credifyConfig.Translations.GambleWon.FormatExt($"{netProfit:N0}", $"{tax:N0}",
-                    $"{newCreditBalance:N0}");
-                announcement = _credifyConfig.Translations.GambleWonJackpotAnnouncement.FormatExt(Plugin.PluginName,
-                    client.CleanedName, $"{netProfit:N0}", "!crbet");
-                break;
-        }
-
-        client.Tell(message);
-        if (gambleResult is GambleResult.Jackpot or GambleResult.Won)
-        {
-            client.CurrentServer.Broadcast(announcement, Utilities.IW4MAdminClient());
-        }
-
-        return Task.CompletedTask;
-    }
-
-    private enum GambleResult
-    {
-        Loss,
-        Draw,
-        Won,
-        Jackpot
+        await _blackjackMeta.LeaveGame(gameEvent.Origin);
+        gameEvent.Origin.Tell(_credifyConfig.Translations.BlackjackLeave);
     }
 }

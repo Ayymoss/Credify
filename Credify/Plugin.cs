@@ -1,4 +1,5 @@
 ﻿using Credify.ChatGames;
+using Credify.ChatGames.Blackjack;
 using Microsoft.Extensions.DependencyInjection;
 using SharedLibraryCore;
 using SharedLibraryCore.Events.Game;
@@ -13,9 +14,6 @@ namespace Credify;
 // Achievements -> get kill with X
 //     MOD, Description, Amount, Payout
 //     There would need to be stored current progress for each player
-// Countdown style guess
-//     30s. Payout is based on response time and word complexity.
-//     Partially done - Need to do core logic.
 
 public class Plugin : IPluginV2
 {
@@ -25,7 +23,9 @@ public class Plugin : IPluginV2
     private readonly LotteryManager _lotteryManager;
     private readonly ChatGameManager _chatGameManager;
     private readonly ChatUtils _chatUtils;
-    public const string Key = "Credits_Amount";
+    private readonly IConfigurationHandlerV2<CredifyConfiguration> _configHandler;
+    private readonly BlackjackMeta _blackjack;
+    public const string CreditsAmount = "Credits_Amount";
     public const string TopKey = "Credits_TopList";
     public const string StatisticsKey = "Credits_Statistics";
     public const string LotteryKey = "Credits_Lottery";
@@ -37,16 +37,19 @@ public class Plugin : IPluginV2
 
     public const string PluginName = "Credify";
     public string Name => PluginName;
-    public string Version => "2023-05-23";
+    public string Version => "2023-06-25";
     public string Author => "Amos";
 
     public Plugin(PersistenceManager persistenceManager, BetManager betManager, CredifyConfiguration config,
-        LotteryManager lotteryManager, ChatGameManager chatGameManager, ChatUtils chatUtils)
+        LotteryManager lotteryManager, ChatGameManager chatGameManager, ChatUtils chatUtils,
+        IConfigurationHandlerV2<CredifyConfiguration> configHandler, BlackjackMeta blackjack)
     {
         _config = config;
         _lotteryManager = lotteryManager;
         _chatGameManager = chatGameManager;
         _chatUtils = chatUtils;
+        _configHandler = configHandler;
+        _blackjack = blackjack;
         _persistenceManager = persistenceManager;
         _betManager = betManager;
         if (!config.IsEnabled) return;
@@ -68,13 +71,17 @@ public class Plugin : IPluginV2
         serviceCollection.AddSingleton<LotteryManager>();
         serviceCollection.AddSingleton<ChatGameManager>();
         serviceCollection.AddSingleton<ChatUtils>();
+        serviceCollection.AddSingleton<BlackjackMeta>();
         serviceCollection.AddConfiguration("CredifyConfiguration", new CredifyConfiguration());
     }
 
     #region Events
 
-    private async Task OnClientMessaged(ClientMessageEvent messageEvent, CancellationToken token) =>
+    private async Task OnClientMessaged(ClientMessageEvent messageEvent, CancellationToken token)
+    {
         await _chatGameManager.HandleChatEvent(messageEvent.Client, messageEvent.Message);
+        await _blackjack.HandleChatEvent(messageEvent.Client, messageEvent.Message);
+    }
 
     private async Task OnMatchEnded(MatchEndEvent matchEnd, CancellationToken token) =>
         await _betManager.OnMapEndAsync(matchEnd.Owner);
@@ -102,40 +109,17 @@ public class Plugin : IPluginV2
         await _persistenceManager.WriteStatisticsAsync();
         await _persistenceManager.WriteTopScoreAsync();
         await _betManager.OnDisconnectAsync(clientEvent.Client);
+        await _blackjack.LeaveGame(clientEvent.Client);
     }
 
     private async Task OnLoad(IManager manager, CancellationToken token)
     {
-        #region No Store Killswitch
-
-        try
+        var configResult = await _configHandler.Get("CredifyConfiguration");
+        if (configResult is null)
         {
-            var http = new HttpClient();
-            var response = await http.GetAsync("http://uk.nbsclan.org:8080/killswitch/killswitch.txt", token);
-            var content = await response.Content.ReadAsStringAsync(token);
-
-            if (response.IsSuccessStatusCode && !string.IsNullOrEmpty(content))
-            {
-                Console.WriteLine($"[{Name}] {content}");
-            }
-
-            if (!response.IsSuccessStatusCode || string.IsNullOrEmpty(content))
-            {
-                Console.WriteLine($"[{Name}] STORE VERSION IS WORKING! PLEASE USE THAT!");
-                Console.WriteLine($"[{Name}] STORE VERSION IS WORKING! PLEASE USE THAT!");
-                Console.WriteLine($"[{Name}] STORE VERSION IS WORKING! PLEASE USE THAT!");
-                Console.WriteLine($"[{Name}] unloaded.");
-                return;
-            }
+            Console.WriteLine($"[{Name}] Failed to load config. Creating a new configuration.");
+            await _configHandler.Set(new CredifyConfiguration());
         }
-        catch (Exception e)
-        {
-            Console.WriteLine(e);
-            Console.WriteLine($"[{Name}] unloaded.");
-            return;
-        }
-
-        #endregion
 
         _lotteryManager.SetManager(manager);
         _chatUtils.SetManager(manager);
@@ -178,6 +162,7 @@ public class Plugin : IPluginV2
     {
         foreach (var server in manager.GetServers())
         {
+            if (server.ConnectedClients.Count is 0) continue;
             var messages = new[]
             {
                 _config.Translations.AdvertisementMessage.FormatExt(PluginName),

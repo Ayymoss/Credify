@@ -115,6 +115,7 @@ public class LotteryManager
         if (_manager is null) return;
         foreach (var server in _manager.GetServers())
         {
+            if (server.ConnectedClients.Count is 0) continue;
             server.Broadcast(_credifyConfig.Translations.AnnounceLottoWinner
                 .FormatExt(name, $"{_persistenceManager.BankCredits:N0}", $"{winPercentage:N1}"));
         }

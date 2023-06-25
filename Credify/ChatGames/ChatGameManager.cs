@@ -24,7 +24,6 @@ public class ChatGameManager
 
     public async Task StartGame()
     {
-        // Some game is causing this to exit with an exception, so we'll just catch it and try again
         try
         {
             var gameTypes = new List<Type>();
@@ -37,8 +36,6 @@ public class ChatGameManager
             if (!gameTypes.Any()) return;
 
             var selectedGameType = gameTypes[Random.Shared.Next(gameTypes.Count)];
-            selectedGameType = gameTypes[1];
-
             _currentGame = (ChatGame)Activator.CreateInstance(selectedGameType, _credifyConfig, _persistenceManager, _chatUtils)!;
             if (_currentGame is null)
             {
@@ -50,7 +47,7 @@ public class ChatGameManager
         }
         catch (Exception e)
         {
-            Console.WriteLine(e);
+            _logger.LogError("Game exception caused us here; {Error}", e);
         }
     }
 

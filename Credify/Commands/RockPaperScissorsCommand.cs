@@ -97,13 +97,13 @@ public class RockPaperScissorsCommand : Command
         var taxBook = new TaxBook(stake, 0, _credifyConfig.Core.BankTax);
         string message, announcement = string.Empty;
         long newBalance;
+        _persistenceManager.StatisticsState.CreditsSpent += (ulong)stake;
 
         switch (outcome)
         {
             case 0: // Tie
                 newBalance = await _persistenceManager.AlterClientCredits(-taxBook.Tax, client: gameEvent.Origin);
-                message = _credifyConfig.Translations.GambleDraw
-                    .FormatExt($"{taxBook.Tax:N0}", $"{newBalance:N0}");
+                message = _credifyConfig.Translations.GambleDraw.FormatExt($"{taxBook.Tax:N0}", $"{newBalance:N0}");
                 break;
             case 1: // User wins
                 taxBook = new TaxBook(stake * 2, stake, _credifyConfig.Core.BankTax);
@@ -112,6 +112,7 @@ public class RockPaperScissorsCommand : Command
                     .FormatExt($"{taxBook.NetChange:N0}", $"{taxBook.Tax:N0}", $"{newBalance:N0}");
                 announcement = _credifyConfig.Translations.RpsWonAnnouncement
                     .FormatExt(Plugin.PluginName, gameEvent.Origin.CleanedName, $"{taxBook.NetChange:N0}");
+                _persistenceManager.StatisticsState.CreditsWon += (ulong)taxBook.NetChange;
                 break;
             default: // User loses
                 newBalance = await _persistenceManager.AlterClientCredits(-stake, client: gameEvent.Origin);

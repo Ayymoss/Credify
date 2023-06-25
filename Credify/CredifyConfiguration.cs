@@ -7,6 +7,7 @@ public class CredifyConfiguration
     public bool IsEnabled { get; set; } = true;
     public BaseConfiguration Core { get; set; } = new();
     public ChatGameConfiguration ChatGame { get; set; } = new();
+    public BlackjackConfiguration Blackjack { get; set; } = new();
     public Shop Shop { get; set; } = new();
     public Translations Translations { get; set; } = new();
 }
@@ -19,6 +20,16 @@ public class BaseConfiguration
     public TimeSpan TeamPlayerBetWindow { get; set; } = TimeSpan.FromMinutes(2);
     public TimeSpan LotteryFrequency { get; set; } = TimeSpan.FromDays(30);
     public TimeSpan LotteryFrequencyAtTime { get; set; } = new(15, 0, 0);
+}
+
+public class BlackjackConfiguration
+{
+    public bool IsEnabled { get; set; } = true;
+    public bool JoinAnnouncements { get; set; } = true;
+    public double PayoutBlackjack { get; set; } = 2.5d;
+    public double PayoutDealerBust { get; set; } = 2d;
+    public double PayoutWin { get; set; } = 2d;
+    public TimeSpan TimeoutForPlayerActions { get; set; } = TimeSpan.FromSeconds(30);
 }
 
 public class ChatGameConfiguration
@@ -76,6 +87,16 @@ public class Translations
     public string AdvertisementShop { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] Buy items from the shop! (Color::Accent)!crshop(Color::White)";
     public string MinimumPlayersNeeded { get; set; } = "(Color::Yellow){{minimumPlayers}} players minimum are needed to bet";
     public string InsufficientCredits { get; set; } = "(Color::Yellow)Insufficient credits";
+    public string PassIdAsArgument { get; set; } = "(Color::Yellow)Pass the 'Id' from IW4MAdminConfiguration as an argument";
+    public string ResettingCreditsInit { get; set; } = "(Color::Accent)--Credit Reset--";
+    public string ResettingCredits { get; set; } = "(Color::Yellow)Resetting credits... (Color::White){{count}} players reset";
+    public string ResettingLotteryTickets { get; set; } = "(Color::Yellow)Resetting lottery tickets... (Color::White){{count}} players reset";
+    public string ResettingShopItems { get; set; } = "(Color::Yellow)Resetting shop items... (Color::White){{count}} players reset";
+    public string ResettingTopStats { get; set; } = "(Color::Yellow)Resetting top stats...";
+    public string ResettingStatistics { get; set; } = "(Color::Yellow)Resetting statistics...";
+    public string ResettingBank { get; set; } = "(Color::Yellow)Resetting server bank...";
+    public string ResetCreditsComplete { get; set; } = "(Color::Accent)--Credit Reset Complete--";
+    public string CommandResetCreditsDescription { get; set; } = "Resets the credits globally";
     public string BetRemovedDueToTargetLeaving { get; set; } = "(Color::Red)Your bet was removed due to {{name}} leaving";
     public string BetRemovedDueToInsufficientCredits { get; set; } = "(Color::Red)Bet was removed due to you no longer having available credits";
     public string BetLostOnTarget { get; set; } = "Your bet (Color::Red)lost (Color::Accent)${{initAmount}} (Color::White)credits on {{target}}";
@@ -106,12 +127,11 @@ public class Translations
     public string Axis { get; set; } = "(Color::Blue)Axis";
     public string BetTargetPlayer { get; set; } = "(Color::Red){{targetPlayerCleanedName}}";
     public string BetEntry { get; set; } = "#(Color::Accent){{index}} (Color::White)- (Color::Green){{originCleanedName}} (Color::White)- {{target}} (Color::White)- (Color::Accent)${{initAmount}}";
-    public string CommandGambleCreditsDescription { get; set; } = "Gamble Credits";
+    public string CommandGambleCreditsDescription { get; set; } = "Join Blackjack";
     public string MinimumAmount { get; set; } = "(Color::Yellow)Minimum amount is 10";
     public string GambleWon { get; set; } = "You won (Color::Accent)${{wonAmount}} (Color::White)((Color::Yellow)${{taxed}} (Color::White)taxed) credits! New balance (Color::Accent)${{newBalance}}";
     public string GambleLost { get; set; } = "You lost (Color::Accent)${{lostAmount}} (Color::White)((Color::Yellow)${{taxed}} (Color::White)taxed) credits. New balance (Color::Accent)${{newBalance}}! (Color::Green)Try again! You could win big!";
     public string GambleDraw { get; set; } = "You only lost (Color::White)((Color::Yellow)${{taxed}} (Color::White)taxed) credits. New balance (Color::Accent)${{newBalance}}! (Color::Green)Better luck next time!";
-    public string GambleWonJackpotAnnouncement { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] (Color::Yellow){{originName}} (Color::White)won the jackpot of (Color::Accent)${{wonAmount}}! (Color::Yellow){{command}} (Color::White)to play!";
     public string GambleWonAnnouncement { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] (Color::Yellow){{originName}} (Color::White)won (Color::Accent)${{wonAmount}}! (Color::Yellow){{command}} (Color::White)to play!";
     public string CommandCheckCreditsDescription { get; set; } = "Check your credits.";
     public string TargetCredits { get; set; } = "{{targetName}} (Color::White)has (Color::Accent)${{targetCredits}} (Color::White)credits";
@@ -192,7 +212,7 @@ public class Translations
     public string ChatGameTypingTestWinnerBroadcast { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] (Color::Accent){{name}} (Color::White)won (Color::Green)${{amount}} (Color::White)with a time of (Color::Accent){{time}} (Color::White)seconds!";
     public string ChatGameMathTestWinnerBroadcast { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] (Color::Accent){{name}} (Color::White)won (Color::Green)${{amount}} (Color::White)with a time of (Color::Accent){{time}} (Color::White)seconds! (Color::White)The answer was (Color::Accent){{question}}";
     public string ChatGameReactionTell { get; set; }= "You won (Color::Green)${{amount}}(Color::White). New balance (Color::Green)${{balance}}";
-    public string ChatGameReactionBroadcast { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] [(Color::Accent){{name}}(Color::White)] (Color::White)First to React! {{question}}";
+    public string ChatGameReactionBroadcast { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] [(Color::Accent){{name}}(Color::White)] (Color::White)First to Type! {{question}}";
     public string ChatGameTriviaBroadcast { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] [(Color::Accent){{name}}(Color::White)] (Color::Yellow){{question}}";
     public string ChatGameTriviaWinBroadcast { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] (Color::Accent){{count}} (Color::White)winner(s) with (Color::Green)${{amount}} (Color::White)paid out! The answer was (Color::Accent){{question}}";
     public string ChatGameAlreadyAnswered { get; set; }= "(Color::Yellow)You already answered!";
@@ -202,6 +222,47 @@ public class Translations
     public string ChatGameCountdownWordNotFound { get; set; } = "(Color::Yellow){{word}} (Color::White)was not found in the dictionary";
     public string ChatGameCountdownWinBroadcast { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] (Color::Accent){{count}} (Color::White)winner(s) with (Color::Green)${{amount}} (Color::White)paid out! Accepted answers were (Color::Accent){{words}}";
     public string ChatGameCountdownBroadcast { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] [(Color::Accent){{name}}(Color::White)] (Color::Yellow)Find the best word in these letters, (Color::Accent){{question}}";
+    
+    #endregion
+    
+    #region Blackjack
+    
+    public string BlackjackTitle { get; set; } = "[(Color::Pink)Blackjack(Color::White)]";
+    public string BlackjackTitleShort { get; set; } = "[(Color::Pink)BJ(Color::White)]";
+    public string BlackjackJoin { get; set; } = "(Color::Yellow)You have joined the game! (Color::White)(!crbet to leave)";
+    public string BlackjackLeave { get; set; } = "(Color::Yellow)You have left the game! (Color::White)(!crbet to join)";
+    public string BlackjackStartingGame { get; set; } = "(Color::Accent)Starting a new game with {{count}} player(s)";
+    public string BlackjackPlaceBets { get; set; } = "(Color::Yellow)Type the amount of credits you'd like to bet. (Color::White)You have (Color::Green)${{credits}} (Color::White)available";
+    public string BlackjackBetTimeout { get; set; } = "(Color::Yellow)You took too long to bet. (Color::White)You have been removed from the game";
+    public string BlackjackDealerInitialCard { get; set; } = "Dealer's up-card: (Color::Accent){{card}}";
+    public string BlackjackDealerCards { get; set; } = "Dealer's cards [(Color::Yellow){{total}}(Color::White)]: (Color::Accent){{cards}}";
+    public string BlackjackPlayerCards { get; set; } = "Your cards [(Color::Yellow){{total}}(Color::White)]: (Color::Accent){{cards}}";
+    public string BlackjackBlackjackConfirmation { get; set; } = "(Color::Accent)You have blackjack! (Color::White)Standing...";
+    public string BlackjackAnnouncement { get; set; } = "(Color::Accent){{name}} (Color::White)has (Color::Purple)blackjack(Color::White), winning (Color::Green)${{amount}}(Color::White)! (Color::Accent)Play with (Color::Yellow)!crbet";
+    public string BlackjackJoinAnnouncement { get; set; } = "(Color::Accent){{name}} (Color::White)has joined blackjack with {{count}} other(s)! (Color::Accent)Play with (Color::Yellow)!crbet";
+    public string BlackjackPlayersDeciding { get; set; } = "(Color::Yellow)Waiting for {{count}} player(s) to decide...";
+    public string BlackJackPlayerDecision { get; set; } = "Type: (Color::Accent)[H]it (Color::White)to hit. (Color::Accent)[S]tand (Color::White)to stand. (Color::Accent)[C]ards (Color::White)to see your cards";
+    public string BlackJackPlayerBustConfirmation { get; set; } = "(Color::Yellow)You busted!";
+    public string BlackjackBlackjackPush { get; set; } = "(Color::Yellow)Blackjack Push! (Color::White)You get your bet back!";
+    public string BlackjackDealerBust { get; set; } = "(Color::Accent)Dealer busted with {{houseValue}}! (Color::White)You won!";
+    public string BlackjackWin { get; set; } = "(Color::Accent)You won with {{playerValue}}!";
+    public string BlackjackLose { get; set; } = "(Color::Yellow)You lost with {{playerValue}}!";
+    public string BlackjackPush { get; set; } = "(Color::Yellow)Push! (Color::White)You get your bet back!";
+    public string BlackjackPayout { get; set; } = "(Color::White)You won (Color::Green)${{amount}} (Color::White)with a bet of (Color::Green)${{bet}}";
+    public string BlackjackNewDeckShuffled { get; set; } = "(Color::Accent)New deck shuffled!";
+    public string BlackjackAcceptedBet { get; set; } = "(Color::Yellow)Accepted bet of (Color::Green)${{amount}}";
+    public string BlackjackWaitingForBets { get; set; } = "(Color::Yellow)Waiting for {{count}} player(s) to bet...";
+    public string BlackjackPlayerBust { get; set; } = "(Color::Red)Bust! (Color::White)[(Color::Yellow){{total}}(Color::White)]: {{cards}}";
+    public string BlackjackPlayerHit { get; set; } = "(Color::Accent)Hit! (Color::White)[(Color::Yellow){{total}}(Color::White)]: {{cards}}";
+    public string BlackjackPlayerStand { get; set; }= "(Color::Green)Stand! (Color::White)[(Color::Yellow){{total}}(Color::White)]";
+    public string BlackjackDisabled { get; set; } = "(Color::Yellow)Blackjack is disabled";
+    public string BlackjackQueued { get; set; } = "(Color::Yellow)You have been queued for the next game";
+    public string BlackjackInsufficientFunds { get; set; } = "(Color::Yellow)You have been removed. (Color::White)You do not have enough credits to play";
+    public string BlackjackOutcomeBlackjack { get; set; } = "(Color::Pink)BJ";
+    public string BlackjackOutcomeWin { get; set; } = "(Color::Green)W";
+    public string BlackjackOutcomeLose { get; set; } = "(Color::Red)L";
+    public string BlackjackOutcomePush { get; set; } = "(Color::Yellow)P";
+    public string? BlackjackPlayerOutcomeMessage { get; set; }= "(Color::White)[{{outcome}}(Color::White)] (Color::Accent){{name}} (Color::White)((Color::Yellow){{total}}(Color::White))";
 
     #endregion
 

@@ -128,7 +128,7 @@ public class BetManager
 
         if (openBet.Origin.State is EFClient.ClientState.Connected)
         {
-            openBet.Origin.SetAdditionalProperty(Plugin.Key,
+            openBet.Origin.SetAdditionalProperty(Plugin.CreditsAmount,
                 targetWon ? previousCredits + openBet.PayOut : previousCredits - openBet.PayOut);
         }
         else
@@ -363,7 +363,7 @@ public class BetManager
                 continue;
             }
 
-            var previousCredits = openBet.Origin.GetAdditionalProperty<long>(Plugin.Key);
+            var previousCredits = openBet.Origin.GetAdditionalProperty<long>(Plugin.CreditsAmount);
             openBet.PayOut = openBet.InitAmount;
 
             if (openBet.TargetPlayer != null) await ProcessPlayerBet(serverId, openBet, previousCredits);

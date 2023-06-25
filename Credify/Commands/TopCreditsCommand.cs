@@ -41,12 +41,15 @@ public class TopCreditsCommand : Command
 
         await using var context = _contextFactory.CreateContext(false);
         var names = await context.Clients
-            .Where(client => _persistenceManager.TopCredits.Select(credit => credit.ClientId).Contains(client.ClientId))
+            .Where(client => _persistenceManager.TopCredits
+                .Select(credit => credit.ClientId)
+                .Contains(client.ClientId))
             .Select(client => new {client.ClientId, client.CurrentAlias.Name})
             .ToDictionaryAsync(selector => selector.ClientId, selector => selector.Name);
 
-        var output = _persistenceManager.TopCredits.OrderByDescending(entry => entry.Credits).Select(
-            (creditEntry, index) => _credifyConfig.Translations.TopPlayerEntry
+        var output = _persistenceManager.TopCredits
+            .OrderByDescending(entry => entry.Credits)
+            .Select((creditEntry, index) => _credifyConfig.Translations.TopPlayerEntry
                 .FormatExt(index + 1, $"{creditEntry.Credits:N0}", names[creditEntry.ClientId]));
 
         await gameEvent.Origin.TellAsync(output);
