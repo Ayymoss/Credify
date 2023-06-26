@@ -67,7 +67,7 @@ public class BetTeamCommand : Command
 
         if (argStr[1] == "all")
         {
-            var allCredits = await _persistenceManager.GetClientCredits(gameEvent.Origin);
+            var allCredits = await _persistenceManager.GetClientCreditsAsync(gameEvent.Origin);
             argStr[1] = allCredits.ToString();
         }
 

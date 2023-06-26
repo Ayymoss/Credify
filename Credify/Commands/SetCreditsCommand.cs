@@ -11,9 +11,8 @@ public class SetCreditsCommand : Command
     private readonly PersistenceManager _persistenceManager;
     private readonly CredifyConfiguration _credifyConfig;
 
-    public SetCreditsCommand(CommandConfiguration config, ITranslationLookup translationLookup, PersistenceManager persistenceManager,
-        CredifyConfiguration credifyConfig) :
-        base(config, translationLookup)
+    public SetCreditsCommand(CommandConfiguration config, ITranslationLookup translationLookup,
+        PersistenceManager persistenceManager, CredifyConfiguration credifyConfig) : base(config, translationLookup)
     {
         _persistenceManager = persistenceManager;
         _credifyConfig = credifyConfig;
@@ -54,6 +53,6 @@ public class SetCreditsCommand : Command
             gameEvent.Target.Tell(_credifyConfig.Translations.CreditsSetByOrigin
                 .FormatExt(gameEvent.Origin.Name, $"{Math.Abs(argAmount):N0}"));
         _persistenceManager.OrderTop(gameEvent.Target, Math.Abs(argAmount));
-        await _persistenceManager.WriteClientCredits(gameEvent.Target, argAmount);
+        await _persistenceManager.WriteClientCreditsAsync(gameEvent.Target, argAmount);
     }
 }

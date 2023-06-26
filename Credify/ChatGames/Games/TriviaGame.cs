@@ -86,7 +86,7 @@ public class TriviaGame : ChatGame
             var winner = false;
             if (message.Equals(GameInfo.Answer, StringComparison.OrdinalIgnoreCase))
             {
-                await _persistenceManager.AlterClientCredits(payout, client: client);
+                await _persistenceManager.AlterClientCreditsAsync(payout, client: client);
                 winner = true;
             }
 
@@ -137,7 +137,7 @@ public class TriviaGame : ChatGame
 
         foreach (var winner in players)
         {
-            var balance = await _persistenceManager.GetClientCredits(winner.Client);
+            var balance = await _persistenceManager.GetClientCreditsAsync(winner.Client);
             var userMessage = _credifyConfig.Translations.ChatGameReactionTell
                 .FormatExt($"{winner.Payout:N0}", $"{balance:N0}");
             if (!winner.Client.IsIngame) continue;

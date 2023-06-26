@@ -51,7 +51,7 @@ public class LottoCommand : Command
         }
 
         var ticketsCost = credits * 10;
-        var currentCredits = await _persistenceManager.GetClientCredits(gameEvent.Origin);
+        var currentCredits = await _persistenceManager.GetClientCreditsAsync(gameEvent.Origin);
 
         if (currentCredits < ticketsCost)
         {
@@ -59,8 +59,8 @@ public class LottoCommand : Command
             return;
         }
 
-        await _persistenceManager.AddBankCredits(ticketsCost);
-        await _persistenceManager.AlterClientCredits(-ticketsCost, client: gameEvent.Origin);
+        await _persistenceManager.AddBankCreditsAsync(ticketsCost);
+        await _persistenceManager.AlterClientCreditsAsync(-ticketsCost, client: gameEvent.Origin);
         var totalTickets = await _lotteryManager.AddToLottery(gameEvent.Origin, credits);
         gameEvent.Origin.Tell(_credifyConfig.Translations.BoughtLottoTickets
             .FormatExt($"{credits:N0}", $"{ticketsCost:N0}", $"{totalTickets:N0}"));

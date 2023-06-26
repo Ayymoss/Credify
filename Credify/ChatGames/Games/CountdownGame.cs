@@ -73,7 +73,7 @@ public class CountdownGame : ChatGame
             var payout = Convert.ToInt64(Math.Round(initialPayout * lengthMultiplier));
             if (payout < 10) payout = 10;
 
-            await _persistenceManager.AlterClientCredits(payout, client: client);
+            await _persistenceManager.AlterClientCreditsAsync(payout, client: client);
 
             var player = new ClientAnswerInfo
             {
@@ -122,7 +122,7 @@ public class CountdownGame : ChatGame
 
         foreach (var winner in players)
         {
-            var balance = await _persistenceManager.GetClientCredits(winner.Client);
+            var balance = await _persistenceManager.GetClientCreditsAsync(winner.Client);
             var userMessage = _credifyConfig.Translations.ChatGameReactionTell
                 .FormatExt($"{winner.Payout:N0}", $"{balance:N0}");
             if (!winner.Client.IsIngame) continue;

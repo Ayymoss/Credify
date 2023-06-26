@@ -102,8 +102,8 @@ public class LotteryManager
 
         var winPercentage = (float)winnerTickets / totalTickets * 100;
         AnnounceWinner(clientName, winPercentage);
-        await _persistenceManager.WriteLastLotteryWinner(clientId.Value, clientName , _persistenceManager.BankCredits);
-        await _persistenceManager.AlterClientCredits(_persistenceManager.BankCredits, clientId);
+        await _persistenceManager.WriteLastLotteryWinnerAsync(clientId.Value, clientName , _persistenceManager.BankCredits);
+        await _persistenceManager.AlterClientCreditsAsync(_persistenceManager.BankCredits, clientId);
         _persistenceManager.ResetBank();
 
         Lottery.Clear();

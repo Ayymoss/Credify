@@ -49,7 +49,7 @@ public class TypingTestGame : ChatGame
                                         _credifyConfig.ChatGame.TypingTestTimeout.TotalSeconds;
             var payout = Convert.ToInt64(Math.Round(_credifyConfig.ChatGame.MaxPayout * remainingAsPercentage));
             if (payout < 10) payout = 10;
-            await _persistenceManager.AlterClientCredits(payout, client: client);
+            await _persistenceManager.AlterClientCreditsAsync(payout, client: client);
 
             var winner = new ClientAnswerInfo
             {
@@ -89,7 +89,7 @@ public class TypingTestGame : ChatGame
 
         foreach (var winner in GameInfo.Players)
         {
-            var balance = await _persistenceManager.GetClientCredits(winner.Client);
+            var balance = await _persistenceManager.GetClientCreditsAsync(winner.Client);
             var userMessage = _credifyConfig.Translations.ChatGameReactionTell
                 .FormatExt($"{winnerClient.Payout:N0}", $"{balance:N0}");
             if (!winner.Client.IsIngame) continue;

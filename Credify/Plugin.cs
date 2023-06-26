@@ -24,7 +24,7 @@ public class Plugin : IPluginV2
     private readonly ChatGameManager _chatGameManager;
     private readonly ChatUtils _chatUtils;
     private readonly IConfigurationHandlerV2<CredifyConfiguration> _configHandler;
-    private readonly BlackjackMeta _blackjack;
+    private readonly BlackjackManager _blackjack;
     public const string CreditsAmount = "Credits_Amount";
     public const string TopKey = "Credits_TopList";
     public const string StatisticsKey = "Credits_Statistics";
@@ -42,7 +42,7 @@ public class Plugin : IPluginV2
 
     public Plugin(PersistenceManager persistenceManager, BetManager betManager, CredifyConfiguration config,
         LotteryManager lotteryManager, ChatGameManager chatGameManager, ChatUtils chatUtils,
-        IConfigurationHandlerV2<CredifyConfiguration> configHandler, BlackjackMeta blackjack)
+        IConfigurationHandlerV2<CredifyConfiguration> configHandler, BlackjackManager blackjack)
     {
         _config = config;
         _lotteryManager = lotteryManager;
@@ -71,7 +71,7 @@ public class Plugin : IPluginV2
         serviceCollection.AddSingleton<LotteryManager>();
         serviceCollection.AddSingleton<ChatGameManager>();
         serviceCollection.AddSingleton<ChatUtils>();
-        serviceCollection.AddSingleton<BlackjackMeta>();
+        serviceCollection.AddSingleton<BlackjackManager>();
         serviceCollection.AddConfiguration("CredifyConfiguration", new CredifyConfiguration());
     }
 
@@ -80,7 +80,7 @@ public class Plugin : IPluginV2
     private async Task OnClientMessaged(ClientMessageEvent messageEvent, CancellationToken token)
     {
         await _chatGameManager.HandleChatEvent(messageEvent.Client, messageEvent.Message);
-        await _blackjack.HandleChatEvent(messageEvent.Client, messageEvent.Message);
+        await _blackjack.HandleChatEventAsync(messageEvent.Client, messageEvent.Message);
     }
 
     private async Task OnMatchEnded(MatchEndEvent matchEnd, CancellationToken token) =>
@@ -105,11 +105,11 @@ public class Plugin : IPluginV2
 
     private async Task OnClientStateDisposed(ClientStateDisposeEvent clientEvent, CancellationToken token)
     {
-        await _persistenceManager.WriteClientCredits(clientEvent.Client);
+        await _persistenceManager.WriteClientCreditsAsync(clientEvent.Client);
         await _persistenceManager.WriteStatisticsAsync();
         await _persistenceManager.WriteTopScoreAsync();
         await _betManager.OnDisconnectAsync(clientEvent.Client);
-        await _blackjack.LeaveGame(clientEvent.Client);
+        await _blackjack.LeaveGameAsync(clientEvent.Client);
     }
 
     private async Task OnLoad(IManager manager, CancellationToken token)

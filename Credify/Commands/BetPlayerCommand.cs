@@ -46,7 +46,7 @@ public class BetPlayerCommand : Command
 
         if (amount == "all")
         {
-            var allCredits = await _persistenceManager.GetClientCredits(gameEvent.Origin);
+            var allCredits = await _persistenceManager.GetClientCreditsAsync(gameEvent.Origin);
             amount = allCredits.ToString();
         }
 

@@ -68,9 +68,9 @@ public class PayCommand : Command
         }
 
         var taxBook = new TaxBook(credits, 0, _credifyConfig.Core.BankTax);
-        await _persistenceManager.AddBankCredits(taxBook.Tax);
-        await _persistenceManager.AlterClientCredits(-taxBook.GrossCredits, client: gameEvent.Origin);
-        await _persistenceManager.AlterClientCredits(taxBook.NetChange, client: gameEvent.Target);
+        await _persistenceManager.AddBankCreditsAsync(taxBook.Tax);
+        await _persistenceManager.AlterClientCreditsAsync(-taxBook.GrossCredits, client: gameEvent.Origin);
+        await _persistenceManager.AlterClientCreditsAsync(taxBook.NetChange, client: gameEvent.Target);
         gameEvent.Origin.Tell(_credifyConfig.Translations.PaySent
             .FormatExt($"{taxBook.NetChange:N0}", $"{taxBook.Tax:N0}", gameEvent.Target.CleanedName));
         gameEvent.Target.Tell(_credifyConfig.Translations.PayReceived

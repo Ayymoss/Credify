@@ -15,8 +15,7 @@ public class TopCreditsCommand : Command
 
     public TopCreditsCommand(CommandConfiguration config, ITranslationLookup translationLookup,
         IDatabaseContextFactory contextFactory, PersistenceManager persistenceManager,
-        CredifyConfiguration credifyConfig) :
-        base(config, translationLookup)
+        CredifyConfiguration credifyConfig) : base(config, translationLookup)
     {
         _contextFactory = contextFactory;
         _persistenceManager = persistenceManager;

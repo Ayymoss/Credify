@@ -27,7 +27,7 @@ public class RecentBuysCommand : Command
     public override async Task ExecuteAsync(GameEvent gameEvent)
     {
         var serverItems = _credifyConfig.Shop.Items;
-        var recentBuys = await _persistenceManager.ReadRecentBoughtItems();
+        var recentBuys = await _persistenceManager.ReadRecentBoughtItemsAsync();
 
         gameEvent.Origin.Tell(_credifyConfig.Translations.RecentBuysTitle);
 

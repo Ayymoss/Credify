@@ -60,7 +60,7 @@ public class RockPaperScissorsCommand : Command
 
         if (userStakeArg == "all")
         {
-            var allCredits = await _persistenceManager.GetClientCredits(gameEvent.Origin);
+            var allCredits = await _persistenceManager.GetClientCreditsAsync(gameEvent.Origin);
             userStakeArg = allCredits.ToString();
         }
 
@@ -102,12 +102,12 @@ public class RockPaperScissorsCommand : Command
         switch (outcome)
         {
             case 0: // Tie
-                newBalance = await _persistenceManager.AlterClientCredits(-taxBook.Tax, client: gameEvent.Origin);
+                newBalance = await _persistenceManager.AlterClientCreditsAsync(-taxBook.Tax, client: gameEvent.Origin);
                 message = _credifyConfig.Translations.GambleDraw.FormatExt($"{taxBook.Tax:N0}", $"{newBalance:N0}");
                 break;
             case 1: // User wins
                 taxBook = new TaxBook(stake * 2, stake, _credifyConfig.Core.BankTax);
-                newBalance = await _persistenceManager.AlterClientCredits(taxBook.NetChange, client: gameEvent.Origin);
+                newBalance = await _persistenceManager.AlterClientCreditsAsync(taxBook.NetChange, client: gameEvent.Origin);
                 message = _credifyConfig.Translations.GambleWon
                     .FormatExt($"{taxBook.NetChange:N0}", $"{taxBook.Tax:N0}", $"{newBalance:N0}");
                 announcement = _credifyConfig.Translations.RpsWonAnnouncement
@@ -115,13 +115,13 @@ public class RockPaperScissorsCommand : Command
                 _persistenceManager.StatisticsState.CreditsWon += (ulong)taxBook.NetChange;
                 break;
             default: // User loses
-                newBalance = await _persistenceManager.AlterClientCredits(-stake, client: gameEvent.Origin);
+                newBalance = await _persistenceManager.AlterClientCreditsAsync(-stake, client: gameEvent.Origin);
                 message = _credifyConfig.Translations.GambleLost
                     .FormatExt($"{stake:N0}", $"{taxBook.Tax:N0}", $"{newBalance:N0}");
                 break;
         }
 
-        await _persistenceManager.AddBankCredits(taxBook.Tax);
+        await _persistenceManager.AddBankCreditsAsync(taxBook.Tax);
         gameEvent.Origin.Tell(message);
         if (!string.IsNullOrEmpty(announcement)) gameEvent.Owner.Broadcast(announcement);
     }

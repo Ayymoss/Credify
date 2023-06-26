@@ -28,7 +28,7 @@ public class PersistenceManager
 
     public void ResetBank() => BankCredits = 0;
 
-    public async Task AddBankCredits(long credits)
+    public async Task AddBankCreditsAsync(long credits)
     {
         BankCredits += credits;
         await WriteBankCreditsAsync();
@@ -37,7 +37,7 @@ public class PersistenceManager
     public bool AvailableFunds(EFClient client, long amount) =>
         amount <= client.GetAdditionalProperty<long>(Plugin.CreditsAmount);
 
-    public async Task WriteClientCredits(EFClient client, long? amount = null)
+    public async Task WriteClientCreditsAsync(EFClient client, long? amount = null)
     {
         await _metaService.SetPersistentMeta(Plugin.CreditsAmount, amount is not null
             ? amount.ToString()
@@ -50,10 +50,10 @@ public class PersistenceManager
     public async Task WriteStatisticsAsync() =>
         await _metaService.SetPersistentMetaValue(Plugin.StatisticsKey, StatisticsState);
 
-    public async Task WriteLastLotteryWinner(int clientId, string client, long amount) =>
+    public async Task WriteLastLotteryWinnerAsync(int clientId, string client, long amount) =>
         await _metaService.SetPersistentMeta(Plugin.LastLottoWinner, $"{clientId}::{client}::{amount}");
 
-    public async Task<(int ClientId, string ClientName, long PayOut)?> ReadLastLotteryWinner()
+    public async Task<(int ClientId, string ClientName, long PayOut)?> ReadLastLotteryWinnerAsync()
     {
         var winnerMeta = await _metaService.GetPersistentMeta(Plugin.LastLottoWinner);
         if (winnerMeta is null) return null;
@@ -61,9 +61,9 @@ public class PersistenceManager
         return (int.Parse(data[0]), data[1], long.Parse(data[2]));
     }
 
-    public async Task WriteRecentBoughtItems(ClientShopContext item)
+    public async Task WriteRecentBoughtItemsAsync(ClientShopContext item)
     {
-        var items = await ReadRecentBoughtItems();
+        var items = await ReadRecentBoughtItemsAsync();
         var ordered = items.OrderByDescending(x => x.Bought)
             .Take(9)
             .ToList();
@@ -73,7 +73,7 @@ public class PersistenceManager
         await _metaService.SetPersistentMetaValue(Plugin.RecentBoughtItems, ordered);
     }
 
-    public async Task<IEnumerable<ClientShopContext>> ReadRecentBoughtItems()
+    public async Task<IEnumerable<ClientShopContext>> ReadRecentBoughtItemsAsync()
     {
         var items = await _metaService.GetPersistentMetaValue<List<ClientShopContext>>(Plugin.RecentBoughtItems);
         return items ?? new List<ClientShopContext>();
@@ -98,7 +98,7 @@ public class PersistenceManager
         TopCredits = topCreditsValue ?? new List<TopCreditEntry>();
     }
 
-    private async Task<List<ClientShopItem>> ReadClientShopItems(EFClient client)
+    private async Task<List<ClientShopItem>> ReadClientShopItemsAsync(EFClient client)
     {
         var shopItems = await _metaService
             .GetPersistentMetaValue<List<ClientShopItem>>(Plugin.ShopKey, client.ClientId);
@@ -109,7 +109,7 @@ public class PersistenceManager
         return shopItems;
     }
 
-    public async Task<List<ClientShopItem>> GetClientShopItems(EFClient client)
+    public async Task<List<ClientShopItem>> GetClientShopItemsAsync(EFClient client)
     {
         List<ClientShopItem> userCredits;
         if (client.IsIngame)
@@ -118,7 +118,7 @@ public class PersistenceManager
             return userCredits;
         }
 
-        userCredits = await ReadClientShopItems(client);
+        userCredits = await ReadClientShopItemsAsync(client);
         return userCredits;
     }
 
@@ -152,12 +152,12 @@ public class PersistenceManager
 
     public async Task OnJoinAsync(EFClient client)
     {
-        await ReadClientShopItems(client);
-        var userCredits = await LoadUserCredits(client);
+        await ReadClientShopItemsAsync(client);
+        var userCredits = await LoadUserCreditsAsync(client);
         client.Tell(_credifyConfig.Translations.UserCredits.FormatExt($"{userCredits:N0}"));
     }
 
-    public async Task<long> GetClientCredits(EFClient client)
+    public async Task<long> GetClientCreditsAsync(EFClient client)
     {
         long userCredits;
         if (client.IsIngame)
@@ -166,11 +166,11 @@ public class PersistenceManager
             return userCredits;
         }
 
-        userCredits = await LoadUserCredits(client);
+        userCredits = await LoadUserCreditsAsync(client);
         return userCredits;
     }
 
-    public async Task<long> AlterClientCredits(long amount, int? clientId = null, EFClient? client = null)
+    public async Task<long> AlterClientCreditsAsync(long amount, int? clientId = null, EFClient? client = null)
     {
         if (clientId is not null)
         {
@@ -191,37 +191,18 @@ public class PersistenceManager
             return newCredits;
         }
 
-        credits = await LoadUserCredits(client);
+        credits = await LoadUserCreditsAsync(client);
         newCredits = credits + amount;
-        await WriteClientCredits(client, newCredits);
+        await WriteClientCreditsAsync(client, newCredits);
         OrderTop(client, newCredits);
         return newCredits;
     }
 
-    private async Task<long> LoadUserCredits(EFClient client)
+    private async Task<long> LoadUserCreditsAsync(EFClient client)
     {
         // Get pre-initialised credits
         var userCredits = (await _metaService.GetPersistentMeta(Plugin.CreditsAmount, client.ClientId))?.Value;
-
-        // If null, get total kills, if no kills (ie: new player) set to 0
-        if (userCredits is null)
-        {
-            await using var context = _contextFactory.CreateContext(false);
-            var clientTotalKills = await context.Set<EFClientStatistics>()
-                .Where(c => c.ClientId == client.ClientId)
-                .SumAsync(c => c.Kills);
-
-            // Arbitrary, if they have less than 100 kills don't bother sorting
-            if (clientTotalKills > 100)
-            {
-                OrderTop(client, clientTotalKills);
-            }
-
-            userCredits = clientTotalKills.ToString();
-            StatisticsState.CreditsEarned += (ulong)clientTotalKills;
-        }
-
-        var credits = long.Parse(userCredits);
+        var credits = long.Parse(userCredits ?? "0");
         client.SetAdditionalProperty(Plugin.CreditsAmount, credits);
         return credits;
     }

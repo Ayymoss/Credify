@@ -7,15 +7,15 @@ namespace Credify.Commands;
 
 public class BetCommand : Command
 {
-    private readonly BlackjackMeta _blackjackMeta;
+    private readonly BlackjackManager _blackjackManager;
     private readonly CredifyConfiguration _credifyConfig;
     private readonly PersistenceManager _persistenceManager;
 
     public BetCommand(CommandConfiguration config, ITranslationLookup translationLookup,
-        BlackjackMeta blackjackMeta, CredifyConfiguration credifyConfig, PersistenceManager persistenceManager) : base(
-        config, translationLookup)
+        BlackjackManager blackjackManager, CredifyConfiguration credifyConfig,
+        PersistenceManager persistenceManager) : base(config, translationLookup)
     {
-        _blackjackMeta = blackjackMeta;
+        _blackjackManager = blackjackManager;
         _credifyConfig = credifyConfig;
         _persistenceManager = persistenceManager;
         Name = "credifybet";
@@ -33,7 +33,7 @@ public class BetCommand : Command
             return;
         }
 
-        var funds = await _persistenceManager.GetClientCredits(gameEvent.Origin);
+        var funds = await _persistenceManager.GetClientCreditsAsync(gameEvent.Origin);
         if (funds < 10)
         {
             gameEvent.Origin.Tell(_credifyConfig.Translations.InsufficientCredits);
@@ -41,9 +41,9 @@ public class BetCommand : Command
         }
 
         var player = gameEvent.Origin;
-        if (!_blackjackMeta.IsPlayerPlaying(player))
+        if (!_blackjackManager.IsPlayerPlaying(player))
         {
-            await _blackjackMeta.JoinGame(gameEvent.Origin);
+            await _blackjackManager.JoinGameAsync(gameEvent.Origin);
 
             if (_credifyConfig.Blackjack.JoinAnnouncements)
             {
@@ -51,7 +51,7 @@ public class BetCommand : Command
                 {
                     if (server.ConnectedClients.Count is 0) continue;
                     server.Broadcast($"{_credifyConfig.Translations.BlackjackTitle} " +
-                                     $"{_credifyConfig.Translations.BlackjackJoinAnnouncement.FormatExt(gameEvent.Origin.CleanedName, _blackjackMeta.GetPlayerCount() - 1)}");
+                                     $"{_credifyConfig.Translations.BlackjackJoinAnnouncement.FormatExt(gameEvent.Origin.CleanedName, _blackjackManager.GetPlayerCount() - 1)}");
                 }
             }
             else
@@ -63,7 +63,7 @@ public class BetCommand : Command
             return;
         }
 
-        await _blackjackMeta.LeaveGame(gameEvent.Origin);
+        await _blackjackManager.LeaveGameAsync(gameEvent.Origin);
         gameEvent.Origin.Tell(_credifyConfig.Translations.BlackjackLeave);
     }
 }

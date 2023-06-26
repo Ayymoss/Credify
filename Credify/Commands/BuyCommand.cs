@@ -47,7 +47,7 @@ public class BuyCommand : Command
             return;
         }
 
-        var clientItems = await _persistenceManager.GetClientShopItems(gameEvent.Origin);
+        var clientItems = await _persistenceManager.GetClientShopItemsAsync(gameEvent.Origin);
         var serverItems = _credifyConfig.Shop.Items.Where(x => x.CanBeBought).ToList();
 
         // Check if item exists
@@ -58,7 +58,7 @@ public class BuyCommand : Command
         }
 
         // Check if client has enough credits
-        var initialClientCredits = await _persistenceManager.GetClientCredits(gameEvent.Origin);
+        var initialClientCredits = await _persistenceManager.GetClientCreditsAsync(gameEvent.Origin);
         if (initialClientCredits < serverItem.Cost)
         {
             gameEvent.Origin.Tell(_credifyConfig.Translations.InsufficientCredits);
@@ -88,7 +88,7 @@ public class BuyCommand : Command
             clientItem.Amount++;
         }
 
-        await _persistenceManager.WriteRecentBoughtItems(new ClientShopContext
+        await _persistenceManager.WriteRecentBoughtItemsAsync(new ClientShopContext
         {
             Id = clientItem.Id,
             Amount = clientItem.Amount,
@@ -98,7 +98,7 @@ public class BuyCommand : Command
         });
 
         _persistenceManager.StatisticsState.CreditsSpent += (ulong)serverItem.Cost;
-        await _persistenceManager.AlterClientCredits(-serverItem.Cost, client: gameEvent.Origin);
+        await _persistenceManager.AlterClientCreditsAsync(-serverItem.Cost, client: gameEvent.Origin);
         await _persistenceManager.WriteClientShopAsync(gameEvent.Origin, clientItems);
         gameEvent.Origin.Tell(_credifyConfig.Translations.BoughtItem
             .FormatExt(serverItem.Name, $"{serverItem.Cost:N0}"));

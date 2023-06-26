@@ -49,7 +49,7 @@ public class ShowLottoCommand : Command
             .Select(client => new {client.ClientId, client.CurrentAlias.Name})
             .ToDictionaryAsync(selector => selector.ClientId, selector => selector.Name);
 
-        var lastWinner = await _persistenceManager.ReadLastLotteryWinner();
+        var lastWinner = await _persistenceManager.ReadLastLotteryWinnerAsync();
         
         var lastWinnerPlaceholder = lastWinner is null 
             ? _credifyConfig.Translations.NoLastWinner

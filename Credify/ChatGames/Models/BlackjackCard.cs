@@ -1,4 +1,4 @@
-﻿namespace Credify.ChatGames.Blackjack;
+﻿namespace Credify.ChatGames.Models;
 
 public class BlackjackCard
 {

@@ -44,12 +44,12 @@ public class CreditCommand : Command
             return;
         }
 
-        var credits = await _persistenceManager.GetClientCredits(gameEvent.Origin);
+        var credits = await _persistenceManager.GetClientCreditsAsync(gameEvent.Origin);
 
         // Return player's credits
         if (gameEvent.Target != null)
         {
-            credits = await _persistenceManager.GetClientCredits(gameEvent.Target);
+            credits = await _persistenceManager.GetClientCreditsAsync(gameEvent.Target);
             gameEvent.Origin.Tell(_credifyConfig.Translations.TargetCredits.FormatExt(gameEvent.Target.Name, $"{credits:N0}"));
             return;
         }

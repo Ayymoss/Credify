@@ -51,7 +51,7 @@ public class InventoryCommand : Command
         }
 
         var client = gameEvent.Target ?? gameEvent.Origin;
-        var shopItems = await _persistenceManager.GetClientShopItems(client);
+        var shopItems = await _persistenceManager.GetClientShopItemsAsync(client);
         var headerMessage = new List<string>
         {
             _credifyConfig.Translations.ShopClientHeader.FormatExt(client.CleanedName)

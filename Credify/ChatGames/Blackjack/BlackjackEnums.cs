@@ -1,6 +1,6 @@
-﻿namespace Credify.ChatGames.Blackjack.Enums;
+﻿namespace Credify.ChatGames.Blackjack;
 
-public class StateEnums
+public class BlackjackEnums
 {
     public enum PlayerState 
     {
