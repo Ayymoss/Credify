@@ -259,5 +259,6 @@ public class PersistenceManager
     }
 
     public void ResetTop() => TopCredits = new List<TopCreditEntry>();
+
     public void ResetStatistics() => StatisticsState = new StatisticsState();
 }

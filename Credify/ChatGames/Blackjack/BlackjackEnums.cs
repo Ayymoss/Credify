@@ -11,12 +11,13 @@ public class BlackjackEnums
 
     public enum GameState
     {
+        SettingUpGame,
         WaitingForPlayers,
         RequestPlayerStakes,
         DealCards,
         RequestPlayerDecisions,
         DealerPlays,
-        Payout
+        Payout,
     }
     
     public enum PlayerChoice 

@@ -36,7 +36,7 @@ public class BlackjackGame
         if (_gameState != BlackjackEnums.GameState.WaitingForPlayers) return;
         if (_players.IsEmpty) return;
 
-        _gameState = BlackjackEnums.GameState.RequestPlayerStakes;
+        _gameState = BlackjackEnums.GameState.SettingUpGame;
         _houseHand = new List<BlackjackCard>();
         _deck = ResetDeck();
         _houseHand.Add(await DrawCardAsync());
@@ -50,7 +50,7 @@ public class BlackjackGame
 
         foreach (var player in activePlayers) _activePlayers.TryAdd(player.Key, new BlackjackHand());
 
-        Utilities.ExecuteAfterDelay(TimeSpan.FromSeconds(1), RequestPlayerStakesAsync, CancellationToken.None);
+        Utilities.ExecuteAfterDelay(TimeSpan.FromSeconds(2), RequestPlayerStakesAsync, CancellationToken.None);
     }
 
     private async Task RequestPlayerStakesAsync(CancellationToken token)
@@ -68,16 +68,17 @@ public class BlackjackGame
                 continue;
             }
 
-            player.Key.Tell($"{_credifyConfig.Translations.BlackjackTitle} " +
-                            $"{_credifyConfig.Translations.BlackjackPlaceBets.FormatExt($"{playerFunds:N0}")}");
+            await TellPlayerAsync(player.Key, true, new[]
+            {
+                _credifyConfig.Translations.BlackjackPlaceBets.FormatExt($"{playerFunds:N0}")
+            });
         }
 
         foreach (var player in insufficientFunds)
         {
             _activePlayers.TryRemove(player, out _);
             _players.TryRemove(player, out _);
-            player.Tell($"{_credifyConfig.Translations.BlackjackTitle} " +
-                        $"{_credifyConfig.Translations.BlackjackInsufficientFunds}");
+            await TellPlayerAsync(player, true, new[] {_credifyConfig.Translations.BlackjackInsufficientFunds});
         }
 
         if (_activePlayers.IsEmpty)
@@ -104,8 +105,7 @@ public class BlackjackGame
         {
             _activePlayers.TryRemove(player, out _);
             _players.TryRemove(player, out _);
-            player.Tell($"{_credifyConfig.Translations.BlackjackTitle} " +
-                        $"{_credifyConfig.Translations.BlackjackBetTimeout}");
+            await TellPlayerAsync(player, true, new[] {_credifyConfig.Translations.BlackjackBetTimeout});
         }
 
         if (_activePlayers.IsEmpty)
@@ -121,11 +121,12 @@ public class BlackjackGame
                 await DrawCardAsync(),
                 await DrawCardAsync()
             };
-            await player.Key.TellAsync(new[]
+            await TellPlayerAsync(player.Key, false, new[]
             {
-                $"{_credifyConfig.Translations.BlackjackTitleShort} {_credifyConfig.Translations.BlackjackDealerInitialCard.FormatExt(_houseHand[0])}",
-                $"{_credifyConfig.Translations.BlackjackTitleShort} {_credifyConfig.Translations.BlackjackPlayerCards.FormatExt(CalculateHandValue(player.Value.Cards), string.Join(", ", player.Value.Cards.Select(x => x.ToString())))}"
-            }, token);
+                _credifyConfig.Translations.BlackjackDealerInitialCard.FormatExt(_houseHand[0]),
+                _credifyConfig.Translations.BlackjackPlayerCards.FormatExt(CalculateHandValue(player.Value.Cards),
+                    string.Join(", ", player.Value.Cards.Select(x => x.ToString())))
+            });
         }
 
         _playerStakesToken.Cancel();
@@ -141,17 +142,20 @@ public class BlackjackGame
             if (CalculateHandValue(player.Value.Cards) is 21)
             {
                 player.Value.State = BlackjackEnums.PlayerState.Stand;
-                player.Key.Tell($"{_credifyConfig.Translations.BlackjackTitleShort} " +
-                                $"{_credifyConfig.Translations.BlackjackBlackjackConfirmation}");
+                await TellPlayerAsync(player.Key, false, new[]
+                {
+                    _credifyConfig.Translations.BlackjackBlackjackConfirmation
+                });
                 var decisionStateRemainders = GetDecisionStateRemainders();
                 if (decisionStateRemainders.Count(x => !Equals(x, player.Key)) is not 0)
-                    player.Key.Tell($"{_credifyConfig.Translations.BlackjackTitleShort} " +
-                                    $"{_credifyConfig.Translations.BlackjackPlayersDeciding.FormatExt(decisionStateRemainders.Count)}");
+                    await TellPlayerAsync(player.Key, false, new[]
+                    {
+                        _credifyConfig.Translations.BlackjackPlayersDeciding.FormatExt(decisionStateRemainders.Count)
+                    });
                 continue;
             }
 
-            player.Key.Tell($"{_credifyConfig.Translations.BlackjackTitleShort} " +
-                            $"{_credifyConfig.Translations.BlackJackPlayerDecision}");
+            await TellPlayerAsync(player.Key, false, new[] {_credifyConfig.Translations.BlackJackPlayerDecision});
         }
 
         var decisionStateRemaindersOverride = GetDecisionStateRemainders();
@@ -177,11 +181,13 @@ public class BlackjackGame
 
         foreach (var player in _activePlayers)
         {
-            await player.Key.TellAsync(new[]
+            await TellPlayerAsync(player.Key, false, new[]
             {
-                $"{_credifyConfig.Translations.BlackjackTitleShort} {_credifyConfig.Translations.BlackjackDealerCards.FormatExt(CalculateHandValue(_houseHand), string.Join(", ", _houseHand.Select(x => x.ToString())))}",
-                $"{_credifyConfig.Translations.BlackjackTitleShort} {_credifyConfig.Translations.BlackjackPlayerCards.FormatExt(CalculateHandValue(player.Value.Cards), string.Join(", ", player.Value.Cards.Select(x => x.ToString())))}"
-            }, token);
+                _credifyConfig.Translations.BlackjackDealerCards.FormatExt(CalculateHandValue(_houseHand),
+                    string.Join(", ", _houseHand.Select(x => x.ToString()))),
+                _credifyConfig.Translations.BlackjackPlayerCards.FormatExt(CalculateHandValue(player.Value.Cards),
+                    string.Join(", ", player.Value.Cards.Select(x => x.ToString())))
+            });
         }
 
         foreach (var player in _activePlayers)
@@ -191,8 +197,10 @@ public class BlackjackGame
 
             if (playerValue > 21)
             {
-                player.Key.Tell($"{_credifyConfig.Translations.BlackjackTitleShort} " +
-                                $"{_credifyConfig.Translations.BlackJackPlayerBustConfirmation}");
+                await TellPlayerAsync(player.Key, false, new[]
+                {
+                    _credifyConfig.Translations.BlackJackPlayerBustConfirmation
+                });
                 player.Value.Outcome = BlackjackEnums.GameOutcome.Lose;
                 _players[player.Key].Payout = 0;
                 continue;
@@ -202,8 +210,10 @@ public class BlackjackGame
             {
                 if (IsBlackjack(_houseHand))
                 {
-                    player.Key.Tell($"{_credifyConfig.Translations.BlackjackTitleShort} " +
-                                    $"{_credifyConfig.Translations.BlackjackBlackjackPush}");
+                    await TellPlayerAsync(player.Key, false, new[]
+                    {
+                        _credifyConfig.Translations.BlackjackBlackjackPush
+                    });
                     player.Value.Outcome = BlackjackEnums.GameOutcome.Push;
                     _players[player.Key].Payout = _players[player.Key].Stake;
                 }
@@ -225,8 +235,10 @@ public class BlackjackGame
 
             if (houseValue > 21)
             {
-                player.Key.Tell($"{_credifyConfig.Translations.BlackjackTitleShort} " +
-                                $"{_credifyConfig.Translations.BlackjackDealerBust.FormatExt(houseValue)}");
+                await TellPlayerAsync(player.Key, false, new[]
+                {
+                    _credifyConfig.Translations.BlackjackDealerBust.FormatExt(houseValue)
+                });
                 player.Value.Outcome = BlackjackEnums.GameOutcome.Win;
                 _players[player.Key].Payout = Convert.ToInt64(Math.Round(_players[player.Key].Stake!.Value *
                                                                          _credifyConfig.Blackjack.PayoutDealerBust));
@@ -235,8 +247,10 @@ public class BlackjackGame
 
             if (houseValue < playerValue)
             {
-                player.Key.Tell($"{_credifyConfig.Translations.BlackjackTitleShort} " +
-                                $"{_credifyConfig.Translations.BlackjackWin.FormatExt(playerValue)}");
+                await TellPlayerAsync(player.Key, false, new[]
+                {
+                    _credifyConfig.Translations.BlackjackWin.FormatExt(playerValue)
+                });
                 player.Value.Outcome = BlackjackEnums.GameOutcome.Win;
                 _players[player.Key].Payout = Convert.ToInt64(Math.Round(_players[player.Key].Stake!.Value *
                                                                          _credifyConfig.Blackjack.PayoutWin));
@@ -245,8 +259,7 @@ public class BlackjackGame
 
             if (houseValue == playerValue)
             {
-                player.Key.Tell($"{_credifyConfig.Translations.BlackjackTitleShort} " +
-                                $"{_credifyConfig.Translations.BlackjackPush}");
+                await TellPlayerAsync(player.Key, false, new[] {_credifyConfig.Translations.BlackjackPush});
                 player.Value.Outcome = BlackjackEnums.GameOutcome.Push;
                 _players[player.Key].Payout = _players[player.Key].Stake;
                 continue;
@@ -254,8 +267,10 @@ public class BlackjackGame
 
             if (houseValue > playerValue)
             {
-                player.Key.Tell($"{_credifyConfig.Translations.BlackjackTitleShort} " +
-                                $"{_credifyConfig.Translations.BlackjackLose.FormatExt(playerValue)}");
+                await TellPlayerAsync(player.Key, false, new[]
+                {
+                    _credifyConfig.Translations.BlackjackLose.FormatExt(playerValue)
+                });
                 player.Value.Outcome = BlackjackEnums.GameOutcome.Lose;
                 _players[player.Key].Payout = 0;
             }
@@ -271,16 +286,20 @@ public class BlackjackGame
 
         foreach (var player in _activePlayers)
         {
-            player.Key.Tell($"{_credifyConfig.Translations.BlackjackTitleShort} {FormatPlayerOutcomes()}");
+            if (_activePlayers.Count is not 1)
+                await TellPlayerAsync(player.Key, false, new[] {FormatPlayerOutcomes()});
             if (_players[player.Key].Payout is 0) continue;
 
             await _persistenceManager.AlterClientCreditsAsync(_players[player.Key].Payout!.Value, client: player.Key);
             var playerCredits = await _persistenceManager.GetClientCreditsAsync(player.Key);
             _persistenceManager.OrderTop(player.Key, playerCredits);
             _persistenceManager.StatisticsState.CreditsWon += (ulong)_players[player.Key].Payout!.Value;
-
-            player.Key.Tell($"{_credifyConfig.Translations.BlackjackTitleShort} " +
-                            $"{_credifyConfig.Translations.BlackjackPayout.FormatExt($"{_players[player.Key].Payout - _players[player.Key].Stake:N0}", $"{_players[player.Key].Stake:N0}")}");
+            await TellPlayerAsync(player.Key, false, new[]
+            {
+                _credifyConfig.Translations.BlackjackPayout.FormatExt(
+                    $"{_players[player.Key].Payout - _players[player.Key].Stake:N0}",
+                    $"{_players[player.Key].Stake:N0}")
+            });
         }
 
         Utilities.ExecuteAfterDelay(TimeSpan.FromSeconds(2), EndGameAsync, CancellationToken.None);
@@ -302,8 +321,10 @@ public class BlackjackGame
         foreach (var player in _players.Keys.ToList())
         {
             _players[player] = new BlackJackPlayer {Queued = true};
-            player.Tell($"{_credifyConfig.Translations.BlackjackTitle} " +
-                        $"{_credifyConfig.Translations.BlackjackStartingGame.FormatExt(_players.Count)}");
+            await TellPlayerAsync(player, true, new[]
+            {
+                _credifyConfig.Translations.BlackjackStartingGame.FormatExt(_players.Count)
+            });
         }
 
         try
@@ -326,8 +347,7 @@ public class BlackjackGame
         _players.TryAdd(player, new BlackJackPlayer {Queued = true});
         if (_gameState is not BlackjackEnums.GameState.WaitingForPlayers)
         {
-            player.Tell($"{_credifyConfig.Translations.BlackjackTitleShort} " +
-                        $"{_credifyConfig.Translations.BlackjackQueued}");
+            await TellPlayerAsync(player, false, new[] {_credifyConfig.Translations.BlackjackQueued});
             return;
         }
 
@@ -370,8 +390,10 @@ public class BlackjackGame
                         _players[player].Stake = stake;
                         await _persistenceManager.AlterClientCreditsAsync(-stake, client: player);
                         _persistenceManager.StatisticsState.CreditsSpent += (ulong)stake;
-                        player.Tell($"{_credifyConfig.Translations.BlackjackTitleShort} " +
-                                    $"{_credifyConfig.Translations.BlackjackAcceptedBet.FormatExt(stake)}");
+                        await TellPlayerAsync(player, false, new[]
+                        {
+                            _credifyConfig.Translations.BlackjackAcceptedBet.FormatExt(stake)
+                        });
                         var requestStakesRemainders = GetRequestStakesRemainders();
                         if (requestStakesRemainders.Count is 0)
                         {
@@ -380,13 +402,16 @@ public class BlackjackGame
                         }
 
                         if (requestStakesRemainders.Count(x => !Equals(x, player)) is not 0)
-                            player.Tell($"{_credifyConfig.Translations.BlackjackTitleShort} " +
-                                        $"{_credifyConfig.Translations.BlackjackWaitingForBets.FormatExt(requestStakesRemainders.Count)}");
+                            await TellPlayerAsync(player, false, new[]
+                            {
+                                _credifyConfig.Translations.BlackjackWaitingForBets
+                                    .FormatExt(requestStakesRemainders.Count)
+                            });
                         return;
                     }
 
-                    player.Tell($"{_credifyConfig.Translations.BlackjackTitleShort} " +
-                                $"{_credifyConfig.Translations.InsufficientCredits}");
+                    await TellPlayerAsync(player, false, new[] {_credifyConfig.Translations.InsufficientCredits});
+
                     break;
                 case BlackjackEnums.GameState.RequestPlayerDecisions:
                     var choiceMap = new Dictionary<string, string>
@@ -413,30 +438,50 @@ public class BlackjackGame
                                 else coloredCards.Append($"(Color::Accent){cards[i]}, ");
                             }
 
-                            if (IsBust(player))
+                            var handValue = CalculateHandValue(playerHand.Cards);
+
+                            await TellPlayerAsync(player, false, new[]
                             {
-                                playerHand.State = BlackjackEnums.PlayerState.Busted;
-                                player.Tell($"{_credifyConfig.Translations.BlackjackTitleShort} " +
-                                            $"{_credifyConfig.Translations.BlackjackPlayerBust.FormatExt(CalculateHandValue(playerHand.Cards), coloredCards)}");
+                                _credifyConfig.Translations.BlackjackPlayerHit.FormatExt(handValue, coloredCards),
+                                _credifyConfig.Translations.BlackJackPlayerDecision
+                            });
+
+                            if (handValue is 21)
+                            {
+                                playerHand.State = BlackjackEnums.PlayerState.Stand;
+                                await TellPlayerAsync(player, false, new[]
+                                {
+                                    _credifyConfig.Translations.BlackjackPlayerStand
+                                        .FormatExt(handValue)
+                                });
                                 break;
                             }
 
-                            await player.TellAsync(new[]
+                            if (handValue > 21)
                             {
-                                $"{_credifyConfig.Translations.BlackjackTitleShort} {_credifyConfig.Translations.BlackjackPlayerHit.FormatExt(CalculateHandValue(playerHand.Cards), coloredCards)}",
-                                $"{_credifyConfig.Translations.BlackjackTitleShort} {_credifyConfig.Translations.BlackJackPlayerDecision}"
-                            });
+                                playerHand.State = BlackjackEnums.PlayerState.Busted;
+                                await TellPlayerAsync(player, false, new[]
+                                {
+                                    _credifyConfig.Translations.BlackjackPlayerBust.FormatExt(handValue, coloredCards)
+                                });
+                            }
+
                             break;
                         case BlackjackEnums.PlayerChoice.Stand:
                             playerHand.State = BlackjackEnums.PlayerState.Stand;
-                            player.Tell($"{_credifyConfig.Translations.BlackjackTitleShort} " +
-                                        $"{_credifyConfig.Translations.BlackjackPlayerStand.FormatExt(CalculateHandValue(playerHand.Cards))}");
+                            await TellPlayerAsync(player, false, new[]
+                            {
+                                _credifyConfig.Translations.BlackjackPlayerStand
+                                    .FormatExt(CalculateHandValue(playerHand.Cards))
+                            });
                             break;
                         case BlackjackEnums.PlayerChoice.Cards:
-                            await player.TellAsync(new[]
+                            await TellPlayerAsync(player, false, new[]
                             {
-                                $"{_credifyConfig.Translations.BlackjackTitleShort} {_credifyConfig.Translations.BlackjackDealerInitialCard.FormatExt(_houseHand[0])}",
-                                $"{_credifyConfig.Translations.BlackjackTitleShort} {_credifyConfig.Translations.BlackjackPlayerCards.FormatExt(CalculateHandValue(playerHand.Cards), string.Join(", ", playerHand.Cards.Select(x => x.ToString())))}"
+                                _credifyConfig.Translations.BlackjackDealerInitialCard.FormatExt(_houseHand[0]),
+                                _credifyConfig.Translations.BlackjackPlayerCards
+                                    .FormatExt(CalculateHandValue(playerHand.Cards),
+                                        string.Join(", ", playerHand.Cards.Select(x => x.ToString())))
                             });
                             break;
                     }
@@ -449,8 +494,11 @@ public class BlackjackGame
                     }
 
                     if (decisionStateRemainders.Count(x => !Equals(x, player)) is not 0)
-                        player.Tell($"{_credifyConfig.Translations.BlackjackTitleShort} " +
-                                    $"{_credifyConfig.Translations.BlackjackPlayersDeciding.FormatExt(decisionStateRemainders.Count)}");
+                        await TellPlayerAsync(player, false, new[]
+                        {
+                            _credifyConfig.Translations.BlackjackPlayersDeciding
+                                .FormatExt(decisionStateRemainders.Count)
+                        });
                     break;
             }
         }
@@ -468,6 +516,15 @@ public class BlackjackGame
 
     #region Helpers
 
+    private async Task TellPlayerAsync(EFClient player, bool hasLongTitle, IEnumerable<string> messages)
+    {
+        var title = hasLongTitle
+            ? _credifyConfig.Translations.BlackjackTitle
+            : _credifyConfig.Translations.BlackjackTitleShort;
+        var completeMessages = messages.Select(message => $"{title} {message}");
+        await player.TellAsync(completeMessages);
+    }
+
     private async Task HitAsync(EFClient player)
     {
         _activePlayers.TryGetValue(player, out var playerHand);
@@ -482,10 +539,7 @@ public class BlackjackGame
         {
             _deck = ResetDeck();
             foreach (var player in _activePlayers.Keys.ToList())
-            {
-                player.Tell($"{_credifyConfig.Translations.BlackjackTitle} " +
-                            $"{_credifyConfig.Translations.BlackjackNewDeckShuffled}");
-            }
+                await TellPlayerAsync(player, true, new[] {_credifyConfig.Translations.BlackjackNewDeckShuffled});
         }
 
         _deck.TryDequeue(out var drawnCard);
@@ -508,15 +562,13 @@ public class BlackjackGame
             {
                 BlackjackEnums.GameOutcome.Blackjack => _credifyConfig.Translations.BlackjackOutcomeBlackjack,
                 BlackjackEnums.GameOutcome.Win => _credifyConfig.Translations.BlackjackOutcomeWin,
-                BlackjackEnums.GameOutcome.Lose => _credifyConfig.Translations.BlackjackOutcomeLose,
                 BlackjackEnums.GameOutcome.Push => _credifyConfig.Translations.BlackjackOutcomePush,
-                _ => string.Empty
+                _ => _credifyConfig.Translations.BlackjackOutcomeLose
             };
 
-        var message = string.Join(", ", _activePlayers.Select(x =>
+        return string.Join(", ", _activePlayers.Select(x =>
             _credifyConfig.Translations.BlackjackPlayerOutcomeMessage
                 .FormatExt(FormatOutcome(x.Value.Outcome), x.Key.CleanedName, CalculateHandValue(x.Value.Cards))));
-        return message;
     }
 
     private static ConcurrentQueue<BlackjackCard> ResetDeck()
@@ -550,13 +602,6 @@ public class BlackjackGame
             .Select(x => x.Key)
             .ToList();
         return players;
-    }
-
-    private bool IsBust(EFClient player)
-    {
-        _activePlayers.TryGetValue(player, out var hand);
-        var total = hand is not null ? CalculateHandValue(hand.Cards) : 0;
-        return total > 21;
     }
 
     private static int CalculateHandValue(IEnumerable<BlackjackCard> hand)

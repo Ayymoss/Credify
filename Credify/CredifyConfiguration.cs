@@ -262,7 +262,7 @@ public class Translations
     public string BlackjackOutcomeWin { get; set; } = "(Color::Green)W";
     public string BlackjackOutcomeLose { get; set; } = "(Color::Red)L";
     public string BlackjackOutcomePush { get; set; } = "(Color::Yellow)P";
-    public string? BlackjackPlayerOutcomeMessage { get; set; }= "(Color::White)[{{outcome}}(Color::White)] (Color::Accent){{name}} (Color::White)((Color::Yellow){{total}}(Color::White))";
+    public string BlackjackPlayerOutcomeMessage { get; set; } = "(Color::White)[{{outcome}}(Color::White)] (Color::Accent){{name}} (Color::White)((Color::Yellow){{total}}(Color::White))";
 
     #endregion
 

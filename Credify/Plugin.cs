@@ -37,7 +37,7 @@ public class Plugin : IPluginV2
 
     public const string PluginName = "Credify";
     public string Name => PluginName;
-    public string Version => "2023-06-25";
+    public string Version => "2023-06-27";
     public string Author => "Amos";
 
     public Plugin(PersistenceManager persistenceManager, BetManager betManager, CredifyConfiguration config,
