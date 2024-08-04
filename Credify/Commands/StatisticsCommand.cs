@@ -1,4 +1,5 @@
-﻿using Data.Models.Client;
+﻿using Credify.Configuration;
+using Data.Models.Client;
 using SharedLibraryCore;
 using SharedLibraryCore.Configuration;
 using SharedLibraryCore.Interfaces;
@@ -17,7 +18,7 @@ public class StatisticsCommand : Command
         _persistenceManager = persistenceManager;
         _credifyConfig = credifyConfig;
         Name = "credifytats";
-        Description = credifyConfig.Translations.CommandStatisticsDescription;
+        Description = credifyConfig.Translations.Core.CommandStatisticsDescription;
         Alias = "crstats";
         Permission = EFClient.Permission.User;
         RequiresTarget = false;
@@ -27,11 +28,11 @@ public class StatisticsCommand : Command
     {
         await gameEvent.Origin.TellAsync(new[]
         {
-            _credifyConfig.Translations.StatsHeader,
-            _credifyConfig.Translations.StatsBankCredits.FormatExt($"{_persistenceManager.BankCredits:N0}"),
-            _credifyConfig.Translations.StatsTotalEarnedCredits.FormatExt($"{_persistenceManager.StatisticsState.CreditsEarned:N0}"),
-            _credifyConfig.Translations.StatsTotalSpentCredits.FormatExt($"{_persistenceManager.StatisticsState.CreditsSpent:N0}"),
-            _credifyConfig.Translations.StatsTotalWonCredits.FormatExt($"{_persistenceManager.StatisticsState.CreditsWon:N0}")
+            _credifyConfig.Translations.Core.StatsHeader,
+            _credifyConfig.Translations.Core.StatsBankCredits.FormatExt(_persistenceManager.BankCredits.ToString("N0")),
+            _credifyConfig.Translations.Core.StatsTotalEarnedCredits.FormatExt(_persistenceManager.StatisticsState.CreditsEarned.ToString("N0")),
+            _credifyConfig.Translations.Core.StatsTotalSpentCredits.FormatExt(_persistenceManager.StatisticsState.CreditsSpent.ToString("N0")),
+            _credifyConfig.Translations.Core.StatsTotalWonCredits.FormatExt(_persistenceManager.StatisticsState.CreditsWon.ToString("N0")),
         });
     }
 }

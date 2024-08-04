@@ -1,4 +1,5 @@
-﻿using Data.Abstractions;
+﻿using Credify.Configuration;
+using Data.Abstractions;
 using Data.Models.Client;
 using Humanizer;
 using SharedLibraryCore;
@@ -19,7 +20,7 @@ public class RecentBuysCommand : Command
         _credifyConfig = credifyConfig;
         Name = "credifyrecentbuys";
         Alias = "crrb";
-        Description = credifyConfig.Translations.CommandRecentBuysDescription;
+        Description = credifyConfig.Translations.Core.CommandRecentBuysDescription;
         Permission = EFClient.Permission.Administrator;
         RequiresTarget = false;
     }
@@ -29,10 +30,10 @@ public class RecentBuysCommand : Command
         var serverItems = _credifyConfig.Shop.Items;
         var recentBuys = await _persistenceManager.ReadRecentBoughtItemsAsync();
 
-        gameEvent.Origin.Tell(_credifyConfig.Translations.RecentBuysTitle);
+        gameEvent.Origin.Tell(_credifyConfig.Translations.Core.RecentBuysTitle);
 
         var output = recentBuys.OrderByDescending(entry => entry.Bought)
-            .Select((buyer, index) => _credifyConfig.Translations.RecentBoughtItemEntry
+            .Select((buyer, index) => _credifyConfig.Translations.Core.RecentBoughtItemEntry
                 .FormatExt(index + 1, buyer.ClientName, buyer.ClientId, serverItems.First(x => x.Id == buyer.Id).Name,
                     buyer.Bought.Humanize()));
 

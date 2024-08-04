@@ -1,4 +1,5 @@
-﻿using SharedLibraryCore;
+﻿using Credify.Configuration;
+using SharedLibraryCore;
 using SharedLibraryCore.Commands;
 using SharedLibraryCore.Configuration;
 using SharedLibraryCore.Interfaces;
@@ -20,18 +21,18 @@ public class LottoCommand : Command
         _credifyConfig = credifyConfig;
         _lotteryManager = lotteryManager;
         Name = "credifylotto";
-        Description = credifyConfig.Translations.CommandLottoDescription;
+        Description = credifyConfig.Translations.Core.CommandLottoDescription;
         Alias = "crlotto";
         Permission = EFClient.Permission.User;
         RequiresTarget = false;
-        Arguments = new[]
-        {
+        Arguments =
+        [
             new CommandArgument
             {
                 Name = "Tickets",
                 Required = true
             }
-        };
+        ];
     }
 
     public override async Task ExecuteAsync(GameEvent gameEvent)
@@ -40,29 +41,30 @@ public class LottoCommand : Command
 
         if (!long.TryParse(argCredits, out var credits))
         {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.ErrorParsingSecondArgument);
+            gameEvent.Origin.Tell(_credifyConfig.Translations.Core.ErrorParsingSecondArgument);
             return;
         }
 
         if (credits < 10)
         {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.MinimumAmount);
+            gameEvent.Origin.Tell(_credifyConfig.Translations.Core.MinimumAmount);
             return;
         }
 
-        var ticketsCost = credits * 10;
+        const int fixedTicketCost = 10; // TODO: Move to config.
+        var ticketsCost = credits * fixedTicketCost;
         var currentCredits = await _persistenceManager.GetClientCreditsAsync(gameEvent.Origin);
 
         if (currentCredits < ticketsCost)
         {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.InsufficientCredits);
+            gameEvent.Origin.Tell(_credifyConfig.Translations.Core.InsufficientCredits);
             return;
         }
 
-        await _persistenceManager.AddBankCreditsAsync(ticketsCost);
-        await _persistenceManager.AlterClientCreditsAsync(-ticketsCost, client: gameEvent.Origin);
+        _persistenceManager.AddBankCreditsAsync(ticketsCost);
+        await _persistenceManager.RemoveCreditsAsync(gameEvent.Origin, ticketsCost);
         var totalTickets = await _lotteryManager.AddToLottery(gameEvent.Origin, credits);
-        gameEvent.Origin.Tell(_credifyConfig.Translations.BoughtLottoTickets
-            .FormatExt($"{credits:N0}", $"{ticketsCost:N0}", $"{totalTickets:N0}"));
+        gameEvent.Origin.Tell(_credifyConfig.Translations.Core.BoughtLottoTickets
+            .FormatExt(credits.ToString("N0"), ticketsCost.ToString("N0"), totalTickets.ToString("N0")));
     }
 }

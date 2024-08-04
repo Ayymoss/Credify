@@ -1,7 +1,6 @@
 ﻿namespace Credify.Models;
 
-public record Lottery(int ClientId)
+public record Lottery(int ClientId, string CleanedName)
 {
-    public string CleanedName { get; set; } = null!;
-    public long Tickets { get; set; }
+    public required long Tickets { get; set; }
 }

@@ -1,6 +1,4 @@
-﻿using SharedLibraryCore.Database.Models;
-
-namespace Credify.Models;
+﻿namespace Credify.Models;
 
 public class ServerShopItem
 {

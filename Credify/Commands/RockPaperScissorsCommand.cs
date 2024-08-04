@@ -1,4 +1,5 @@
-﻿using Credify.Models;
+﻿using Credify.Configuration;
+using Credify.Models;
 using SharedLibraryCore;
 using SharedLibraryCore.Commands;
 using SharedLibraryCore.Configuration;
@@ -18,11 +19,11 @@ public class RockPaperScissorsCommand : Command
         _credifyConfig = credifyConfig;
         Name = "creditsrps";
         Alias = "crrps";
-        Description = credifyConfig.Translations.CommandRockPaperScissorsDescription;
+        Description = credifyConfig.Translations.Core.CommandRockPaperScissorsDescription;
         Permission = Data.Models.Client.EFClient.Permission.User;
         RequiresTarget = false;
-        Arguments = new[]
-        {
+        Arguments =
+        [
             new CommandArgument
             {
                 Name = "Rock | Paper | Scissors",
@@ -33,7 +34,7 @@ public class RockPaperScissorsCommand : Command
                 Name = "Amount",
                 Required = true
             }
-        };
+        ];
     }
 
     public override async Task ExecuteAsync(GameEvent gameEvent)
@@ -44,85 +45,74 @@ public class RockPaperScissorsCommand : Command
 
         var rpsLookup = new Dictionary<string, int>
         {
-            {"r", 0},
-            {"p", 1},
-            {"s", 2},
-            {"rock", 0},
-            {"paper", 1},
-            {"scissors", 2}
+            { "r", 0 },
+            { "p", 1 },
+            { "s", 2 },
+            { "rock", 0 },
+            { "paper", 1 },
+            { "scissors", 2 }
         };
 
-        if (!rpsLookup.ContainsKey(userRpsArg))
+        if (!rpsLookup.TryGetValue(userRpsArg, out var playerChoice))
         {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.BadRpsArgument);
+            gameEvent.Origin.Tell(_credifyConfig.Translations.Core.BadRpsArgument);
             return;
         }
 
-        if (userStakeArg == "all")
+        var userBalance = await _persistenceManager.GetClientCreditsAsync(gameEvent.Origin);
+        if (userStakeArg.Equals("all"))
         {
-            var allCredits = await _persistenceManager.GetClientCreditsAsync(gameEvent.Origin);
-            userStakeArg = allCredits.ToString();
+            userStakeArg = userBalance.ToString();
         }
 
         if (!long.TryParse(userStakeArg, out var stake))
         {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.ErrorParsingSecondArgument);
+            gameEvent.Origin.Tell(_credifyConfig.Translations.Core.ErrorParsingSecondArgument);
             return;
         }
 
         if (stake < 10)
         {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.MinimumAmount);
+            gameEvent.Origin.Tell(_credifyConfig.Translations.Core.MinimumAmount);
             return;
         }
 
-        if (!_persistenceManager.AvailableFunds(gameEvent.Origin, stake))
+        if (!PersistenceManager.AvailableFunds(gameEvent.Origin, stake))
         {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.InsufficientCredits);
+            gameEvent.Origin.Tell(_credifyConfig.Translations.Core.InsufficientCredits);
             return;
         }
 
         var outcomeMatrix = new[,]
         {
             //R, P, S
-            {0, 2, 1}, // Rock
-            {1, 0, 2}, // Paper
-            {2, 1, 0} // Scissors
+            { 0, 2, 1 }, // Rock
+            { 1, 0, 2 }, // Paper
+            { 2, 1, 0 } // Scissors
         };
 
-        var userRps = rpsLookup[userRpsArg];
         var computerChoice = Random.Shared.Next(3);
-        var outcome = outcomeMatrix[userRps, computerChoice];
+        var outcome = outcomeMatrix[playerChoice, computerChoice];
 
-        var taxBook = new TaxBook(stake, 0, _credifyConfig.Core.BankTax);
-        string message, announcement = string.Empty;
-        long newBalance;
-        _persistenceManager.StatisticsState.CreditsSpent += (ulong)stake;
+        string message;
 
         switch (outcome)
         {
             case 0: // Tie
-                newBalance = await _persistenceManager.AlterClientCreditsAsync(-taxBook.Tax, client: gameEvent.Origin);
-                message = _credifyConfig.Translations.GambleDraw.FormatExt($"{taxBook.Tax:N0}", $"{newBalance:N0}");
+                message = _credifyConfig.Translations.Core.GambleDraw.FormatExt(stake.ToString("N0"), userBalance.ToString("N0"));
                 break;
             case 1: // User wins
-                taxBook = new TaxBook(stake * 2, stake, _credifyConfig.Core.BankTax);
-                newBalance = await _persistenceManager.AlterClientCreditsAsync(taxBook.NetChange, client: gameEvent.Origin);
-                message = _credifyConfig.Translations.GambleWon
-                    .FormatExt($"{taxBook.NetChange:N0}", $"{taxBook.Tax:N0}", $"{newBalance:N0}");
-                announcement = _credifyConfig.Translations.RpsWonAnnouncement
-                    .FormatExt(Plugin.PluginName, gameEvent.Origin.CleanedName, $"{taxBook.NetChange:N0}");
-                _persistenceManager.StatisticsState.CreditsWon += (ulong)taxBook.NetChange;
+                await _persistenceManager.AddCreditsAsync(gameEvent.Origin, stake);
+                message = _credifyConfig.Translations.Core.GambleWon
+                    .FormatExt(stake.ToString("N0"), (userBalance + stake).ToString("N0"));
                 break;
             default: // User loses
-                newBalance = await _persistenceManager.AlterClientCreditsAsync(-stake, client: gameEvent.Origin);
-                message = _credifyConfig.Translations.GambleLost
-                    .FormatExt($"{stake:N0}", $"{taxBook.Tax:N0}", $"{newBalance:N0}");
+                var newBalance = await _persistenceManager.RemoveCreditsAsync(gameEvent.Origin, stake);
+                message = _credifyConfig.Translations.Core.GambleLost
+                    .FormatExt(stake.ToString("N0"), newBalance.ToString("N0"));
                 break;
         }
 
-        await _persistenceManager.AddBankCreditsAsync(taxBook.Tax);
         gameEvent.Origin.Tell(message);
-        if (!string.IsNullOrEmpty(announcement)) gameEvent.Owner.Broadcast(announcement);
     }
 }

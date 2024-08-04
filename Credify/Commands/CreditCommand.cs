@@ -1,4 +1,5 @@
-﻿using Data.Models.Client;
+﻿using Credify.Configuration;
+using Data.Models.Client;
 using SharedLibraryCore;
 using SharedLibraryCore.Commands;
 using SharedLibraryCore.Configuration;
@@ -11,24 +12,25 @@ public class CreditCommand : Command
     private readonly CredifyConfiguration _credifyConfig;
     private readonly PersistenceManager _persistenceManager;
 
-    public CreditCommand(CommandConfiguration config, ITranslationLookup translationLookup, CredifyConfiguration credifyConfig, PersistenceManager persistenceManager) :
+    public CreditCommand(CommandConfiguration config, ITranslationLookup translationLookup, CredifyConfiguration credifyConfig,
+        PersistenceManager persistenceManager) :
         base(config, translationLookup)
     {
         _credifyConfig = credifyConfig;
         _persistenceManager = persistenceManager;
         Name = "credify";
-        Description = credifyConfig.Translations.CommandCheckCreditsDescription;
+        Description = credifyConfig.Translations.Core.CommandCheckCreditsDescription;
         Alias = "cr";
         Permission = EFClient.Permission.User;
         RequiresTarget = false;
-        Arguments = new[]
-        {
+        Arguments =
+        [
             new CommandArgument
             {
                 Name = "Player",
                 Required = false
             }
-        };
+        ];
     }
 
     public override async Task ExecuteAsync(GameEvent gameEvent)
@@ -38,9 +40,9 @@ public class CreditCommand : Command
         gameEvent.Target = gameEvent.Owner.GetClientByName(argPlayer).FirstOrDefault();
 
         // Check for valid target.
-        if (gameEvent.Data.Length != 0 && gameEvent.Target == null)
+        if (gameEvent.Data.Length is not 0 && gameEvent.Target is null)
         {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.ErrorFindingTargetUser);
+            gameEvent.Origin.Tell(_credifyConfig.Translations.Core.ErrorFindingTargetUser);
             return;
         }
 
@@ -50,16 +52,15 @@ public class CreditCommand : Command
         if (gameEvent.Target != null)
         {
             credits = await _persistenceManager.GetClientCreditsAsync(gameEvent.Target);
-            gameEvent.Origin.Tell(_credifyConfig.Translations.TargetCredits.FormatExt(gameEvent.Target.Name, $"{credits:N0}"));
+            gameEvent.Origin.Tell(_credifyConfig.Translations.Core.TargetCredits.FormatExt(gameEvent.Target.Name, credits.ToString("N0")));
             return;
         }
 
         // If no target specified
         await gameEvent.Origin.TellAsync(new[]
         {
-            _credifyConfig.Translations.OriginCredits.FormatExt($"{credits:N0}"),
-            _credifyConfig.Translations.ServerBankCredits.FormatExt($"{_persistenceManager.BankCredits:N0}")
+            _credifyConfig.Translations.Core.OriginCredits.FormatExt(credits.ToString("N0")),
+            _credifyConfig.Translations.Core.ServerBankCredits.FormatExt(_persistenceManager.BankCredits.ToString("N0"))
         });
-
     }
 }

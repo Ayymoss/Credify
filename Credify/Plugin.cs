@@ -1,30 +1,44 @@
-﻿using Credify.ChatGames;
-using Credify.ChatGames.Blackjack;
+﻿using Credify.Chat.Active.Blackjack;
+using Credify.Chat.Active.Roulette;
+using Credify.Chat.Active.Roulette.Utilities;
+using Credify.Chat.Passive;
+using Credify.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using SharedLibraryCore;
 using SharedLibraryCore.Events.Game;
 using SharedLibraryCore.Events.Management;
-using SharedLibraryCore.Events.Server;
 using SharedLibraryCore.Interfaces;
 using SharedLibraryCore.Interfaces.Events;
 using Utilities = SharedLibraryCore.Utilities;
 
 namespace Credify;
 
-// Achievements -> get kill with X
-//     MOD, Description, Amount, Payout
-//     There would need to be stored current progress for each player
+// TODO:
+/*
+Achievements -> get kill with X
+MOD, Description, Amount, Payout
+There would need to be stored current progress for each player
+
+Reaction Tests should have 'Per Server Timing' and use the incoming message timestamp rather than a timer.
+This would prevent issues with server message delays.
+
+Consider adding a Discord integration for the plugin.
+Clarify the purpose of credits for new players to avoid confusion.
+
+Horse Racing (100% not stolen ideas from the gta casino)!
+now Horse Racing it wouldn't be visual ofc, but could just have a set list of random horse names (configurable), and pick the horse and let random logic based on the odds do the work.
+*/
 
 public class Plugin : IPluginV2
 {
     private readonly PersistenceManager _persistenceManager;
-    private readonly BetManager _betManager;
     private readonly CredifyConfiguration _config;
     private readonly LotteryManager _lotteryManager;
     private readonly ChatGameManager _chatGameManager;
     private readonly ChatUtils _chatUtils;
     private readonly IConfigurationHandlerV2<CredifyConfiguration> _configHandler;
     private readonly BlackjackManager _blackjack;
+    private readonly TableManager _roulette;
     public const string CreditsAmount = "Credits_Amount";
     public const string TopKey = "Credits_TopList";
     public const string StatisticsKey = "Credits_Statistics";
@@ -37,12 +51,12 @@ public class Plugin : IPluginV2
 
     public const string PluginName = "Credify";
     public string Name => PluginName;
-    public string Version => "2023-06-27";
+    public string Version => "2024-08-04";
     public string Author => "Amos";
 
-    public Plugin(PersistenceManager persistenceManager, BetManager betManager, CredifyConfiguration config,
+    public Plugin(PersistenceManager persistenceManager, CredifyConfiguration config,
         LotteryManager lotteryManager, ChatGameManager chatGameManager, ChatUtils chatUtils,
-        IConfigurationHandlerV2<CredifyConfiguration> configHandler, BlackjackManager blackjack)
+        IConfigurationHandlerV2<CredifyConfiguration> configHandler, BlackjackManager blackjack, TableManager roulette)
     {
         _config = config;
         _lotteryManager = lotteryManager;
@@ -50,15 +64,12 @@ public class Plugin : IPluginV2
         _chatUtils = chatUtils;
         _configHandler = configHandler;
         _blackjack = blackjack;
+        _roulette = roulette;
         _persistenceManager = persistenceManager;
-        _betManager = betManager;
         if (!config.IsEnabled) return;
 
         IGameEventSubscriptions.ClientKilled += OnClientKilled;
-        IGameEventSubscriptions.MatchEnded += OnMatchEnded;
-        IGameEventSubscriptions.ClientJoinedTeam += OnClientJoinedTeam;
         IGameEventSubscriptions.ClientMessaged += OnClientMessaged;
-        IGameServerEventSubscriptions.ClientDataUpdated += OnClientDataUpdated;
         IManagementEventSubscriptions.ClientStateAuthorized += OnClientStateAuthorized;
         IManagementEventSubscriptions.ClientStateDisposed += OnClientStateDisposed;
         IManagementEventSubscriptions.Load += OnLoad;
@@ -66,41 +77,37 @@ public class Plugin : IPluginV2
 
     public static void RegisterDependencies(IServiceCollection serviceCollection)
     {
+        // Core
+        serviceCollection.AddConfiguration("CredifyConfigurationV2", new CredifyConfiguration());
         serviceCollection.AddSingleton<PersistenceManager>();
-        serviceCollection.AddSingleton<BetManager>();
         serviceCollection.AddSingleton<LotteryManager>();
         serviceCollection.AddSingleton<ChatGameManager>();
         serviceCollection.AddSingleton<ChatUtils>();
         serviceCollection.AddSingleton<BlackjackManager>();
-        serviceCollection.AddConfiguration("CredifyConfiguration", new CredifyConfiguration());
+        serviceCollection.AddSingleton<TranslationsRoot>();
+
+        // Roulette
+        serviceCollection.AddSingleton<HandleInput>();
+        serviceCollection.AddSingleton<HandleOutput>();
+        serviceCollection.AddSingleton<Table>();
+        serviceCollection.AddSingleton<TableManager>();
     }
 
     #region Events
 
     private async Task OnClientMessaged(ClientMessageEvent messageEvent, CancellationToken token)
     {
-        await _chatGameManager.HandleChatEvent(messageEvent.Client, messageEvent.Message);
+        await _chatGameManager.HandleChatEventAsync(messageEvent.Client, messageEvent.Message);
         await _blackjack.HandleChatEventAsync(messageEvent.Client, messageEvent.Message);
     }
-
-    private async Task OnMatchEnded(MatchEndEvent matchEnd, CancellationToken token) =>
-        await _betManager.OnMapEndAsync(matchEnd.Owner);
-
-    private async Task OnClientJoinedTeam(ClientJoinTeamEvent clientEvent, CancellationToken token) =>
-        await _betManager.OnJoinTeamAsync(clientEvent.Client);
-
+    
     private async Task OnClientStateAuthorized(ClientStateAuthorizeEvent clientEvent, CancellationToken token) =>
         await _persistenceManager.OnJoinAsync(clientEvent.Client);
-
-    private async Task OnClientDataUpdated(ClientDataUpdateEvent clientEvent, CancellationToken token)
-    {
-        foreach (var client in clientEvent.Clients) await _betManager.OnUpdateAsync(client);
-    }
-
-    private async Task OnClientKilled(ClientKillEvent clientEvent, CancellationToken token)
+    
+    private Task OnClientKilled(ClientKillEvent clientEvent, CancellationToken token)
     {
         _persistenceManager.OnKill(clientEvent.Client);
-        await _betManager.OnKillAsync(clientEvent.Client);
+        return Task.CompletedTask;
     }
 
     private async Task OnClientStateDisposed(ClientStateDisposeEvent clientEvent, CancellationToken token)
@@ -108,8 +115,9 @@ public class Plugin : IPluginV2
         await _persistenceManager.WriteClientCreditsAsync(clientEvent.Client);
         await _persistenceManager.WriteStatisticsAsync();
         await _persistenceManager.WriteTopScoreAsync();
-        await _betManager.OnDisconnectAsync(clientEvent.Client);
+        await _persistenceManager.WriteBankCreditsAsync();
         await _blackjack.LeaveGameAsync(clientEvent.Client);
+        _roulette.RemovePlayer(clientEvent.Client);
     }
 
     private async Task OnLoad(IManager manager, CancellationToken token)
@@ -128,6 +136,7 @@ public class Plugin : IPluginV2
         await _persistenceManager.ReadBankCreditsAsync();
         await _lotteryManager.ReadLotteryAsync();
         await _lotteryManager.CalculateNextOccurrence();
+        _ = Task.Run(async () => await _roulette.StartGame(token), token); // fire and forget
 
         if (_config.ChatGame.IsEnabled) Utilities.ExecuteAfterDelay(_config.ChatGame.Frequency, InitChatGame, token);
         Utilities.ExecuteAfterDelay(_config.Core.AdvertisementIntervalMinutes,
@@ -143,7 +152,7 @@ public class Plugin : IPluginV2
 
     private async Task InitChatGame(CancellationToken token)
     {
-        await _chatGameManager.StartGame();
+        await _chatGameManager.InitGameAsync();
         Utilities.ExecuteAfterDelay(_config.ChatGame.Frequency, InitChatGame, token);
     }
 
@@ -165,9 +174,9 @@ public class Plugin : IPluginV2
             if (server.ConnectedClients.Count is 0) continue;
             var messages = new[]
             {
-                _config.Translations.AdvertisementMessage.FormatExt(PluginName),
-                _config.Translations.AdvertisementLotto.FormatExt(PluginName),
-                _config.Translations.AdvertisementShop.FormatExt(PluginName)
+                _config.Translations.Core.AdvertisementMessage.FormatExt(PluginName),
+                _config.Translations.Core.AdvertisementLotto.FormatExt(PluginName),
+                _config.Translations.Core.AdvertisementShop.FormatExt(PluginName)
             };
             await server.BroadcastAsync(messages, token: token);
         }

@@ -1,19 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net6.0</TargetFramework>
+        <TargetFramework>net8.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
     </PropertyGroup>
 
     <ItemGroup>
-        <Reference Include="Stats">
-            <HintPath>..\Stats.dll</HintPath>
-        </Reference>
-    </ItemGroup>
-
-    <ItemGroup>
-        <PackageReference Include="RaidMax.IW4MAdmin.SharedLibraryCore" Version="2023.4.15.3"/>
+        <ProjectReference Include="..\..\..\_Cloned\IW4MAdmin\Data\Data.csproj" />
+        <ProjectReference Include="..\..\..\_Cloned\IW4MAdmin\SharedLibraryCore\SharedLibraryCore.csproj"/>
     </ItemGroup>
 
 </Project>

@@ -5,7 +5,6 @@ namespace Credify.Models.ApiModels;
 public class DictionaryApi
 {
     [JsonPropertyName("meanings")] public List<MeaningModel> Meanings { get; set; }
-    [JsonPropertyName("word")] public string Word { get; set; }
 }
 
 public class DefinitionModel

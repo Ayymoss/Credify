@@ -1,4 +1,5 @@
-﻿using Data.Models.Client;
+﻿using Credify.Configuration;
+using Data.Models.Client;
 using SharedLibraryCore;
 using SharedLibraryCore.Configuration;
 using SharedLibraryCore.Interfaces;
@@ -14,7 +15,7 @@ public class CreditHelpCommand : Command
     {
         _credifyConfig = credifyConfig;
         Name = "credifyhelp";
-        Description = credifyConfig.Translations.CommandHelpDescription;
+        Description = credifyConfig.Translations.Core.CommandHelpDescription;
         Alias = "crhelp";
         Permission = EFClient.Permission.User;
         RequiresTarget = false;
@@ -22,22 +23,21 @@ public class CreditHelpCommand : Command
 
     public override async Task ExecuteAsync(GameEvent gameEvent)
     {
-        await gameEvent.Origin.TellAsync(new[]
-        {
-            _credifyConfig.Translations.HelpHeader,
-            _credifyConfig.Translations.HelpHelp,
-            _credifyConfig.Translations.HelpStatistics,
-            _credifyConfig.Translations.HelpTopCredits,
-            _credifyConfig.Translations.HelpPayCredits,
-            _credifyConfig.Translations.HelpBetPlayer,
-            _credifyConfig.Translations.HelpBetTeam,
-            _credifyConfig.Translations.HelpOpenBets,
-            _credifyConfig.Translations.HelpClaimBets,
-            _credifyConfig.Translations.HelpShop,
-            _credifyConfig.Translations.HelpShopInventory,
-            _credifyConfig.Translations.HelpShopBuy,
-            _credifyConfig.Translations.HelpLotto,
-            _credifyConfig.Translations.HelpGamble
-        });
+        await gameEvent.Origin.TellAsync([
+            _credifyConfig.Translations.Core.HelpHeader,
+            _credifyConfig.Translations.Core.HelpHelp,
+            _credifyConfig.Translations.Core.HelpStatistics,
+            _credifyConfig.Translations.Core.HelpTopCredits,
+            _credifyConfig.Translations.Core.HelpPayCredits,
+            _credifyConfig.Translations.Core.HelpBetPlayer,
+            _credifyConfig.Translations.Core.HelpBetTeam,
+            _credifyConfig.Translations.Core.HelpOpenBets,
+            _credifyConfig.Translations.Core.HelpClaimBets,
+            _credifyConfig.Translations.Core.HelpShop,
+            _credifyConfig.Translations.Core.HelpShopInventory,
+            _credifyConfig.Translations.Core.HelpShopBuy,
+            _credifyConfig.Translations.Core.HelpLotto,
+            _credifyConfig.Translations.Core.HelpGamble
+        ]);
     }
 }

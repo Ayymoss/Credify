@@ -1,4 +1,5 @@
-﻿using Data.Abstractions;
+﻿using Credify.Configuration;
+using Data.Abstractions;
 using Data.Models.Client;
 using Microsoft.EntityFrameworkCore;
 using SharedLibraryCore;
@@ -22,7 +23,7 @@ public class TopCreditsCommand : Command
         _credifyConfig = credifyConfig;
         Name = "credifytop";
         Alias = "crtop";
-        Description = credifyConfig.Translations.CommandTopCreditsDescription;
+        Description = credifyConfig.Translations.Core.CommandTopCreditsDescription;
         Permission = EFClient.Permission.User;
         RequiresTarget = false;
     }
@@ -30,13 +31,13 @@ public class TopCreditsCommand : Command
     public override async Task ExecuteAsync(GameEvent gameEvent)
     {
         // If user requests top and there are no entries.
-        if (!_persistenceManager.TopCredits.Any())
+        if (_persistenceManager.TopCredits.Count is 0)
         {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.NoOneHasCreditsForTop);
+            gameEvent.Origin.Tell(_credifyConfig.Translations.Core.NoOneHasCreditsForTop);
             return;
         }
 
-        gameEvent.Origin.Tell(_credifyConfig.Translations.TopCreditsTitle);
+        gameEvent.Origin.Tell(_credifyConfig.Translations.Core.TopCreditsTitle);
 
         await using var context = _contextFactory.CreateContext(false);
         var names = await context.Clients
@@ -48,8 +49,8 @@ public class TopCreditsCommand : Command
 
         var output = _persistenceManager.TopCredits
             .OrderByDescending(entry => entry.Credits)
-            .Select((creditEntry, index) => _credifyConfig.Translations.TopPlayerEntry
-                .FormatExt(index + 1, $"{creditEntry.Credits:N0}", names[creditEntry.ClientId]));
+            .Select((creditEntry, index) => _credifyConfig.Translations.Core.TopPlayerEntry
+                .FormatExt(index + 1, creditEntry.Credits.ToString("N0"), names[creditEntry.ClientId]));
 
         await gameEvent.Origin.TellAsync(output);
     }

@@ -1,4 +1,5 @@
-﻿using Data.Abstractions;
+﻿using Credify.Configuration;
+using Data.Abstractions;
 using Humanizer;
 using Microsoft.EntityFrameworkCore;
 using SharedLibraryCore;
@@ -23,7 +24,7 @@ public class ShowLottoCommand : Command
         _lotteryManager = lotteryManager;
         _persistenceManager = persistenceManager;
         Name = "credifyshowlotto";
-        Description = credifyConfig.Translations.CommandShowLottoDescription;
+        Description = credifyConfig.Translations.Core.CommandShowLottoDescription;
         Alias = "crsl";
         Permission = Data.Models.Client.EFClient.Permission.User;
         RequiresTarget = false;
@@ -31,14 +32,14 @@ public class ShowLottoCommand : Command
 
     public override async Task ExecuteAsync(GameEvent gameEvent)
     {
-        var ticketHolders = _lotteryManager.Lottery.Any();
+        var ticketHolders = _lotteryManager.Lottery.Count is not 0;
         if (!ticketHolders)
         {
             await gameEvent.Origin.TellAsync(new[]
             {
-                _credifyConfig.Translations.NoTicketHolders,
-                _credifyConfig.Translations.NoTicketHoldersContinued
-                    .FormatExt($"{_persistenceManager.BankCredits:N0}", _lotteryManager.NextOccurrence.Humanize())
+                _credifyConfig.Translations.Core.NoTicketHolders,
+                _credifyConfig.Translations.Core.NoTicketHoldersContinued
+                    .FormatExt(_persistenceManager.BankCredits.ToString("N0"), _lotteryManager.NextOccurrence.Humanize())
             });
             return;
         }
@@ -46,33 +47,32 @@ public class ShowLottoCommand : Command
         await using var context = _contextFactory.CreateContext(false);
         var names = await context.Clients
             .Where(client => _lotteryManager.Lottery.Select(credit => credit.ClientId).Contains(client.ClientId))
-            .Select(client => new {client.ClientId, client.CurrentAlias.Name})
+            .Select(client => new { client.ClientId, client.CurrentAlias.Name })
             .ToDictionaryAsync(selector => selector.ClientId, selector => selector.Name);
 
         var lastWinner = await _persistenceManager.ReadLastLotteryWinnerAsync();
-        
-        var lastWinnerPlaceholder = lastWinner is null 
-            ? _credifyConfig.Translations.NoLastWinner
-            : _credifyConfig.Translations.LastWinner
-                .FormatExt(lastWinner.Value.ClientName, lastWinner.Value.ClientId, $"{lastWinner.Value.PayOut:N0}");
-        
+
+        List<string> lastWinnerPlaceholder = lastWinner is null
+            ? [_credifyConfig.Translations.Core.NoLastWinner]
+            :
+            [
+                _credifyConfig.Translations.Core.PreviousLottoCount.FormatExt(lastWinner.Value.LastPlayers),
+                _credifyConfig.Translations.Core.LastWinner.FormatExt(lastWinner.Value.ClientName, lastWinner.Value.ClientId,
+                    lastWinner.Value.PayOut.ToString("N0"))
+            ];
+
         var headerMessages = new[]
         {
-            _credifyConfig.Translations.ShowLottoHeader,
-            _credifyConfig.Translations.LottoNextDraw.FormatExt(_lotteryManager.NextOccurrence.Humanize())
+            _credifyConfig.Translations.Core.ShowLottoHeader,
+            _credifyConfig.Translations.Core.LottoNextDraw.FormatExt(_lotteryManager.NextOccurrence.Humanize())
         };
 
         var ticketHolderNames = _lotteryManager.Lottery.OrderByDescending(entry => entry.Tickets).Select(
-            (creditEntry, index) => _credifyConfig.Translations.TicketHolder
-                .FormatExt(index + 1, $"{creditEntry.Tickets:N0}", names[creditEntry.ClientId])).ToArray();
-
-        var footerMessages = new[]
-        {
-            lastWinnerPlaceholder
-        };
+            (creditEntry, index) => _credifyConfig.Translations.Core.TicketHolder
+                .FormatExt(index + 1, creditEntry.Tickets.ToString("N0"), names[creditEntry.ClientId])).ToArray();
 
         headerMessages = headerMessages.Concat(ticketHolderNames).ToArray();
-        headerMessages = headerMessages.Concat(footerMessages).ToArray();
+        headerMessages = headerMessages.Concat(lastWinnerPlaceholder).ToArray();
         await gameEvent.Origin.TellAsync(headerMessages);
     }
 }

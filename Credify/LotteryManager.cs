@@ -1,4 +1,4 @@
-﻿using System.Security.Cryptography;
+﻿using Credify.Configuration;
 using Credify.Models;
 using SharedLibraryCore;
 using SharedLibraryCore.Database.Models;
@@ -6,39 +6,31 @@ using SharedLibraryCore.Interfaces;
 
 namespace Credify;
 
-public class LotteryManager
+public class LotteryManager(CredifyConfiguration credifyConfig, PersistenceManager persistenceManager)
 {
-    public List<Lottery> Lottery { get; set; } = null!;
+    public List<Lottery> Lottery { get; set; } = null!; // TODO: Move to constructor.
     public DateTimeOffset NextOccurrence { get; set; }
     private IManager? _manager;
-    private readonly CredifyConfiguration _credifyConfig;
-    private readonly PersistenceManager _persistenceManager;
-
-    public LotteryManager(CredifyConfiguration credifyConfig, PersistenceManager persistenceManager)
-    {
-        _credifyConfig = credifyConfig;
-        _persistenceManager = persistenceManager;
-    }
 
     public void SetManager(IManager manager) => _manager = manager;
     public bool HasLotteryHappened => DateTimeOffset.Now >= NextOccurrence;
-    public async Task ReadLotteryAsync() => Lottery = await _persistenceManager.ReadLotteryAsync();
-    private async Task WriteLotteryAsync() => await _persistenceManager.WriteLotteryAsync(Lottery);
+    public async Task ReadLotteryAsync() => Lottery = await persistenceManager.ReadLotteryAsync();
+    private async Task WriteLotteryAsync() => await persistenceManager.WriteLotteryAsync(Lottery);
 
     public async Task CalculateNextOccurrence()
     {
         if (NextOccurrence < DateTimeOffset.Now)
         {
-            var next = await _persistenceManager.ReadNextLotteryAsync();
+            var next = await persistenceManager.ReadNextLotteryAsync();
             if (next is null || next < DateTimeOffset.Now)
             {
                 var currentDate = DateTimeOffset.Now;
                 var nextLotteryDate = currentDate.Date
-                    .AddDays(_credifyConfig.Core.LotteryFrequency.TotalDays)
-                    .Add(_credifyConfig.Core.LotteryFrequencyAtTime);
+                    .AddDays(credifyConfig.Core.LotteryFrequency.TotalDays)
+                    .Add(credifyConfig.Core.LotteryFrequencyAtTime);
 
                 NextOccurrence = nextLotteryDate;
-                await _persistenceManager.WriteNextLotteryAsync(NextOccurrence);
+                await persistenceManager.WriteNextLotteryAsync(NextOccurrence);
             }
             else
             {
@@ -57,7 +49,7 @@ public class LotteryManager
         }
         else
         {
-            Lottery.Add(new Lottery(client.ClientId) {CleanedName = client.CleanedName, Tickets = tickets});
+            Lottery.Add(new Lottery(client.ClientId, client.CleanedName) { Tickets = tickets });
             boughtTotal = tickets;
         }
 
@@ -67,7 +59,7 @@ public class LotteryManager
 
     private static long NextLong(long minValue, long maxValue)
     {
-        if (minValue > maxValue) throw new ArgumentOutOfRangeException(nameof(minValue));
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(minValue, maxValue);
 
         var buffer = new byte[8];
         Random.Shared.NextBytes(buffer);
@@ -102,9 +94,8 @@ public class LotteryManager
 
         var winPercentage = (float)winnerTickets / totalTickets * 100;
         AnnounceWinner(clientName, winPercentage);
-        await _persistenceManager.WriteLastLotteryWinnerAsync(clientId.Value, clientName , _persistenceManager.BankCredits);
-        await _persistenceManager.AlterClientCreditsAsync(_persistenceManager.BankCredits, clientId);
-        _persistenceManager.ResetBank();
+        await persistenceManager.WriteLastLotteryWinnerAsync(clientId.Value, clientName, persistenceManager.BankCredits, Lottery.Count);
+        persistenceManager.ResetBank();
 
         Lottery.Clear();
         await WriteLotteryAsync();
@@ -116,8 +107,8 @@ public class LotteryManager
         foreach (var server in _manager.GetServers())
         {
             if (server.ConnectedClients.Count is 0) continue;
-            server.Broadcast(_credifyConfig.Translations.AnnounceLottoWinner
-                .FormatExt(name, $"{_persistenceManager.BankCredits:N0}", $"{winPercentage:N1}"));
+            server.Broadcast(credifyConfig.Translations.Core.AnnounceLottoWinner
+                .FormatExt(name, persistenceManager.BankCredits.ToString("N0"), winPercentage.ToString("N1")));
         }
     }
 }

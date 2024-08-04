@@ -1,4 +1,5 @@
-﻿using SharedLibraryCore;
+﻿using Credify.Configuration;
+using SharedLibraryCore;
 using SharedLibraryCore.Configuration;
 using SharedLibraryCore.Interfaces;
 
@@ -13,7 +14,7 @@ public class ShopCommand : Command
     {
         _credifyConfig = credifyConfig;
         Name = "credifyshop";
-        Description = credifyConfig.Translations.CommandShopDescription;
+        Description = credifyConfig.Translations.Core.CommandShopDescription;
         Alias = "crshop";
         Permission = Data.Models.Client.EFClient.Permission.User;
         RequiresTarget = false;
@@ -23,21 +24,21 @@ public class ShopCommand : Command
     {
         if (!_credifyConfig.Shop.IsEnabled)
         {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.ShopDisabled);
+            gameEvent.Origin.Tell(_credifyConfig.Translations.Core.ShopDisabled);
             return;
         }
 
         var headerMessage = new List<string>
         {
-            _credifyConfig.Translations.ShopServerHeader
+            _credifyConfig.Translations.Core.ShopServerHeader
         };
 
         var shopItems = _credifyConfig.Shop.Items
             .Where(x => x.CanBeBought)
-            .Select(shopItem => _credifyConfig.Translations.ShopItemFormat
-                .FormatExt(shopItem.Id, $"{shopItem.Cost:N0}", shopItem.Name)).ToList();
+            .Select(shopItem => _credifyConfig.Translations.Core.ShopItemFormat
+                .FormatExt(shopItem.Id, shopItem.Cost.ToString("N0"), shopItem.Name)).ToList();
 
-        shopItems.Add(_credifyConfig.Translations.PurchaseShopItemFormat);
+        shopItems.Add(_credifyConfig.Translations.Core.PurchaseShopItemFormat);
         var shopMessages = headerMessage.Concat(shopItems);
         await gameEvent.Origin.TellAsync(shopMessages);
     }

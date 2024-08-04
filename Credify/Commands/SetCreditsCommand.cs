@@ -1,4 +1,5 @@
-﻿using SharedLibraryCore;
+﻿using Credify.Configuration;
+using SharedLibraryCore;
 using SharedLibraryCore.Commands;
 using SharedLibraryCore.Configuration;
 using SharedLibraryCore.Interfaces;
@@ -17,12 +18,12 @@ public class SetCreditsCommand : Command
         _persistenceManager = persistenceManager;
         _credifyConfig = credifyConfig;
         Name = "credifysetcredits";
-        Description = credifyConfig.Translations.CommandSetCreditsDescription;
+        Description = credifyConfig.Translations.Core.CommandSetCreditsDescription;
         Alias = "crset";
         Permission = EFClient.Permission.Owner;
         RequiresTarget = true;
-        Arguments = new[]
-        {
+        Arguments =
+        [
             new CommandArgument
             {
                 Name = "Player",
@@ -33,7 +34,7 @@ public class SetCreditsCommand : Command
                 Name = "Amount",
                 Required = true
             }
-        };
+        ];
     }
 
     public override async Task ExecuteAsync(GameEvent gameEvent)
@@ -42,16 +43,16 @@ public class SetCreditsCommand : Command
 
         if (!long.TryParse(amount, out var argAmount))
         {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.ErrorParsingSecondArgument);
+            gameEvent.Origin.Tell(_credifyConfig.Translations.Core.ErrorParsingSecondArgument);
             return;
         }
 
         gameEvent.Target.SetAdditionalProperty(Plugin.CreditsAmount, Math.Abs(argAmount));
-        gameEvent.Origin.Tell(_credifyConfig.Translations.SetCreditsForTarget
-            .FormatExt(gameEvent.Target.Name, $"{Math.Abs(argAmount):N0}"));
+        gameEvent.Origin.Tell(_credifyConfig.Translations.Core.SetCreditsForTarget
+            .FormatExt(gameEvent.Target.Name, Math.Abs(argAmount).ToString("N0")));
         if (gameEvent.Origin.ClientId != gameEvent.Target.ClientId)
-            gameEvent.Target.Tell(_credifyConfig.Translations.CreditsSetByOrigin
-                .FormatExt(gameEvent.Origin.Name, $"{Math.Abs(argAmount):N0}"));
+            gameEvent.Target.Tell(_credifyConfig.Translations.Core.CreditsSetByOrigin
+                .FormatExt(gameEvent.Origin.Name, Math.Abs(argAmount).ToString("N0")));
         _persistenceManager.OrderTop(gameEvent.Target, Math.Abs(argAmount));
         await _persistenceManager.WriteClientCreditsAsync(gameEvent.Target, argAmount);
     }
