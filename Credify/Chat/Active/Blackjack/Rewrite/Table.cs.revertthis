@@ -1,0 +1,364 @@
+﻿using System.Collections.Concurrent;
+using Credify.Chat.Active.Blackjack.Rewrite.Enums;
+using SharedLibraryCore;
+using SharedLibraryCore.Database.Models;
+using Action = Credify.Chat.Active.Blackjack.Rewrite.Enums.Action;
+
+namespace Credify.Chat.Active.Blackjack.Rewrite;
+
+public class Table(PersistenceManager persistenceManager, Translations translations)
+{
+    // TODO: If someone leaves mid game we need to handle this.
+    private readonly ManualResetEventSlim _hasPlayers = new(false);
+    private readonly HandleInput _handleInput = new(persistenceManager);
+    private readonly HandleOutput _handleOutput = new(translations);
+    private readonly ConcurrentDictionary<EFClient, Player> _players = [];
+    private Deck? _deck;
+    private List<EFClient> _tableQueue = [];
+    private Hand? _dealerHand;
+    private GameState _gameState = GameState.WaitingForPlayers;
+
+    public async Task GameLoopAsync(CancellationToken token)
+    {
+        while (!token.IsCancellationRequested)
+        {
+            _hasPlayers.Wait(token);
+
+            StartRound();
+            _gameState = GameState.WaitingForBets;
+
+            var bets = await _handleInput.GetPlayerBetsAsync(_players.Select(x => x.Value).ToList(), token);
+            foreach (var bet in bets) PlaceBet(bet.Player, bet.Bet);
+
+            _gameState = GameState.WaitingForAction;
+            await PlayRoundAsync(token);
+        }
+    }
+
+    private async Task PlayRoundAsync(CancellationToken token)
+    {
+        Hand.ThrowIfDeckIsNotInitialised(_dealerHand);
+        // Check for any blackjacks
+        foreach (var player in _players.Values)
+        {
+            foreach (var hand in player.Hands)
+            {
+                if (!hand.IsBlackjack()) continue;
+                if (_dealerHand.IsBlackjack())
+                {
+                    _handleOutput.MessagePlayer(player, Translations.Blackjack.Push);
+                    continue;
+                }
+
+                _handleOutput.MessagePlayer(player, Translations.Blackjack.BlackjackConfirmation);
+                // Payout 3:2
+                await persistenceManager.AlterClientCreditsAsync(player.Client, (int)Math.Round(hand.Bet * 2.5));
+            }
+        }
+
+        if (_dealerHand.IsBlackjack())
+        {
+            _handleOutput.MessagePlayer(_players.First().Value, Translations.Blackjack.DealerBlackjack);
+            // TODO: End round here as dealer wins.
+        }
+
+        // TODO: Each player should have the ability to split.
+        // Get player actions
+        foreach (var player in _players.Values)
+        {
+            foreach (var hand in player.Hands)
+            {
+                while (_gameState is GameState.WaitingForAction)
+                {
+                    var action = await GetPlayerActionAsync(player, hand, token);
+                    switch (action)
+                    {
+                        case Action.Hit:
+                            PlayerHit(player);
+                            break;
+                        case Action.Stand:
+                            PlayerStand(player);
+                            break;
+                        case Action.Double:
+                            PlayerDoubleDown(player);
+                            break;
+                        case Action.Split:
+                            PlayerSplit(player);
+                            break;
+                        case Action.Surrender:
+                            PlayerSurrender(player);
+                            break;
+                        case Action.Insurance:
+                            PlayerTakeInsurance(player);
+                            break;
+                        case Action.Cards:
+                            ShowCards(player);
+                            break;
+                        default:
+                            throw new ArgumentOutOfRangeException();
+                    }
+
+                    if (hand.GetHandValue() > 21)
+                    {
+                        _handleOutput.MessagePlayer(player, Translations.Blackjack.PlayerBust.FormatExt(hand.GetHandValue()));
+                        break;
+                    }
+
+                    if (hand.IsDoubledDown || hand.IsSurrendered)
+                    {
+                        break;
+                    }
+                }
+            }
+        }
+
+        _gameState = GameState.Playing;
+        DealerTurn();
+        DetermineWinner();
+        PayoutWinners();
+    }
+
+    private async Task<Action> GetPlayerActionAsync(Player player, Hand hand, CancellationToken token)
+    {
+        var action = Action.Hit;
+        await player.Client.PromptClientInput(Translations.Blackjack.PlayerDecision,
+            input => { return Enum.TryParse<Action>(input, true, out action); }, token);
+
+        return action;
+    }
+
+    public void AddPlayer(EFClient client)
+    {
+        _players.TryAdd(client, new Player(client));
+
+        _hasPlayers.Set();
+    }
+
+    public void RemovePlayer(Player player)
+    {
+        _players.Remove(player.Client, out _);
+
+        if (_players.Count is 0)
+        {
+            _hasPlayers.Reset();
+        }
+    }
+
+    public void StartRound()
+    {
+        _deck = new Deck();
+        _dealerHand = new Hand([_deck.DealCard(), _deck.DealCard()]);
+    }
+
+    public void PlaceBet(Player player, int betAmount)
+    {
+        if (betAmount <= 0) return;
+        DealInitialCards(player, betAmount);
+        persistenceManager.AlterClientCreditsAsync(player.Client, -betAmount);
+    }
+
+    private void DealInitialCards(Player player, int betAmount)
+    {
+        Deck.ThrowIfDeckIsNotInitialised(_deck);
+        var playerHand = new Hand([_deck.DealCard(), _deck.DealCard()], betAmount);
+        player.Hands.Add(playerHand);
+
+        ShowCards(player);
+    }
+
+    public void PlayerHit(Player player)
+    {
+        if (player.Hands.First().IsDoubledDown) return; // TODO: Should this throw?
+        Deck.ThrowIfDeckIsNotInitialised(_deck);
+        player.Hands.First().Cards.Add(_deck.DealCard());
+        _handleOutput.MessagePlayer(player, Translations.Blackjack.PlayerHit.FormatExt(player.Hands.First().GetHandValue()));
+        ShowCards(player, true);
+    }
+
+    public void PlayerStand(Player player)
+    {
+        _handleOutput.MessagePlayer(player, Translations.Blackjack.PlayerStand.FormatExt(player.Hands.First().GetHandValue()));
+    }
+
+    public void PlayerDoubleDown(Player player)
+    {
+        if (player.Hands.Count > 1) return; // TODO: Should this throw?
+        Deck.ThrowIfDeckIsNotInitialised(_deck);
+        Hand.ThrowIfDeckIsNotInitialised(_dealerHand);
+
+        // Double the bet
+        persistenceManager.AlterClientCreditsAsync(player.Client, -player.Hands.First().Bet);
+        player.Hands.First().Bet *= 2;
+        // Deal one more card and stand.
+        player.Hands.First().Cards.Add(_deck.DealCard());
+        player.Hands.First().IsDoubledDown = true;
+        _handleOutput.MessagePlayer(player, Translations.Blackjack.DoubleDownConfirmation.FormatExt(player.Hands.First().GetHandValue()));
+        ShowCards(player, true);
+    }
+
+    public void PlayerSplit(Player player)
+    {
+        // can only split if the player has 2 cards
+        if (player.Hands.First().Cards.Count != 2) return;
+        // can only split if the two cards are the same rank
+        if (player.Hands.First().Cards[0].Rank != player.Hands.First().Cards[1].Rank) return;
+
+        Deck.ThrowIfDeckIsNotInitialised(_deck);
+        persistenceManager.AlterClientCreditsAsync(player.Client, -player.Hands.First().Bet);
+        player.Hands.Add(new Hand([player.Hands.First().Cards[1], _deck.DealCard()], player.Hands.First().Bet));
+        player.Hands.First().Cards.RemoveAt(1);
+        player.Hands.First().Cards.Add(_deck.DealCard());
+
+        _handleOutput.MessagePlayer(player, Translations.Blackjack.SplitConfirmation);
+
+        foreach (var hand in player.Hands)
+        {
+            ShowCards(player, true, hand);
+        }
+    }
+
+    public void PlayerSurrender(Player player)
+    {
+        if (player.Hands.First().Cards.Count != 2) return;
+
+        player.Hands.First().IsSurrendered = true;
+        _handleOutput.MessagePlayer(player, Translations.Blackjack.SurrenderConfirmation);
+
+        // return half of the bet to the player
+        persistenceManager.AlterClientCreditsAsync(player.Client, player.Hands.First().Bet / 2);
+    }
+
+    public void PlayerTakeInsurance(Player player)
+    {
+        Hand.ThrowIfDeckIsNotInitialised(_dealerHand);
+        // can only take insurance if the dealer's up card is an Ace.
+        if (_dealerHand.Cards[0].Rank != CardRank.Ace) return;
+
+        player.Hands.First().IsInsured = true;
+        _handleOutput.MessagePlayer(player, Translations.Blackjack.InsuranceConfirmation);
+
+        // deduct half of the bet from the player
+        persistenceManager.AlterClientCreditsAsync(player.Client, -player.Hands.First().Bet / 2);
+    }
+
+    private void ShowCards(Player player, bool showLastCardOnly = false, Hand? hand = null)
+    {
+        Hand.ThrowIfDeckIsNotInitialised(_dealerHand);
+        hand ??= player.Hands.First();
+
+        if (showLastCardOnly)
+        {
+            _handleOutput.MessagePlayer(player,
+                Translations.Blackjack.NewCard.FormatExt(hand.Cards.Last()));
+        }
+
+        _handleOutput.MessagePlayer(player, Translations.Blackjack.DealerCard.FormatExt(_dealerHand.Cards.First()));
+        _handleOutput.MessagePlayer(player,
+            Translations.Blackjack.PlayerCards.FormatExt(hand.GetHandValue(), string.Join(", ", hand.Cards)));
+    }
+
+    public void DealerTurn()
+    {
+        Hand.ThrowIfDeckIsNotInitialised(_dealerHand);
+        Deck.ThrowIfDeckIsNotInitialised(_deck);
+        _handleOutput.MessagePlayer(_players.First().Value, Translations.Blackjack.DealerTurn);
+        while (_dealerHand.GetHandValue() < 17)
+        {
+            _handleOutput.MessagePlayer(_players.First().Value, Translations.Blackjack.DealerHit.FormatExt(_dealerHand.GetHandValue()));
+            _dealerHand.Cards.Add(_deck.DealCard());
+        }
+
+        if (_dealerHand.GetHandValue() > 21)
+        {
+            _handleOutput.MessagePlayer(_players.First().Value, Translations.Blackjack.DealerBust.FormatExt(_dealerHand.GetHandValue()));
+        }
+        else
+        {
+            _handleOutput.MessagePlayer(_players.First().Value, Translations.Blackjack.DealerStand.FormatExt(_dealerHand.GetHandValue()));
+        }
+    }
+
+    public void DetermineWinner()
+    {
+        Hand.ThrowIfDeckIsNotInitialised(_dealerHand);
+        foreach (var player in _players.Values)
+        {
+            foreach (var hand in player.Hands)
+            {
+                // if player surrendered they automatically lose, but get half their bet back.
+                if (hand.IsSurrendered)
+                {
+                    hand.Outcome = BlackjackEnums.GameOutcome.Lose;
+                    continue;
+                }
+
+                if (hand.GetHandValue() > 21)
+                {
+                    hand.Outcome = BlackjackEnums.GameOutcome.Lose;
+                    continue;
+                }
+
+                if (_dealerHand.GetHandValue() > 21)
+                {
+                    hand.Outcome = BlackjackEnums.GameOutcome.Win;
+                    continue;
+                }
+
+                if (hand.GetHandValue() > _dealerHand.GetHandValue())
+                {
+                    hand.Outcome = BlackjackEnums.GameOutcome.Win;
+                    continue;
+                }
+
+                if (hand.GetHandValue() == _dealerHand.GetHandValue())
+                {
+                    hand.Outcome = BlackjackEnums.GameOutcome.Push;
+                    continue;
+                }
+
+                hand.Outcome = BlackjackEnums.GameOutcome.Lose;
+            }
+        }
+    }
+
+    public async void PayoutWinners()
+    {
+        Hand.ThrowIfDeckIsNotInitialised(_dealerHand);
+        foreach (var player in _players.Values)
+        {
+            foreach (var hand in player.Hands)
+            {
+                switch (hand.Outcome)
+                {
+                    case BlackjackEnums.GameOutcome.Win:
+                        var winAmount = hand.IsDoubledDown ? hand.Bet * 2 : hand.Bet;
+                        _handleOutput.MessagePlayer(player, Translations.Blackjack.Win.FormatExt(winAmount));
+                        await persistenceManager.AlterClientCreditsAsync(player.Client, winAmount);
+                        break;
+                    case BlackjackEnums.GameOutcome.Push:
+                        _handleOutput.MessagePlayer(player, Translations.Blackjack.Push);
+                        await persistenceManager.AlterClientCreditsAsync(player.Client, hand.Bet);
+                        break;
+                    case BlackjackEnums.GameOutcome.Lose:
+                        _handleOutput.MessagePlayer(player, Translations.Blackjack.Lose);
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
+
+                // Insurance payout
+                if (hand.IsInsured && _dealerHand.IsBlackjack())
+                {
+                    _handleOutput.MessagePlayer(player, Translations.Blackjack.InsurancePayout);
+                    await persistenceManager.AlterClientCreditsAsync(player.Client, hand.Bet);
+                }
+            }
+
+            player.Hands = [];
+        }
+
+        _gameState = GameState.WaitingForPlayers;
+        _dealerHand = null;
+        _deck = null;
+    }
+}

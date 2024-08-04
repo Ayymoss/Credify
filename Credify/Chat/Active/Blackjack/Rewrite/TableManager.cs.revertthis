@@ -1,0 +1,11 @@
+﻿namespace Credify.Chat.Active.Blackjack.Rewrite;
+
+public class TableManager(PersistenceManager persistenceManager, Translations translations)
+{
+    private Table? _table;
+    public async Task StartGame(CancellationToken cancellationToken = default)
+    {
+        _table = new Table(persistenceManager, translations);
+        await _table.GameLoopAsync(cancellationToken);
+    }
+}
