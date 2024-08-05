@@ -39,10 +39,11 @@ public class HandleInput(PersistenceManager persistenceManager, CredifyConfigura
             .Select(x => x.Player)
             .ToList();
 
-        var insideBets = await GetInsideBetNumbersAsync(playerBets.Where(x => insidePlayers.Contains(x.Player)).ToList(), token);
-        var outsideBets = await GetOutsideBetNumbersAsync(playerBets.Where(x => outsidePlayers.Contains(x.Player)).ToList(), token);
+        var insideBetTasks = GetInsideBetNumbersAsync(playerBets.Where(x => insidePlayers.Contains(x.Player)).ToList(), token);
+        var outsideBetTasks = GetOutsideBetNumbersAsync(playerBets.Where(x => outsidePlayers.Contains(x.Player)).ToList(), token);
 
-        return insideBets.Concat(outsideBets).ToList();
+        var tasks = await Task.WhenAll(insideBetTasks, outsideBetTasks);
+        return tasks.SelectMany(x => x).ToList();
     }
 
     #region Input
@@ -56,18 +57,25 @@ public class HandleInput(PersistenceManager persistenceManager, CredifyConfigura
         {
             var playerCredits = await persistenceManager.GetClientCreditsAsync(player.Client);
             var result = await player.Client.PromptClientInput(
-                [_rouletteTrans.Prefix(_rouletteTrans.HowMuchToBet.FormatExt(playerCredits))], input =>
+                [_rouletteTrans.Prefix(_rouletteTrans.HowMuchToBet.FormatExt(playerCredits.ToString("N0")))], input =>
                 {
                     var innerResult = new ParsedInputResult<int?>();
                     if (!int.TryParse(input, out var innerBet))
                         return Task.FromResult(innerResult.WithError(_rouletteTrans.Prefix(_rouletteTrans.InvalidBetInput)));
 
-                    if (Math.Abs(innerBet) > playerCredits)
+                    if (innerBet < 10) return Task.FromResult(innerResult.WithError(_rouletteTrans.Prefix(_rouletteTrans.MinimumBet)));
+
+                    if (innerBet > playerCredits)
                         return Task.FromResult(innerResult.WithError(_rouletteTrans.Prefix(config.Translations.Core.InsufficientCredits)));
 
                     innerResult.Result = innerBet;
                     return Task.FromResult(innerResult);
                 }, _rouletteTrans.Prefix(_rouletteTrans.InputTimeout), linkedTokenSource.Token);
+
+            if (players.Count is not 1 && result.Result.HasValue)
+            {
+                player.Client.Tell(_rouletteTrans.Prefix(_rouletteTrans.BetAccepted));
+            }
 
             return new PlayerBet(player, result.Result);
         });
@@ -103,6 +111,11 @@ public class HandleInput(PersistenceManager persistenceManager, CredifyConfigura
                     : innerResult);
             }, _rouletteTrans.Prefix(_rouletteTrans.InputTimeout), linkedTokenSource.Token);
 
+            if (players.Count is not 1 && result.Result.HasValue)
+            {
+                player.Client.Tell(_rouletteTrans.Prefix(_rouletteTrans.BetAccepted));
+            }
+
             return new PlayerBetCategory(player, result.Result);
         });
 
@@ -110,47 +123,57 @@ public class HandleInput(PersistenceManager persistenceManager, CredifyConfigura
         return completedTasks.Where(x => x.BetCategory is not null).ToList();
     }
 
-    private async Task<List<PlayerBetType>> GetInsideBetNumbersAsync(List<PlayerBet> players, CancellationToken token)
+    private async Task<IEnumerable<PlayerBetType>> GetInsideBetNumbersAsync(List<PlayerBet> players, CancellationToken token)
     {
         using var tokenSource = new CancellationTokenSource(config.Roulette.TimeoutForPlayerAction);
         using var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(tokenSource.Token, token);
 
-        var tasks = players.Select(async playerBet =>
+        var tasks = players.Select(async player =>
         {
-            var result = await playerBet.Player.Client.PromptClientInput(
+            var result = await player.Player.Client.PromptClientInput(
                 [
                     _rouletteTrans.Prefix(_rouletteTrans.InsideBetSelected),
                     _rouletteTrans.Prefix(_rouletteTrans.InsidePickNumbers),
                     _rouletteTrans.Prefix(_rouletteTrans.InsideBetOptions)
                 ],
-                input => Task.FromResult(ParseInsideBet(input, playerBet.Stake!.Value)), _rouletteTrans.Prefix(_rouletteTrans.InputTimeout),
+                input => Task.FromResult(ParseInsideBet(input, player.Stake!.Value)), _rouletteTrans.Prefix(_rouletteTrans.InputTimeout),
                 linkedTokenSource.Token);
 
-            return new PlayerBetType(playerBet.Player, result.Result);
+            if (players.Count is not 1 && result.Result is not null)
+            {
+                player.Player.Client.Tell(_rouletteTrans.Prefix(_rouletteTrans.BetAccepted));
+            }
+
+            return new PlayerBetType(player.Player, result.Result);
         });
 
         var completedTasks = await Task.WhenAll(tasks);
         return completedTasks.Where(x => x.BaseBet is not null).ToList();
     }
 
-    private async Task<List<PlayerBetType>> GetOutsideBetNumbersAsync(List<PlayerBet> players, CancellationToken token)
+    private async Task<IEnumerable<PlayerBetType>> GetOutsideBetNumbersAsync(List<PlayerBet> players, CancellationToken token)
     {
         using var tokenSource = new CancellationTokenSource();
         using var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(tokenSource.Token, token);
 
-        var tasks = players.Select(async playerBet =>
+        var tasks = players.Select(async player =>
         {
-            var result = await playerBet.Player.Client.PromptClientInput(
+            var result = await player.Player.Client.PromptClientInput(
                 [
                     _rouletteTrans.Prefix(_rouletteTrans.OutsideBetSelected),
                     _rouletteTrans.Prefix(_rouletteTrans.OutsideSelectBet),
                     _rouletteTrans.Prefix(_rouletteTrans.OutsideBetOptions)
                 ],
-                input => Task.FromResult(ParseOutsideBet(input, playerBet.Stake!.Value)),
+                input => Task.FromResult(ParseOutsideBet(input, player.Stake!.Value)),
                 _rouletteTrans.Prefix(_rouletteTrans.InputTimeout),
                 linkedTokenSource.Token);
 
-            return new PlayerBetType(playerBet.Player, result.Result);
+            if (players.Count is not 1 && result.Result is not null)
+            {
+                player.Player.Client.Tell(_rouletteTrans.Prefix(_rouletteTrans.BetAccepted));
+            }
+
+            return new PlayerBetType(player.Player, result.Result);
         });
 
         var completedTasks = await Task.WhenAll(tasks);

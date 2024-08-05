@@ -10,35 +10,36 @@ Credits are global, not server-specific, and can be viewed with the !crtop comma
 ### User Commands
 
 ```
-  !crhelp - Displays help for the plugin
-  
-  !cr <optional name> - Returns yours or someone's credits
-  !crpay <name> <amount> - Pay someone credits
-  !crstats - Displays global credits statistics
-  !crtop - List top players by credits
-  
-  !crsl - Displays the current lotto pot and who has entered
-  !crlotto <amount> - Buy lotto ticket(s) for a chance to win the pot
-  
-  !crbet <amount> - Gamble credits in a tiered win/loss system
-  !crbetp <name> <amount> - Bet on a player to win - Payout is proportionate based on their ELO
-  !crbett <team> <amount> - Bet on a team to win - Payout is proportionate based team's average ELO
-  !crcb - Claim any expired/completed bets you've previously made. (No credits lost if unclaimed)
-  !crob - Lists current bets on your server. (ID - Origin - Target - Amount)
-  !crcnb - Cancels your open bets
-  
-  !crshop - Displays the shop
-  !crbuy <ID> - Buy an item from the shop
-  !crinv - Displays your inventory
+!crhelp - Displays help for the plugin
+
+!cr <optional name> - Returns yours or someone's credits
+!crpay <name> <amount> - Give someone your credits
+!crstats - Displays global credits statistics
+!crtop - List top players by credits
+
+!crrl - Join the Roulette Table
+!crbj - Join the Blackjack Table
+!crrps - Play Rock Paper Scissors
+
+!crsl - Displays the current lotto pot and who has entered
+!crlotto <amount> - Buy lotto ticket(s) for a chance to win the pot
+
+
+
+!crshop - Displays the shop
+!crbuy <ID> - Buy an item from the shop
+!crinv - Displays your inventory
 ```
-  - Use "all" instead of an amount to stake everything.
+- Use "all" instead of an amount to stake everything.
   
 ### Admin Commands
 ```
 !crset <name> <amount> - Set a player's credits
+!crrb - Check players recent shop purchases.
+!crreset - Reset the entire credit system - USE WITH CAUTION
 ```
 
 ## Requirements
-.NET 6
+.NET 8
 
-IW4MAdmin v2023.4.15.3 or later.
+IW4MAdmin v2024.8.XX.X+ or later.

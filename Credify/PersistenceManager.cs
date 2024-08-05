@@ -21,29 +21,32 @@ public class PersistenceManager(
 
     public void ResetBank() => _bankCredits = 0;
 
-    public void AddBankCreditsAsync(long credits)
-    {
-        Interlocked.Add(ref _bankCredits, credits);
-    }
+    public void AddBankCreditsAsync(long credits) => Interlocked.Add(ref _bankCredits, credits);
 
-    public static bool AvailableFunds(EFClient client, long amount) =>
-        amount <= client.GetAdditionalProperty<long>(Plugin.CreditsAmount);
+    public static bool AvailableFunds(EFClient client, long amount) => amount <= client.GetAdditionalProperty<long>(Plugin.CreditsAmount);
 
     public async Task WriteClientCreditsAsync(EFClient client, long? amount = null)
     {
-        await metaService.SetPersistentMeta(Plugin.CreditsAmount, amount is not null
+        var credits = amount is not null
             ? amount.ToString()
-            : client.GetAdditionalProperty<long>(Plugin.CreditsAmount).ToString(), client.ClientId);
+            : client.GetAdditionalProperty<long>(Plugin.CreditsAmount).ToString();
+        await metaService.SetPersistentMeta(Plugin.CreditsAmount, credits, client.ClientId);
     }
 
-    public async Task WriteTopScoreAsync() =>
+    public async Task WriteTopScoreAsync()
+    {
         await metaService.SetPersistentMetaValue(Plugin.TopKey, TopCredits);
+    }
 
-    public async Task WriteStatisticsAsync() =>
+    public async Task WriteStatisticsAsync()
+    {
         await metaService.SetPersistentMetaValue(Plugin.StatisticsKey, StatisticsState);
+    }
 
-    public async Task WriteLastLotteryWinnerAsync(int clientId, string client, long amount, int lastPlayers) =>
+    public async Task WriteLastLotteryWinnerAsync(int clientId, string client, long amount, int lastPlayers)
+    {
         await metaService.SetPersistentMeta(Plugin.LastLottoWinner, $"{clientId}::{client}::{amount}::{lastPlayers}");
+    }
 
     public async Task<(int ClientId, string ClientName, long PayOut, int LastPlayers)?> ReadLastLotteryWinnerAsync()
     {
@@ -72,11 +75,15 @@ public class PersistenceManager(
 
     public async Task WriteLotteryAsync(List<Lottery> lotteries) => await metaService.SetPersistentMetaValue(Plugin.LotteryKey, lotteries);
 
-    public async Task WriteNextLotteryAsync(DateTimeOffset dateTime) =>
+    public async Task WriteNextLotteryAsync(DateTimeOffset dateTime)
+    {
         await metaService.SetPersistentMeta(Plugin.NextLotteryKey, dateTime.ToString("o", CultureInfo.InvariantCulture));
+    }
 
-    public async Task WriteClientShopAsync(EFClient client, List<ClientShopItem> shopItems) =>
+    public async Task WriteClientShopAsync(EFClient client, List<ClientShopItem> shopItems)
+    {
         await metaService.SetPersistentMetaValue(Plugin.ShopKey, shopItems, client.ClientId);
+    }
 
     public async Task WriteBankCreditsAsync() => await metaService.SetPersistentMeta(Plugin.BankCreditsKey, BankCredits.ToString());
 

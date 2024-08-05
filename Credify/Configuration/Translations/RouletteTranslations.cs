@@ -29,8 +29,11 @@ public class RouletteTranslations
     public string InnerOrOutsideBetAcceptableInputs { get; set; } = "(Color::Yellow)Acceptable Inputs: (Color::White)O, Out, Outside, I, In, Inside";
     public string Broke { get; set; } = "(Color::Red)You are broke! (Color::White)You have been removed from the game";
     public string Disabled { get; set; } = "(Color::Red)Roulette is disabled";
-    public string HouseWin { get; set; } = "(Color::Yellow){{playerName}} just won (Color::Green){{payout}} credits in (Color::Pink)Roulette !crrl (Color::Green)betting on (Color::Accent){{number}}!";
+    public string HouseWin { get; set; } = "(Color::Yellow){{playerName}} just won (Color::Green)${{payout}} credits (Color::Yellow)in (Color::Pink)Roulette !crrl (Color::Yellow)betting on (Color::Accent){{number}}!";
     public string PlayerStartedRoulette { get; set; } = "(Color::Yellow){{playerName}} has joined Roulette! (Color::White)Place your bets! (Color::Accent)!crrl";
+    public string BetAccepted { get; set; } = "(Color::Accent)Input accepted! (Color::White)Please wait for other players...";
+
+    public string MinimumBet { get; set; } = "(Color::Red)Minimum bet is $10";
     // @formatter:on
 
     public string Prefix(string message) => $"{PrefixShort} {message}";

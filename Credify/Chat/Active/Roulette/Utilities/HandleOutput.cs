@@ -19,23 +19,18 @@ public class HandleOutput(TranslationsRoot translations)
         player.Client.Tell(prefixedMessage);
     }
 
-    public static async Task TellAllServersAsync(Player player, List<string> messages)
-    {
-        var clients = player.Client.CurrentServer.Manager.GetActiveClients();
-
-        foreach (var client in clients)
-        {
-            await client.TellAsync(messages);
-        }
-    }
-
     public static async Task TellAllServerAsync(Player player, List<string> messages)
     {
-        var clients = player.Client.CurrentServer.GetClientsAsList();
+        await player.Client.CurrentServer.BroadcastAsync(messages);
+    }
 
-        foreach (var client in clients)
+    public static async Task TellAllServersAsync(Player player, List<string> messages)
+    {
+        var servers = player.Client.CurrentServer.Manager.GetServers();
+        foreach (var server in servers)
         {
-            await client.TellAsync(messages);
+            if (server.ConnectedClients.Count is 0) continue;
+            await server.BroadcastAsync(messages);
         }
     }
 }

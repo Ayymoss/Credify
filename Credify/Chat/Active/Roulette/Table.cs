@@ -9,7 +9,12 @@ using SharedLibraryCore.Database.Models;
 
 namespace Credify.Chat.Active.Roulette;
 
-public class Table(TranslationsRoot translations, PersistenceManager persistenceManager, HandleInput input, HandleOutput output)
+public class Table(
+    CredifyConfiguration config,
+    TranslationsRoot translations,
+    PersistenceManager persistenceManager,
+    HandleInput input,
+    HandleOutput output)
 {
     private readonly ConcurrentDictionary<EFClient, Player> _waitingPlayers = [];
     private List<Player> _players = [];
@@ -22,7 +27,8 @@ public class Table(TranslationsRoot translations, PersistenceManager persistence
             _hasPlayers.Wait(token);
             _players = _waitingPlayers.Values.ToList();
 
-            await PopulateBets(await input.GetPlayerInputsAsync(_players, token));
+            var bets = await input.GetPlayerInputsAsync(_players, token);
+            await PopulateBets(bets);
             RemoveEmptyBets();
 
             await SpinWheelMessage(token);
@@ -31,17 +37,25 @@ public class Table(TranslationsRoot translations, PersistenceManager persistence
             foreach (var player in _players)
             {
                 player.ClearBet();
-                await RemoveBrokePlayers(player);
             }
+
+            await RemoveBrokePlayers();
         }
     }
 
-    private async Task RemoveBrokePlayers(Player player)
+    private async Task RemoveBrokePlayers()
     {
-        var credits = await persistenceManager.GetClientCreditsAsync(player.Client);
-        if (credits < 10)
+        List<Player> playersToRemove = [];
+        foreach (var player in _players)
         {
+            var credits = await persistenceManager.GetClientCreditsAsync(player.Client);
+            if (credits >= 10) continue;
             output.Tell(player, translations.Roulette.Broke);
+            playersToRemove.Add(player);
+        }
+
+        foreach (var player in playersToRemove)
+        {
             PlayerLeave(player.Client);
         }
     }
@@ -65,19 +79,20 @@ public class Table(TranslationsRoot translations, PersistenceManager persistence
 
             if (!player.Bet.HasWon(spinResult))
             {
-                output.Tell(player, translations.Roulette.Lost.FormatExt(player.Bet.Stake));
+                output.Tell(player, translations.Roulette.Lost.FormatExt(player.Bet.Stake.ToString("N0")));
                 continue;
             }
 
-            output.Tell(player, translations.Roulette.Won.FormatExt(player.Bet.Payout - player.Bet.Stake));
+            output.Tell(player, translations.Roulette.Won.FormatExt((player.Bet.Payout - player.Bet.Stake).ToString("N0")));
             await persistenceManager.AddCreditsAsync(player.Client, player.Bet.Payout);
 
+            if (!config.Roulette.AnnounceMaxPayoutWinners) continue;
             if (player.Bet is not StraightUpBet straightUpBet) continue;
 
             await HandleOutput.TellAllServersAsync(player,
             [
                 translations.Roulette.LongPrefix(translations.Roulette.HouseWin.FormatExt(player.Client.CleanedName,
-                    straightUpBet.Number, player.Bet.Payout - player.Bet.Stake))
+                    (player.Bet.Payout - player.Bet.Stake).ToString("N0"), straightUpBet.Number))
             ]);
         }
 
@@ -149,7 +164,8 @@ public class Table(TranslationsRoot translations, PersistenceManager persistence
     {
         output.Tell(_waitingPlayers[client], translations.Roulette.LeaveMessage, true);
         _waitingPlayers.TryRemove(client, out _);
-        _players.RemoveAll(player => Equals(player.Client, client));
+
+        lock (_players) _players.RemoveAll(player => Equals(player.Client, client));
 
         if (_waitingPlayers.IsEmpty)
         {
@@ -157,8 +173,5 @@ public class Table(TranslationsRoot translations, PersistenceManager persistence
         }
     }
 
-    public bool IsPlayerInGame(EFClient client)
-    {
-        return _waitingPlayers.ContainsKey(client);
-    }
+    public bool IsPlayerInGame(EFClient client) => _waitingPlayers.ContainsKey(client);
 }

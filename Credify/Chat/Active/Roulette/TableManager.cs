@@ -5,9 +5,9 @@ using Player = Credify.Chat.Active.Roulette.Models.Player;
 
 namespace Credify.Chat.Active.Roulette;
 
-public class TableManager(TranslationsRoot translations, PersistenceManager persistenceManager, HandleInput input, HandleOutput output)
+public class TableManager(CredifyConfiguration config, TranslationsRoot translations, PersistenceManager persistenceManager, HandleInput input, HandleOutput output)
 {
-    private readonly Table _table = new(translations, persistenceManager, input, output);
+    private readonly Table _table = new(config, translations, persistenceManager, input, output);
 
     public async Task StartGame(CancellationToken token) => await _table.GameLoopAsync(token);
     public async Task<bool> AddPlayerAsync(EFClient client) => await _table.PlayerJoinAsync(new Player(client));

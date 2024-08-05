@@ -19,14 +19,20 @@ Achievements -> get kill with X
 MOD, Description, Amount, Payout
 There would need to be stored current progress for each player
 
+Roulette should show the table's numbers if more than 1 player so people can see what's happening.
+
+Daily Quests/Challenges - Kill 10 people for example.
+
 Reaction Tests should have 'Per Server Timing' and use the incoming message timestamp rather than a timer.
 This would prevent issues with server message delays.
 
 Consider adding a Discord integration for the plugin.
-Clarify the purpose of credits for new players to avoid confusion.
 
-Horse Racing (100% not stolen ideas from the gta casino)!
-now Horse Racing it wouldn't be visual ofc, but could just have a set list of random horse names (configurable), and pick the horse and let random logic based on the odds do the work.
+Clarify the purpose of credits for new players to avoid confusion.
+    When player joins add "do !crhelp for more" to the welcome message.
+    
+Rewrite lottery to use a raffle-type system like Impulse. Rollover bank if no one wins.
+    Up to 100 tickets - Pick a winner from the taken tickets - Guarantee a winner.
 */
 
 public class Plugin : IPluginV2
@@ -54,9 +60,9 @@ public class Plugin : IPluginV2
     public string Version => "2024-08-04";
     public string Author => "Amos";
 
-    public Plugin(PersistenceManager persistenceManager, CredifyConfiguration config,
-        LotteryManager lotteryManager, ChatGameManager chatGameManager, ChatUtils chatUtils,
-        IConfigurationHandlerV2<CredifyConfiguration> configHandler, BlackjackManager blackjack, TableManager roulette)
+    public Plugin(PersistenceManager persistenceManager, CredifyConfiguration config, LotteryManager lotteryManager,
+        ChatGameManager chatGameManager, ChatUtils chatUtils, IConfigurationHandlerV2<CredifyConfiguration> configHandler,
+        BlackjackManager blackjack, TableManager roulette)
     {
         _config = config;
         _lotteryManager = lotteryManager;
@@ -100,10 +106,12 @@ public class Plugin : IPluginV2
         await _chatGameManager.HandleChatEventAsync(messageEvent.Client, messageEvent.Message);
         await _blackjack.HandleChatEventAsync(messageEvent.Client, messageEvent.Message);
     }
-    
-    private async Task OnClientStateAuthorized(ClientStateAuthorizeEvent clientEvent, CancellationToken token) =>
+
+    private async Task OnClientStateAuthorized(ClientStateAuthorizeEvent clientEvent, CancellationToken token)
+    {
         await _persistenceManager.OnJoinAsync(clientEvent.Client);
-    
+    }
+
     private Task OnClientKilled(ClientKillEvent clientEvent, CancellationToken token)
     {
         _persistenceManager.OnKill(clientEvent.Client);
@@ -136,7 +144,10 @@ public class Plugin : IPluginV2
         await _persistenceManager.ReadBankCreditsAsync();
         await _lotteryManager.ReadLotteryAsync();
         await _lotteryManager.CalculateNextOccurrence();
-        _ = Task.Run(async () => await _roulette.StartGame(token), token); // fire and forget
+
+        var thread = new Thread(Start) { Name = "Roulette" };
+        thread.Start();
+        //_ = Task.Run(async () => await _roulette.StartGame(token), token); // fire and forget
 
         if (_config.ChatGame.IsEnabled) Utilities.ExecuteAfterDelay(_config.ChatGame.Frequency, InitChatGame, token);
         Utilities.ExecuteAfterDelay(_config.Core.AdvertisementIntervalMinutes,
@@ -144,6 +155,9 @@ public class Plugin : IPluginV2
         Utilities.ExecuteAfterDelay(TimeSpan.FromMinutes(1), LotteryDelayCheck, token);
 
         Console.WriteLine($"[{Name}] loaded. Version: {Version}");
+        return;
+
+        async void Start() => await _roulette.StartGame(token);
     }
 
     #endregion
@@ -172,12 +186,12 @@ public class Plugin : IPluginV2
         foreach (var server in manager.GetServers())
         {
             if (server.ConnectedClients.Count is 0) continue;
-            var messages = new[]
-            {
+            List<string> messages =
+            [
                 _config.Translations.Core.AdvertisementMessage.FormatExt(PluginName),
                 _config.Translations.Core.AdvertisementLotto.FormatExt(PluginName),
                 _config.Translations.Core.AdvertisementShop.FormatExt(PluginName)
-            };
+            ];
             await server.BroadcastAsync(messages, token: token);
         }
 

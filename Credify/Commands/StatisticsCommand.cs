@@ -17,7 +17,7 @@ public class StatisticsCommand : Command
     {
         _persistenceManager = persistenceManager;
         _credifyConfig = credifyConfig;
-        Name = "credifytats";
+        Name = "credifystats";
         Description = credifyConfig.Translations.Core.CommandStatisticsDescription;
         Alias = "crstats";
         Permission = EFClient.Permission.User;
@@ -26,13 +26,15 @@ public class StatisticsCommand : Command
 
     public override async Task ExecuteAsync(GameEvent gameEvent)
     {
-        await gameEvent.Origin.TellAsync(new[]
-        {
+        await gameEvent.Origin.TellAsync(
+        [
+            // @formatter:off
             _credifyConfig.Translations.Core.StatsHeader,
             _credifyConfig.Translations.Core.StatsBankCredits.FormatExt(_persistenceManager.BankCredits.ToString("N0")),
             _credifyConfig.Translations.Core.StatsTotalEarnedCredits.FormatExt(_persistenceManager.StatisticsState.CreditsEarned.ToString("N0")),
             _credifyConfig.Translations.Core.StatsTotalSpentCredits.FormatExt(_persistenceManager.StatisticsState.CreditsSpent.ToString("N0")),
             _credifyConfig.Translations.Core.StatsTotalWonCredits.FormatExt(_persistenceManager.StatisticsState.CreditsWon.ToString("N0")),
-        });
+            // @formatter:on
+        ]);
     }
 }

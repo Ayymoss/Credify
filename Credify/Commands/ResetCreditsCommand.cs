@@ -63,13 +63,10 @@ public class ResetCreditsCommand : Command
 
     private static void ResetOnlinePlayersAdditional(IManager manager)
     {
-        foreach (var server in manager.GetServers())
+        var clients = manager.GetActiveClients();
+        foreach (var client in clients)
         {
-            if (server is null) continue;
-            foreach (var player in server.GetClientsAsList())
-            {
-                player?.SetAdditionalProperty(Plugin.CreditsAmount, 0L);
-            }
+            client.SetAdditionalProperty(Plugin.CreditsAmount, 0L);
         }
     }
 

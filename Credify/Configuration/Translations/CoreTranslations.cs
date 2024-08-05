@@ -43,16 +43,12 @@ public class CoreTranslations
     public string ErrorFindingTargetUser { get; set; } = "(Color::Yellow)Error trying to find user";
     public string CommandHelpDescription { get; set; } = "Shows Credify user commands";
     public string HelpHeader { get; set; } = "(Color::Accent)--Credify Commands--";
-    public string HelpBetPlayer { get; set; } = "[(Color::Yellow)!crbp(Color::White)] Bet on a player to win";
-    public string HelpBetTeam { get; set; } = "[(Color::Yellow)!crbt(Color::White)] Bet on a team to win";
-    public string HelpClaimBets { get; set; } = "[(Color::Yellow)!crcb(Color::White)] Claim your completed bets";
     public string HelpHelp { get; set; } = "[(Color::Yellow)!crhelp(Color::White)] Shows Credify user commands";
-    public string HelpGamble { get; set; } = "[(Color::Yellow)!crbet(Color::White)] Gamble your credits";
+    public string HelpGamble { get; set; } = "[(Color::Yellow)!crrb/!crrl(Color::White)] Gamble your credits";
     public string HelpStatistics { get; set; } = "[(Color::Yellow)!crstats(Color::White)] Check the global credit statistics";
     public string HelpTopCredits { get; set; } = "[(Color::Yellow)!crtop(Color::White)] Check the top credit holders";
     public string HelpLotto { get; set; } = "[(Color::Yellow)!crlotto(Color::White)] Buy lotto tickets! (1cr = 10 tickets)";
     public string HelpPayCredits { get; set; } = "[(Color::Yellow)!crpay(Color::White)] Pay credits to another player";
-    public string HelpOpenBets { get; set; } = "[(Color::Yellow)!crob(Color::White)] List all open bets";
     public string HelpShop { get; set; } = "[(Color::Yellow)!crshop(Color::White)] Shop for items with your credits";
     public string HelpShopInventory { get; set; } = "[(Color::Yellow)!crinv(Color::White)] Check your bought shop items";
     public string HelpShopBuy { get; set; } = "[(Color::Yellow)!crbuy(Color::White)] Buy a shop item";
