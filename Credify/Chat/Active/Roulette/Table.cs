@@ -4,6 +4,7 @@ using Credify.Chat.Active.Roulette.Models;
 using Credify.Chat.Active.Roulette.Models.BetTypes.Inside;
 using Credify.Chat.Active.Roulette.Utilities;
 using Credify.Configuration;
+using Credify.Services;
 using SharedLibraryCore;
 using SharedLibraryCore.Database.Models;
 
@@ -12,7 +13,7 @@ namespace Credify.Chat.Active.Roulette;
 public class Table(
     CredifyConfiguration config,
     TranslationsRoot translations,
-    PersistenceManager persistenceManager,
+    PersistenceService persistenceService,
     HandleInput input,
     HandleOutput output)
 {
@@ -48,7 +49,7 @@ public class Table(
         List<Player> playersToRemove = [];
         foreach (var player in _players)
         {
-            var credits = await persistenceManager.GetClientCreditsAsync(player.Client);
+            var credits = await persistenceService.GetClientCreditsAsync(player.Client);
             if (credits >= 10) continue;
             output.Tell(player, translations.Roulette.Broke);
             playersToRemove.Add(player);
@@ -84,7 +85,7 @@ public class Table(
             }
 
             output.Tell(player, translations.Roulette.Won.FormatExt((player.Bet.Payout - player.Bet.Stake).ToString("N0")));
-            await persistenceManager.AddCreditsAsync(player.Client, player.Bet.Payout);
+            await persistenceService.AddCreditsAsync(player.Client, player.Bet.Payout);
 
             if (!config.Roulette.AnnounceMaxPayoutWinners) continue;
             if (player.Bet is not StraightUpBet straightUpBet) continue;
@@ -128,7 +129,7 @@ public class Table(
         {
             if (bet.BaseBet is null) continue;
             bet.Player.CreateBet(bet.BaseBet);
-            await persistenceManager.RemoveCreditsAsync(bet.Player.Client, bet.BaseBet.Stake);
+            await persistenceService.RemoveCreditsAsync(bet.Player.Client, bet.BaseBet.Stake);
         }
     }
 

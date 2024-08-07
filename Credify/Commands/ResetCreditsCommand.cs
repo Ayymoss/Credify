@@ -1,5 +1,6 @@
 ﻿using Credify.Configuration;
 using Credify.Models;
+using Credify.Services;
 using Data.Abstractions;
 using Data.Context;
 using Microsoft.EntityFrameworkCore;
@@ -15,15 +16,15 @@ public class ResetCreditsCommand : Command
 {
     private readonly IDatabaseContextFactory _context;
     private readonly CredifyConfiguration _credifyConfig;
-    private readonly PersistenceManager _persistenceManager;
+    private readonly PersistenceService _persistenceService;
 
     public ResetCreditsCommand(CommandConfiguration config, IDatabaseContextFactory context,
-        ITranslationLookup translationLookup, CredifyConfiguration credifyConfig, PersistenceManager persistenceManager)
+        ITranslationLookup translationLookup, CredifyConfiguration credifyConfig, PersistenceService persistenceService)
         : base(config, translationLookup)
     {
         _context = context;
         _credifyConfig = credifyConfig;
-        _persistenceManager = persistenceManager;
+        _persistenceService = persistenceService;
         Name = "credifyresetcredits";
         Description = credifyConfig.Translations.Core.CommandResetCreditsDescription;
         Alias = "crreset";
@@ -82,15 +83,15 @@ public class ResetCreditsCommand : Command
     private async Task ResetAndWriteStats(GameEvent gameEvent)
     {
         gameEvent.Origin.Tell(_credifyConfig.Translations.Core.ResettingTopStats);
-        _persistenceManager.ResetTop();
-        await _persistenceManager.WriteTopScoreAsync();
+        _persistenceService.ResetTop();
+        await _persistenceService.WriteTopScoreAsync();
 
         gameEvent.Origin.Tell(_credifyConfig.Translations.Core.ResettingStatistics);
-        _persistenceManager.ResetStatistics();
-        await _persistenceManager.WriteStatisticsAsync();
+        _persistenceService.ResetStatistics();
+        await _persistenceService.WriteStatisticsAsync();
 
         gameEvent.Origin.Tell(_credifyConfig.Translations.Core.ResettingBank);
-        _persistenceManager.ResetBank();
-        await _persistenceManager.WriteBankCreditsAsync();
+        _persistenceService.ResetBank();
+        await _persistenceService.WriteBankCreditsAsync();
     }
 }

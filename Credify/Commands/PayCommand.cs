@@ -1,5 +1,6 @@
 ﻿using Credify.Configuration;
 using Credify.Models;
+using Credify.Services;
 using SharedLibraryCore;
 using SharedLibraryCore.Commands;
 using SharedLibraryCore.Configuration;
@@ -10,14 +11,14 @@ namespace Credify.Commands;
 
 public class PayCommand : Command
 {
-    private readonly PersistenceManager _persistenceManager;
+    private readonly PersistenceService _persistenceService;
     private readonly CredifyConfiguration _credifyConfig;
 
-    public PayCommand(CommandConfiguration config, ITranslationLookup translationLookup, PersistenceManager persistenceManager,
+    public PayCommand(CommandConfiguration config, ITranslationLookup translationLookup, PersistenceService persistenceService,
         CredifyConfiguration credifyConfig)
         : base(config, translationLookup)
     {
-        _persistenceManager = persistenceManager;
+        _persistenceService = persistenceService;
         _credifyConfig = credifyConfig;
         Name = "credifypay";
         Description = credifyConfig.Translations.Core.CommandPayCreditsDescription;
@@ -73,8 +74,8 @@ public class PayCommand : Command
             return;
         }
 
-        await _persistenceManager.RemoveCreditsAsync(gameEvent.Origin, credits);
-        await _persistenceManager.AddCreditsAsync(gameEvent.Target, credits);
+        await _persistenceService.RemoveCreditsAsync(gameEvent.Origin, credits);
+        await _persistenceService.AddCreditsAsync(gameEvent.Target, credits);
 
         gameEvent.Origin.Tell(_credifyConfig.Translations.Core.PaySent
             .FormatExt(credits.ToString("N0"), gameEvent.Target.CleanedName));

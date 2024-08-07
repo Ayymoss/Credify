@@ -1,4 +1,5 @@
 ﻿using Credify.Configuration;
+using Credify.Services;
 using SharedLibraryCore;
 using SharedLibraryCore.Commands;
 using SharedLibraryCore.Configuration;
@@ -9,13 +10,13 @@ namespace Credify.Commands;
 public class InventoryCommand : Command
 {
     private readonly CredifyConfiguration _credifyConfig;
-    private readonly PersistenceManager _persistenceManager;
+    private readonly PersistenceService _persistenceService;
 
     public InventoryCommand(CommandConfiguration config, ITranslationLookup layout, CredifyConfiguration credifyConfig,
-        PersistenceManager persistenceManager) : base(config, layout)
+        PersistenceService persistenceService) : base(config, layout)
     {
         _credifyConfig = credifyConfig;
-        _persistenceManager = persistenceManager;
+        _persistenceService = persistenceService;
         Name = "credifyinventory";
         Description = credifyConfig.Translations.Core.CommandInventoryDescription;
         Alias = "crinv";
@@ -52,7 +53,7 @@ public class InventoryCommand : Command
         }
 
         var client = gameEvent.Target ?? gameEvent.Origin;
-        var shopItems = await _persistenceManager.GetClientShopItemsAsync(client);
+        var shopItems = await _persistenceService.GetClientShopItemsAsync(client);
         var headerMessage = new List<string>
         {
             _credifyConfig.Translations.Core.ShopClientHeader.FormatExt(client.CleanedName)

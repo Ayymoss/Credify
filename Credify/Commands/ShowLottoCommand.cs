@@ -1,7 +1,7 @@
-﻿using Credify.Configuration;
-using Data.Abstractions;
+﻿using Credify.Chat.Active.Raffle;
+using Credify.Configuration;
+using Credify.Services;
 using Humanizer;
-using Microsoft.EntityFrameworkCore;
 using SharedLibraryCore;
 using SharedLibraryCore.Configuration;
 using SharedLibraryCore.Interfaces;
@@ -10,19 +10,16 @@ namespace Credify.Commands;
 
 public class ShowLottoCommand : Command
 {
-    private readonly IDatabaseContextFactory _contextFactory;
     private readonly CredifyConfiguration _credifyConfig;
-    private readonly LotteryManager _lotteryManager;
-    private readonly PersistenceManager _persistenceManager;
+    private readonly CredifyCache _cache;
+    private readonly RaffleManager _raffleManager;
 
-    public ShowLottoCommand(CommandConfiguration config, ITranslationLookup translationLookup,
-        IDatabaseContextFactory contextFactory, CredifyConfiguration credifyConfig,
-        LotteryManager lotteryManager, PersistenceManager persistenceManager) : base(config, translationLookup)
+    public ShowLottoCommand(CommandConfiguration config, ITranslationLookup translationLookup, CredifyConfiguration credifyConfig,
+        CredifyCache cache, RaffleManager raffleManager) : base(config, translationLookup)
     {
-        _contextFactory = contextFactory;
         _credifyConfig = credifyConfig;
-        _lotteryManager = lotteryManager;
-        _persistenceManager = persistenceManager;
+        _cache = cache;
+        _raffleManager = raffleManager;
         Name = "credifyshowlotto";
         Description = credifyConfig.Translations.Core.CommandShowLottoDescription;
         Alias = "crsl";
@@ -32,44 +29,41 @@ public class ShowLottoCommand : Command
 
     public override async Task ExecuteAsync(GameEvent gameEvent)
     {
-        var ticketHolders = _lotteryManager.Lottery.Count is not 0;
-        if (!ticketHolders)
+        var ticketHolders = await _raffleManager.GetPlayersAsync();
+        var nextOccurrence = _raffleManager.NextOccurrence;
+        if (ticketHolders.Count is 0)
         {
             await gameEvent.Origin.TellAsync(new[]
             {
-                _credifyConfig.Translations.Core.NoTicketHolders,
-                _credifyConfig.Translations.Core.NoTicketHoldersContinued
-                    .FormatExt(_persistenceManager.BankCredits.ToString("N0"), _lotteryManager.NextOccurrence.Humanize())
+                _credifyConfig.Translations.Raffle.NoTicketHolders,
+                _credifyConfig.Translations.Raffle.NoTicketHoldersContinued
+                    .FormatExt(_cache.BankCredits.ToString("N0"), nextOccurrence.Humanize())
             });
             return;
         }
 
-        await using var context = _contextFactory.CreateContext(false);
-        var names = await context.Clients
-            .Where(client => _lotteryManager.Lottery.Select(credit => credit.ClientId).Contains(client.ClientId))
-            .Select(client => new { client.ClientId, client.CurrentAlias.Name })
-            .ToDictionaryAsync(selector => selector.ClientId, selector => selector.Name);
-
-        var lastWinner = await _persistenceManager.ReadLastLotteryWinnerAsync();
+        var lastWinner = await _raffleManager.GetLastWinnerAsync();
 
         List<string> lastWinnerPlaceholder = lastWinner is null
-            ? [_credifyConfig.Translations.Core.NoLastWinner]
+            ? [_credifyConfig.Translations.Raffle.NoLastWinner]
             :
             [
-                _credifyConfig.Translations.Core.PreviousLottoCount.FormatExt(lastWinner.Value.LastPlayers),
-                _credifyConfig.Translations.Core.LastWinner.FormatExt(lastWinner.Value.ClientName, lastWinner.Value.ClientId,
-                    lastWinner.Value.PayOut.ToString("N0"))
+                _credifyConfig.Translations.Raffle.PreviousRaffleCount.FormatExt(lastWinner.PreviousPlayers),
+                _credifyConfig.Translations.Raffle.LastWinner.FormatExt(lastWinner.ClientName, lastWinner.ClientId,
+                    lastWinner.Amount.ToString("N0"))
             ];
 
         var headerMessages = new[]
         {
-            _credifyConfig.Translations.Core.ShowLottoHeader,
-            _credifyConfig.Translations.Core.LottoNextDraw.FormatExt(_lotteryManager.NextOccurrence.Humanize())
+            _credifyConfig.Translations.Raffle.ShowRaffleHeader,
+            _credifyConfig.Translations.Raffle.RaffleNextDraw.FormatExt(nextOccurrence.Humanize())
         };
 
-        var ticketHolderNames = _lotteryManager.Lottery.OrderByDescending(entry => entry.Tickets).Select(
-            (creditEntry, index) => _credifyConfig.Translations.Core.TicketHolder
-                .FormatExt(index + 1, creditEntry.Tickets.ToString("N0"), names[creditEntry.ClientId])).ToArray();
+        var ticketHolderNames = ticketHolders
+            .OrderByDescending(entry => entry.Ticket)
+            .Select((creditEntry, index) => _credifyConfig.Translations.Core.TicketHolder
+                .FormatExt(index + 1, creditEntry.Ticket.ToString("N0"), creditEntry.Client.CleanedName))
+            .ToArray();
 
         headerMessages = headerMessages.Concat(ticketHolderNames).ToArray();
         headerMessages = headerMessages.Concat(lastWinnerPlaceholder).ToArray();

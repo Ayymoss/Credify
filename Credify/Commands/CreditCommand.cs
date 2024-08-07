@@ -1,4 +1,5 @@
 ﻿using Credify.Configuration;
+using Credify.Services;
 using Data.Models.Client;
 using SharedLibraryCore;
 using SharedLibraryCore.Commands;
@@ -10,14 +11,16 @@ namespace Credify.Commands;
 public class CreditCommand : Command
 {
     private readonly CredifyConfiguration _credifyConfig;
-    private readonly PersistenceManager _persistenceManager;
+    private readonly PersistenceService _persistenceService;
+    private readonly CredifyCache _cache;
 
     public CreditCommand(CommandConfiguration config, ITranslationLookup translationLookup, CredifyConfiguration credifyConfig,
-        PersistenceManager persistenceManager) :
+        PersistenceService persistenceService, CredifyCache cache) :
         base(config, translationLookup)
     {
         _credifyConfig = credifyConfig;
-        _persistenceManager = persistenceManager;
+        _persistenceService = persistenceService;
+        _cache = cache;
         Name = "credify";
         Description = credifyConfig.Translations.Core.CommandCheckCreditsDescription;
         Alias = "cr";
@@ -46,12 +49,12 @@ public class CreditCommand : Command
             return;
         }
 
-        var credits = await _persistenceManager.GetClientCreditsAsync(gameEvent.Origin);
+        var credits = await _persistenceService.GetClientCreditsAsync(gameEvent.Origin);
 
         // Return player's credits
         if (gameEvent.Target != null)
         {
-            credits = await _persistenceManager.GetClientCreditsAsync(gameEvent.Target);
+            credits = await _persistenceService.GetClientCreditsAsync(gameEvent.Target);
             gameEvent.Origin.Tell(_credifyConfig.Translations.Core.TargetCredits.FormatExt(gameEvent.Target.Name, credits.ToString("N0")));
             return;
         }
@@ -60,7 +63,7 @@ public class CreditCommand : Command
         await gameEvent.Origin.TellAsync(new[]
         {
             _credifyConfig.Translations.Core.OriginCredits.FormatExt(credits.ToString("N0")),
-            _credifyConfig.Translations.Core.ServerBankCredits.FormatExt(_persistenceManager.BankCredits.ToString("N0"))
+            _credifyConfig.Translations.Core.ServerBankCredits.FormatExt(_cache.BankCredits.ToString("N0"))
         });
     }
 }

@@ -1,4 +1,7 @@
-﻿using Credify.Configuration;
+﻿using Credify.Chat.Active.Raffle;
+using Credify.Chat.Active.Raffle.Enums;
+using Credify.Configuration;
+using Credify.Services;
 using SharedLibraryCore;
 using SharedLibraryCore.Commands;
 using SharedLibraryCore.Configuration;
@@ -7,64 +10,75 @@ using EFClient = Data.Models.Client.EFClient;
 
 namespace Credify.Commands;
 
-public class LottoCommand : Command
+public class RaffleCommand : Command
 {
-    private readonly PersistenceManager _persistenceManager;
+    private readonly PersistenceService _persistenceService;
     private readonly CredifyConfiguration _credifyConfig;
-    private readonly LotteryManager _lotteryManager;
+    private readonly RaffleManager _raffleManager;
 
-    public LottoCommand(CommandConfiguration config, ITranslationLookup translationLookup, PersistenceManager persistenceManager,
-        CredifyConfiguration credifyConfig, LotteryManager lotteryManager) :
+    public RaffleCommand(CommandConfiguration config, ITranslationLookup translationLookup, PersistenceService persistenceService,
+        CredifyConfiguration credifyConfig, RaffleManager raffleManager) :
         base(config, translationLookup)
     {
-        _persistenceManager = persistenceManager;
+        _persistenceService = persistenceService;
         _credifyConfig = credifyConfig;
-        _lotteryManager = lotteryManager;
-        Name = "credifylotto";
+        _raffleManager = raffleManager;
+        Name = "credifyraffle";
         Description = credifyConfig.Translations.Core.CommandLottoDescription;
-        Alias = "crlotto";
+        Alias = "crraf";
         Permission = EFClient.Permission.User;
         RequiresTarget = false;
         Arguments =
         [
             new CommandArgument
             {
-                Name = "Tickets",
-                Required = true
+                Name = "Ticket Number",
+                Required = false
             }
         ];
     }
 
     public override async Task ExecuteAsync(GameEvent gameEvent)
     {
-        var argCredits = gameEvent.Data;
-
-        if (!long.TryParse(argCredits, out var credits))
-        {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.Core.ErrorParsingSecondArgument);
-            return;
-        }
-
-        if (credits < 10)
-        {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.Core.MinimumAmount);
-            return;
-        }
-
-        const int fixedTicketCost = 10; // TODO: Move to config.
-        var ticketsCost = credits * fixedTicketCost;
-        var currentCredits = await _persistenceManager.GetClientCreditsAsync(gameEvent.Origin);
-
-        if (currentCredits < ticketsCost)
+        var currentCredits = await _persistenceService.GetClientCreditsAsync(gameEvent.Origin);
+        if (currentCredits < _credifyConfig.Core.RaffleCost)
         {
             gameEvent.Origin.Tell(_credifyConfig.Translations.Core.InsufficientCredits);
             return;
         }
 
-        _persistenceManager.AddBankCreditsAsync(ticketsCost);
-        await _persistenceManager.RemoveCreditsAsync(gameEvent.Origin, ticketsCost);
-        var totalTickets = await _lotteryManager.AddToLottery(gameEvent.Origin, credits);
-        gameEvent.Origin.Tell(_credifyConfig.Translations.Core.BoughtLottoTickets
-            .FormatExt(credits.ToString("N0"), ticketsCost.ToString("N0"), totalTickets.ToString("N0")));
+        var ticketNumberRaw = gameEvent.Data;
+        int? ticketNumber = null;
+
+        switch (string.IsNullOrWhiteSpace(ticketNumberRaw))
+        {
+            case false when int.TryParse(ticketNumberRaw, out var userTicket):
+                ticketNumber = userTicket;
+                break;
+            case false:
+                gameEvent.Origin.Tell(_credifyConfig.Translations.Core.ErrorParsingArgument);
+                return;
+        }
+
+        var result = await _raffleManager.PurchaseTicketAsync(gameEvent.Origin, ticketNumber);
+
+        switch (result.Status)
+        {
+            case StatusTypes.Success:
+                gameEvent.Origin.Tell(_credifyConfig.Translations.Raffle.Success.FormatExt(result.Ticket?.ToString("N0")));
+                break;
+            case StatusTypes.ClientAlreadyPurchased:
+                gameEvent.Origin.Tell(_credifyConfig.Translations.Raffle.ClientAlreadyPurchased);
+                break;
+            case StatusTypes.TicketAlreadyPurchased:
+                gameEvent.Origin.Tell(_credifyConfig.Translations.Raffle.TicketAlreadyPurchased);
+                break;
+            case StatusTypes.InvalidTicketRange:
+                gameEvent.Origin.Tell(_credifyConfig.Translations.Raffle.InvalidTicketRange);
+                break;
+            case StatusTypes.RaffleNotStarted:
+                gameEvent.Origin.Tell(_credifyConfig.Translations.Raffle.RaffleNotStarted);
+                break;
+        }
     }
 }

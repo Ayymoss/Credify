@@ -29,6 +29,7 @@ public class CoreTranslations
     public string StatsBankCredits { get; set; } = "Bank: (Color::Accent)${{bankCredits}} (Color::White)credits";
     public string CommandStatisticsDescription { get; set; } = "Check your credits.";
     public string CommandSetCreditsDescription { get; set; } = "Set Credits";
+    public string ErrorParsingArgument { get; set; } = "(Color::Red)Error trying to parse argument";
     public string ErrorParsingSecondArgument { get; set; } = "(Color::Red)Error trying to parse second argument";
     public string SetCreditsForTarget { get; set; } = "Set credits for {{targetName}} (Color::White)to (Color::Accent)${{absAmount}}(Color::White)";
     public string CreditsSetByOrigin { get; set; } = "{{originName}} (Color::White)set your credits to (Color::Accent)${{absAmount}}(Color::White)";
@@ -57,14 +58,8 @@ public class CoreTranslations
     public string CannotTargetConsole { get; set; } = "(Color::Yellow)Cannot target console";
     public string CannotTargetSelf { get; set; } = "(Color::Yellow)Cannot target self";
     public string CommandPayCreditsDescription { get; set; } = "Pay credits to another player";
-    public string AnnounceLottoWinner { get; set; } = "(Color::Accent){{cleanedName}} (Color::White)won (Color::Green)${{bankCredits}} (Color::White)from the lottery with a (Color::Accent){{winPct}}(Color::White)pct chance!";
-    public string BoughtLottoTickets { get; set; } = "(Color::Accent){{ticketCount}} (Color::White)lotto tickets bought for (Color::Accent)${{amount}} (Color::White)credits. You have a total of {{totalTickets}} tickets";
     public string CommandLottoDescription { get; set; } = "Buy lotto tickets! ($1 = 10 tickets)";
     public string TicketHolder { get; set; } = "[(Color::Accent)#{{index}} (Color::White)@ (Color::Green){{tickets}}(Color::White)] {{name}}";
-    public string ShowLottoHeader { get; set; } = "(Color::Accent)--Ticket Holders--";
-    public string LottoNextDraw { get; set; } = "Next draw in (Color::Accent){{nextDrawHumanized}}";
-    public string NoTicketHolders { get; set; } = "(Color::Yellow)No ticket holders. (Color::White)Buy some tickets! (Color::Accent)!crlotto";
-    public string NoTicketHoldersContinued { get; set; } = "Bank Amount: (Color::Green)${{bankCredits}} (Color::White)- Next Draw: (Color::Accent){{nextDraw}}";
     public string CommandShowLottoDescription { get; set; } = "Shows the current lotto holders";
     public string ShopItemFormat { get; set; } = "[(Color::Accent){{id}} (Color::White)@ (Color::Green)${{price}}(Color::White)] (Color::Yellow){{name}}";
     public string ShopItemFormatClient { get; set; } = "[(Color::Green){{count}}x (Color::White)of (Color::Accent){{id}}(Color::White)] (Color::Yellow){{name}}";
@@ -78,16 +73,14 @@ public class CoreTranslations
     public string CommandInventoryDescription { get; set; } = "Shows your inventory";
     public string BoughtItem { get; set; } = "You bought (Color::Accent){{name}} (Color::White)for (Color::Green)${{price}}";
     public string ShopDisabled { get; set; } = "(Color::Yellow)Shop is disabled. Ask the server owner to enable it";
-    public string PreviousLottoCount { get; set; } = "Previous total players (Color::Accent){{playerCount}}";
-    public string LastWinner { get; set; } = "Last winner(Color::Accent) {{name}} (@{{clientId}}) (Color::White)won (Color::Green)${{winTotal}}(Color::White)!";
     public string CommandRecentBuysDescription { get; set; } = "Shows the recent shop buys";
     public string RecentBuysTitle { get; set; } = "(Color::Accent)--Recent Shop Buys--";
     public string RecentBoughtItemEntry { get; set; } = "[{{index}}](Color::Accent) {{name}} (@{{clientId}}) (Color::White)bought (Color::Accent){{item}} (Color::White){{when}}";
-    public string NoLastWinner { get; set; } = "(Color::Accent)Good luck!";
     public string CommandRockPaperScissorsDescription { get; set; } = "Play rock paper scissors";
     public string BadRpsArgument { get; set; } = "(Color::Yellow)Invalid argument. (Color::White)Use (Color::Accent)!crrps <rock|paper|scissors> <stake>";
     public string MaximumAmount { get; set; } = "(Color::Yellow)Maximum amount is (Color::Green){{maxAmount}}";
     public string CommandBlackjack { get; set; } ="Join Blackjack";
     public string CommandRoulette { get; set; } = "Join Roulette";
+
     // @formatter:on
 }

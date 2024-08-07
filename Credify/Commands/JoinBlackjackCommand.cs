@@ -1,5 +1,6 @@
 ﻿using Credify.Chat.Active.Blackjack;
 using Credify.Configuration;
+using Credify.Services;
 using SharedLibraryCore;
 using SharedLibraryCore.Configuration;
 using SharedLibraryCore.Interfaces;
@@ -10,15 +11,15 @@ public class JoinBlackjackCommand : Command
 {
     private readonly BlackjackManager _blackjackManager;
     private readonly CredifyConfiguration _credifyConfig;
-    private readonly PersistenceManager _persistenceManager;
+    private readonly PersistenceService _persistenceService;
 
     public JoinBlackjackCommand(CommandConfiguration config, ITranslationLookup translationLookup,
         BlackjackManager blackjackManager, CredifyConfiguration credifyConfig,
-        PersistenceManager persistenceManager) : base(config, translationLookup)
+        PersistenceService persistenceService) : base(config, translationLookup)
     {
         _blackjackManager = blackjackManager;
         _credifyConfig = credifyConfig;
-        _persistenceManager = persistenceManager;
+        _persistenceService = persistenceService;
         Name = "credifyblackjack";
         Alias = "crbj";
         Description = credifyConfig.Translations.Core.CommandBlackjack;
@@ -34,7 +35,7 @@ public class JoinBlackjackCommand : Command
             return;
         }
 
-        var funds = await _persistenceManager.GetClientCreditsAsync(gameEvent.Origin);
+        var funds = await _persistenceService.GetClientCreditsAsync(gameEvent.Origin);
         if (funds < 10)
         {
             gameEvent.Origin.Tell(_credifyConfig.Translations.Core.InsufficientCredits);

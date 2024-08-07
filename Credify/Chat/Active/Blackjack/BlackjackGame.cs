@@ -2,12 +2,13 @@
 using System.Text;
 using Credify.Chat.Active.Blackjack.Models;
 using Credify.Configuration;
+using Credify.Services;
 using SharedLibraryCore;
 using SharedLibraryCore.Database.Models;
 
 namespace Credify.Chat.Active.Blackjack;
 
-public class BlackjackGame(PersistenceManager persistenceManager, CredifyConfiguration credifyConfig)
+public class BlackjackGame(PersistenceService persistenceService, CredifyConfiguration credifyConfig)
 {
     private BlackjackEnums.GameState _gameState = BlackjackEnums.GameState.WaitingForPlayers;
     private readonly ConcurrentDictionary<EFClient, BlackJackPlayer> _players = new();
@@ -52,7 +53,7 @@ public class BlackjackGame(PersistenceManager persistenceManager, CredifyConfigu
         foreach (var player in _activePlayers)
         {
             player.Value.State = BlackjackEnums.PlayerState.Playing;
-            var playerFunds = await persistenceManager.GetClientCreditsAsync(player.Key);
+            var playerFunds = await persistenceService.GetClientCreditsAsync(player.Key);
             if (playerFunds < 10)
             {
                 insufficientFunds.Add(player.Key);
@@ -255,7 +256,7 @@ public class BlackjackGame(PersistenceManager persistenceManager, CredifyConfigu
             if (_activePlayers.Count is not 1) await TellPlayerAsync(player.Key, false, [FormatPlayerOutcomes()]);
             if (_players[player.Key].Payout is 0) continue;
 
-            await persistenceManager.AddCreditsAsync(player.Key, _players[player.Key].Payout!.Value);
+            await persistenceService.AddCreditsAsync(player.Key, _players[player.Key].Payout!.Value);
             await TellPlayerAsync(player.Key, false,
             [
                 credifyConfig.Translations.Blackjack.Payout.FormatExt(
@@ -341,12 +342,11 @@ public class BlackjackGame(PersistenceManager persistenceManager, CredifyConfigu
                     if (_players[player].Stake is not null) return;
                     if (!long.TryParse(message, out var stake)) return;
 
-                    var amount = await persistenceManager.GetClientCreditsAsync(player);
+                    var amount = await persistenceService.GetClientCreditsAsync(player);
                     if (amount >= stake)
                     {
                         _players[player].Stake = stake;
-                        await persistenceManager.RemoveCreditsAsync(player, stake);
-                        persistenceManager.StatisticsState.CreditsSpent += (ulong)stake;
+                        await persistenceService.RemoveCreditsAsync(player, stake);
                         await TellPlayerAsync(player, false, [credifyConfig.Translations.Blackjack.AcceptedBet.FormatExt(stake)]);
                         var requestStakesRemainders = GetRequestStakesRemainders();
                         if (requestStakesRemainders.Count is 0)

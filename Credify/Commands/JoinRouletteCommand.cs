@@ -1,5 +1,6 @@
 ﻿using Credify.Chat.Active.Roulette;
 using Credify.Configuration;
+using Credify.Services;
 using SharedLibraryCore;
 using SharedLibraryCore.Configuration;
 using SharedLibraryCore.Interfaces;
@@ -9,14 +10,14 @@ namespace Credify.Commands;
 public class JoinRouletteCommand : Command
 {
     private readonly CredifyConfiguration _credifyConfig;
-    private readonly PersistenceManager _persistenceManager;
-    private readonly TableManager _roulette;
+    private readonly PersistenceService _persistenceService;
+    private readonly RouletteManager _roulette;
 
     public JoinRouletteCommand(CommandConfiguration config, ITranslationLookup translationLookup, CredifyConfiguration credifyConfig,
-        PersistenceManager persistenceManager, TableManager roulette) : base(config, translationLookup)
+        PersistenceService persistenceService, RouletteManager roulette) : base(config, translationLookup)
     {
         _credifyConfig = credifyConfig;
-        _persistenceManager = persistenceManager;
+        _persistenceService = persistenceService;
         _roulette = roulette;
         Name = "credifyroulette";
         Alias = "crrl";
@@ -33,7 +34,7 @@ public class JoinRouletteCommand : Command
             return;
         }
 
-        var funds = await _persistenceManager.GetClientCreditsAsync(gameEvent.Origin);
+        var funds = await _persistenceService.GetClientCreditsAsync(gameEvent.Origin);
         if (funds < 10)
         {
             gameEvent.Origin.Tell(_credifyConfig.Translations.Core.InsufficientCredits);
