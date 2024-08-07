@@ -8,21 +8,21 @@ using SharedLibraryCore.Interfaces;
 
 namespace Credify.Commands;
 
-public class ShowLottoCommand : Command
+public class ShowRaffleCommand : Command
 {
     private readonly CredifyConfiguration _credifyConfig;
     private readonly CredifyCache _cache;
     private readonly RaffleManager _raffleManager;
 
-    public ShowLottoCommand(CommandConfiguration config, ITranslationLookup translationLookup, CredifyConfiguration credifyConfig,
+    public ShowRaffleCommand(CommandConfiguration config, ITranslationLookup translationLookup, CredifyConfiguration credifyConfig,
         CredifyCache cache, RaffleManager raffleManager) : base(config, translationLookup)
     {
         _credifyConfig = credifyConfig;
         _cache = cache;
         _raffleManager = raffleManager;
-        Name = "credifyshowlotto";
-        Description = credifyConfig.Translations.Core.CommandShowLottoDescription;
-        Alias = "crsl";
+        Name = "credifyshowraffle";
+        Description = credifyConfig.Translations.Core.CommandShowRaffleDescription;
+        Alias = "crsr";
         Permission = Data.Models.Client.EFClient.Permission.User;
         RequiresTarget = false;
     }
@@ -61,8 +61,8 @@ public class ShowLottoCommand : Command
 
         var ticketHolderNames = ticketHolders
             .OrderByDescending(entry => entry.Ticket)
-            .Select((creditEntry, index) => _credifyConfig.Translations.Core.TicketHolder
-                .FormatExt(index + 1, creditEntry.Ticket.ToString("N0"), creditEntry.Client.CleanedName))
+            .Select(creditEntry => _credifyConfig.Translations.Raffle.TicketHolder
+                .FormatExt(creditEntry.Ticket.ToString("N0"), creditEntry.Client.CleanedName))
             .ToArray();
 
         headerMessages = headerMessages.Concat(ticketHolderNames).ToArray();

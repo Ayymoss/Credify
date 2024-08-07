@@ -1,5 +1,6 @@
 ﻿using Credify.Configuration;
 using SharedLibraryCore.Database.Models;
+using SharedLibraryCore.Interfaces;
 
 namespace Credify.Chat.Active.Raffle.Utilities;
 
@@ -15,9 +16,9 @@ public class HandleOutput(TranslationsRoot translations)
         await client.CurrentServer.BroadcastAsync(messages);
     }
 
-    public static async Task TellAllServersAsync(EFClient client, List<string> messages)
+    public static async Task TellAllServersAsync(IManager manager, List<string> messages)
     {
-        var servers = client.CurrentServer.Manager.GetServers();
+        var servers = manager.GetServers();
         foreach (var server in servers)
         {
             if (server.ConnectedClients.Count is 0) continue;

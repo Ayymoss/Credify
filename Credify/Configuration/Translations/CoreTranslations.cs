@@ -58,9 +58,8 @@ public class CoreTranslations
     public string CannotTargetConsole { get; set; } = "(Color::Yellow)Cannot target console";
     public string CannotTargetSelf { get; set; } = "(Color::Yellow)Cannot target self";
     public string CommandPayCreditsDescription { get; set; } = "Pay credits to another player";
-    public string CommandLottoDescription { get; set; } = "Buy lotto tickets! ($1 = 10 tickets)";
-    public string TicketHolder { get; set; } = "[(Color::Accent)#{{index}} (Color::White)@ (Color::Green){{tickets}}(Color::White)] {{name}}";
-    public string CommandShowLottoDescription { get; set; } = "Shows the current lotto holders";
+    public string CommandShowRaffleDescription { get; set; } = "Shows the current raffle holders";
+    public string CommandRaffleDescription { get; set; } = "Buy your raffle ticket!";
     public string ShopItemFormat { get; set; } = "[(Color::Accent){{id}} (Color::White)@ (Color::Green)${{price}}(Color::White)] (Color::Yellow){{name}}";
     public string ShopItemFormatClient { get; set; } = "[(Color::Green){{count}}x (Color::White)of (Color::Accent){{id}}(Color::White)] (Color::Yellow){{name}}";
     public string CommandShopDescription { get; set; } = "Shows the shop";

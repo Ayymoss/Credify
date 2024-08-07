@@ -39,11 +39,6 @@ public class PersistenceService(
         await metaService.SetPersistentMetaValue(Plugin.StatisticsKey, cache.StatisticsState);
     }
 
-    public async Task WriteLastLotteryWinnerAsync(int clientId, string client, long amount, int lastPlayers)
-    {
-        await metaService.SetPersistentMeta(Plugin.LastLottoWinner, $"{clientId}::{client}::{amount}::{lastPlayers}");
-    }
-
     public async Task WriteLastRaffleWinnerAsync(LastWinner lastWinner)
     {
         await metaService.SetPersistentMetaValue(Plugin.LastRaffleWinner, lastWinner);
@@ -81,9 +76,9 @@ public class PersistenceService(
         return items ?? [];
     }
 
-    public async Task WriteNextLotteryAsync(DateTimeOffset dateTime)
+    public async Task WriteNextRaffleAsync(DateTimeOffset dateTime)
     {
-        await metaService.SetPersistentMeta(Plugin.NextLotteryKey, dateTime.ToString("o", CultureInfo.InvariantCulture));
+        await metaService.SetPersistentMeta(Plugin.NextRaffleKey, dateTime.ToString("o", CultureInfo.InvariantCulture));
     }
 
     public async Task WriteClientShopAsync(EFClient client, List<ClientShopItem> shopItems)
@@ -130,9 +125,9 @@ public class PersistenceService(
         cache.BankCredits = credits;
     }
 
-    public async Task<DateTimeOffset?> ReadNextLotteryAsync()
+    public async Task<DateTimeOffset?> ReadNextRaffleAsync()
     {
-        var nextLotto = (await metaService.GetPersistentMeta(Plugin.NextLotteryKey))?.Value;
+        var nextLotto = (await metaService.GetPersistentMeta(Plugin.NextRaffleKey))?.Value;
         if (nextLotto is null) return null;
         return DateTimeOffset.Parse(nextLotto);
     }

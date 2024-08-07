@@ -3,6 +3,7 @@ using Credify.Chat.Active.Raffle.Models;
 using Credify.Configuration;
 using Credify.Services;
 using SharedLibraryCore.Database.Models;
+using SharedLibraryCore.Interfaces;
 using SharedLibraryCore.Services;
 
 namespace Credify.Chat.Active.Raffle;
@@ -15,6 +16,7 @@ public class RaffleManager(
     PersistenceService persistenceService)
 {
     private Raffle? _raffle;
+    private IManager? _manager;
 
     public bool ShouldDrawRaffle => _raffle?.ShouldDrawRaffle ?? false;
     public DateTimeOffset NextOccurrence => _raffle?.NextOccurrence ?? DateTimeOffset.MinValue;
@@ -33,16 +35,20 @@ public class RaffleManager(
 
     public async Task DrawWinnerAsync()
     {
-        if (_raffle is null) return;
-        await _raffle.DrawWinnerAsync();
-        await _raffle.ReadAndCalculateNextDrawAsync();
+        if (_raffle is null || _manager is null) return;
+        await _raffle.DrawWinnerAsync(_manager);
         _raffle = CreateNewRaffle();
+        
+        await _raffle.ReadAndCalculateNextDrawAsync();
+        await persistenceService.WriteRaffle([]);
     }
 
-    public async Task LoadRaffleAsync()
+    public async Task LoadRaffleAsync(IManager manager)
     {
+        _manager = manager;
         var raffle = await persistenceService.ReadRaffleAsync();
         _raffle = CreateNewRaffle(raffle);
+        await _raffle.ReadAndCalculateNextDrawAsync();
     }
 
     public async Task ReadAndCalculateNextDrawAsync()

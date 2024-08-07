@@ -13,10 +13,11 @@ public class RaffleTranslations
     public string RaffleNextDraw { get; set; } = "Next draw in (Color::Accent){{nextDrawHumanized}}";
     public string NoTicketHolders { get; set; } = "(Color::Yellow)No ticket holders. (Color::White)Buy some tickets! (Color::Accent)!crraf";
     public string NoTicketHoldersContinued { get; set; } = "(Color::White)Bank Amount: (Color::Green)${{bankCredits}} (Color::White)- Next Draw: (Color::Accent){{nextDraw}}";
-    public string AnnounceRaffleWinner { get; set; } = "(Color::Accent){{cleanedName}} (Color::White)won (Color::Green)${{bankCredits}} (Color::White)from the lottery with a (Color::Accent){{winPct}}(Color::White)pct chance!";
+    public string AnnounceRaffleWinner { get; set; } = "(Color::Accent){{cleanedName}} (Color::White)won (Color::Green)${{bankCredits}} (Color::White)from the raffle with a (Color::Accent){{winPct}}(Color::White)pct chance!";
     public string NoLastWinner { get; set; } = "(Color::Accent)Good luck!";
     public string PreviousRaffleCount { get; set; } = "(Color::White)Previous total players (Color::Accent){{playerCount}}";
     public string LastWinner { get; set; } = "Last winner (Color::Accent){{name}} (@{{clientId}}) (Color::White)won (Color::Green)${{winTotal}}(Color::White)!";
+    public string TicketHolder { get; set; } = "[(Color::Accent)#{{ticket}}(Color::White)] {{name}}";
     // @formatter:on
 
     public string Prefix(string message) => $"{PrefixLong} {message}";

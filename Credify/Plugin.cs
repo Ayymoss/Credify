@@ -11,7 +11,6 @@ using SharedLibraryCore.Events.Game;
 using SharedLibraryCore.Events.Management;
 using SharedLibraryCore.Interfaces;
 using SharedLibraryCore.Interfaces.Events;
-using Utilities = SharedLibraryCore.Utilities;
 
 namespace Credify;
 
@@ -43,11 +42,12 @@ public class Plugin : IPluginV2
     private readonly RouletteManager _roulette;
     private readonly ScheduleService _scheduleService;
     private readonly RaffleManager _raffleManager;
+
     public const string CreditsAmount = "Credits_Amount";
     public const string TopKey = "Credits_TopList";
     public const string StatisticsKey = "Credits_Statistics";
     public const string LotteryKey = "Credits_Lottery";
-    public const string NextLotteryKey = "Credits_NextLottery";
+    public const string NextRaffleKey = "Credits_NextLottery";
     public const string ShopKey = "Credits_Shop";
     public const string BankCreditsKey = "Credits_Bank";
     public const string LastLottoWinner = "Credits_LastLottoWinner";
@@ -60,7 +60,7 @@ public class Plugin : IPluginV2
     public string Version => "2024-08-04";
     public string Author => "Amos";
 
-    public Plugin(PersistenceService persistenceService, CredifyConfiguration config, 
+    public Plugin(PersistenceService persistenceService, CredifyConfiguration config,
         PassiveManager passiveManager, ChatUtils chatUtils, BlackjackManager blackjack, RouletteManager roulette,
         ScheduleService scheduleService, RaffleManager raffleManager)
     {
@@ -136,7 +136,7 @@ public class Plugin : IPluginV2
         await _persistenceService.ReadStatisticsAsync();
         await _persistenceService.ReadTopScoreAsync();
         await _persistenceService.ReadBankCreditsAsync();
-        await _raffleManager.LoadRaffleAsync();
+        await _raffleManager.LoadRaffleAsync(manager);
         await _raffleManager.ReadAndCalculateNextDrawAsync();
 
         new Thread(StartRoulette) { Name = "Roulette" }.Start();

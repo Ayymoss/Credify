@@ -6,6 +6,7 @@ using Credify.Configuration.Translations;
 using Credify.Services;
 using SharedLibraryCore;
 using SharedLibraryCore.Database.Models;
+using SharedLibraryCore.Interfaces;
 using SharedLibraryCore.Services;
 
 namespace Credify.Chat.Active.Raffle;
@@ -29,16 +30,16 @@ public class Raffle(
         if (!ValidTicket(checkedTicket)) return new RaffleResult(StatusTypes.InvalidTicketRange, null);
 
         if (players.Any(p => p.ClientId == client.ClientId)) return new RaffleResult(StatusTypes.ClientAlreadyPurchased, null);
-        if (players.Any(x => x.Ticket == ticket)) return new RaffleResult(StatusTypes.TicketAlreadyPurchased, null);
+        if (players.Any(x => x.Ticket == checkedTicket)) return new RaffleResult(StatusTypes.TicketAlreadyPurchased, null);
 
         players.Add(new Player(client.ClientId, checkedTicket));
-        persistenceService.AddBankCredits(checkedTicket);
-        await persistenceService.RemoveCreditsAsync(client, checkedTicket);
+        persistenceService.AddBankCredits(config.Core.RaffleCost);
+        await persistenceService.RemoveCreditsAsync(client, config.Core.RaffleCost);
         await persistenceService.WriteRaffle(players);
         return new RaffleResult(StatusTypes.Success, checkedTicket);
     }
 
-    public async Task DrawWinnerAsync()
+    public async Task DrawWinnerAsync(IManager manager)
     {
         var winner = players.ElementAt(Random.Shared.Next(players.Count));
         var client = await clientService.Get(winner.ClientId);
@@ -47,6 +48,7 @@ public class Raffle(
         var bankCredits = cache.BankCredits;
         cache.BankCredits = 0;
 
+        await persistenceService.WriteBankCreditsAsync();
         await persistenceService.AddCreditsAsync(client, bankCredits);
         await persistenceService.WriteLastRaffleWinnerAsync(new LastWinner(client.ClientId, client.CleanedName, bankCredits,
             players.Count));
@@ -55,7 +57,7 @@ public class Raffle(
         var announcement = _raffleTrans.AnnounceRaffleWinner
             .FormatExt(client.CleanedName, bankCredits.ToString("N0"), winPercentage.ToString("N1"));
 
-        await HandleOutput.TellAllServersAsync(client, [_raffleTrans.Prefix(announcement)]);
+        await HandleOutput.TellAllServersAsync(manager, [_raffleTrans.Prefix(announcement)]);
     }
 
     public async Task ReadAndCalculateNextDrawAsync()
@@ -63,7 +65,7 @@ public class Raffle(
         var currentDate = TimeProvider.System.GetLocalNow();
         if (NextOccurrence > currentDate) return;
 
-        var next = await persistenceService.ReadNextLotteryAsync();
+        var next = await persistenceService.ReadNextRaffleAsync();
         if (next is null || next < currentDate)
         {
             var nextLotteryDate = currentDate.Date
@@ -71,7 +73,7 @@ public class Raffle(
                 .Add(config.Core.RaffleDrawTime);
 
             NextOccurrence = nextLotteryDate;
-            await persistenceService.WriteNextLotteryAsync(NextOccurrence);
+            await persistenceService.WriteNextRaffleAsync(NextOccurrence);
             return;
         }
 
