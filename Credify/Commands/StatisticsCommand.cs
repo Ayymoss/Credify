@@ -1,4 +1,5 @@
 ﻿using Credify.Configuration;
+using Credify.Services;
 using Data.Models.Client;
 using SharedLibraryCore;
 using SharedLibraryCore.Configuration;
@@ -8,14 +9,14 @@ namespace Credify.Commands;
 
 public class StatisticsCommand : Command
 {
-    private readonly PersistenceManager _persistenceManager;
+    private readonly CredifyCache _cache;
     private readonly CredifyConfiguration _credifyConfig;
 
-    public StatisticsCommand(CommandConfiguration config, ITranslationLookup translationLookup, PersistenceManager persistenceManager,
+    public StatisticsCommand(CommandConfiguration config, ITranslationLookup translationLookup, CredifyCache cache,
         CredifyConfiguration credifyConfig) :
         base(config, translationLookup)
     {
-        _persistenceManager = persistenceManager;
+        _cache = cache;
         _credifyConfig = credifyConfig;
         Name = "credifystats";
         Description = credifyConfig.Translations.Core.CommandStatisticsDescription;
@@ -30,10 +31,10 @@ public class StatisticsCommand : Command
         [
             // @formatter:off
             _credifyConfig.Translations.Core.StatsHeader,
-            _credifyConfig.Translations.Core.StatsBankCredits.FormatExt(_persistenceManager.BankCredits.ToString("N0")),
-            _credifyConfig.Translations.Core.StatsTotalEarnedCredits.FormatExt(_persistenceManager.StatisticsState.CreditsEarned.ToString("N0")),
-            _credifyConfig.Translations.Core.StatsTotalSpentCredits.FormatExt(_persistenceManager.StatisticsState.CreditsSpent.ToString("N0")),
-            _credifyConfig.Translations.Core.StatsTotalWonCredits.FormatExt(_persistenceManager.StatisticsState.CreditsWon.ToString("N0")),
+            _credifyConfig.Translations.Core.StatsBankCredits.FormatExt(_cache.BankCredits.ToString("N0")),
+            _credifyConfig.Translations.Core.StatsTotalEarnedCredits.FormatExt(_cache.StatisticsState.CreditsEarned.ToString("N0")),
+            _credifyConfig.Translations.Core.StatsTotalSpentCredits.FormatExt(_cache.StatisticsState.CreditsSpent.ToString("N0")),
+            _credifyConfig.Translations.Core.StatsTotalWonCredits.FormatExt(_cache.StatisticsState.CreditsWon.ToString("N0")),
             // @formatter:on
         ]);
     }

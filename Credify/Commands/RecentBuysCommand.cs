@@ -1,4 +1,5 @@
 ﻿using Credify.Configuration;
+using Credify.Services;
 using Data.Models.Client;
 using Humanizer;
 using SharedLibraryCore;
@@ -9,13 +10,13 @@ namespace Credify.Commands;
 
 public class RecentBuysCommand : Command
 {
-    private readonly PersistenceManager _persistenceManager;
+    private readonly PersistenceService _persistenceService;
     private readonly CredifyConfiguration _credifyConfig;
 
     public RecentBuysCommand(CommandConfiguration config, ITranslationLookup translationLookup,
-        PersistenceManager persistenceManager, CredifyConfiguration credifyConfig) : base(config, translationLookup)
+        PersistenceService persistenceService, CredifyConfiguration credifyConfig) : base(config, translationLookup)
     {
-        _persistenceManager = persistenceManager;
+        _persistenceService = persistenceService;
         _credifyConfig = credifyConfig;
         Name = "credifyrecentbuys";
         Alias = "crrb";
@@ -27,7 +28,7 @@ public class RecentBuysCommand : Command
     public override async Task ExecuteAsync(GameEvent gameEvent)
     {
         var serverItems = _credifyConfig.Shop.Items;
-        var recentBuys = await _persistenceManager.ReadRecentBoughtItemsAsync();
+        var recentBuys = await _persistenceService.ReadRecentBoughtItemsAsync();
 
         gameEvent.Origin.Tell(_credifyConfig.Translations.Core.RecentBuysTitle);
 

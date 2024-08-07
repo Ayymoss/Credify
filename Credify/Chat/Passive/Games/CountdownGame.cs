@@ -2,13 +2,14 @@
 using Credify.Configuration;
 using Credify.Helpers;
 using Credify.Models.ApiModels;
+using Credify.Services;
 using Humanizer;
 using SharedLibraryCore;
 using SharedLibraryCore.Database.Models;
 
 namespace Credify.Chat.Passive.Games;
 
-public class CountdownGame(CredifyConfiguration credifyConfig, PersistenceManager persistenceManager, ChatUtils chatUtils)
+public class CountdownGame(CredifyConfiguration credifyConfig, PersistenceService persistenceService, ChatUtils chatUtils)
     : ChatGame
 {
     public override async Task StartAsync()
@@ -63,7 +64,7 @@ public class CountdownGame(CredifyConfiguration credifyConfig, PersistenceManage
             var payout = Convert.ToInt64(Math.Round(initialPayout * lengthMultiplier));
             if (payout < 10) payout = 10;
 
-            await persistenceManager.AddCreditsAsync(client, payout);
+            await persistenceService.AddCreditsAsync(client, payout);
 
             var player = new ClientAnswerInfo
             {
@@ -112,7 +113,7 @@ public class CountdownGame(CredifyConfiguration credifyConfig, PersistenceManage
 
         foreach (var winner in players)
         {
-            var balance = await persistenceManager.GetClientCreditsAsync(winner.Client);
+            var balance = await persistenceService.GetClientCreditsAsync(winner.Client);
             var userMessage = credifyConfig.Translations.Passive.ReactionTell
                 .FormatExt(winner.Payout.ToString("N0"), balance.ToString("N0"));
             if (!winner.Client.IsIngame) continue;

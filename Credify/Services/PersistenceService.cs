@@ -1,27 +1,23 @@
 ﻿using System.Globalization;
+using Credify.Chat.Active.Raffle.Models;
 using Credify.Configuration;
 using Credify.Models;
-using Data.Abstractions;
-using Microsoft.EntityFrameworkCore;
 using SharedLibraryCore;
 using SharedLibraryCore.Database.Models;
 using SharedLibraryCore.Interfaces;
+using SharedLibraryCore.Services;
 
-namespace Credify;
+namespace Credify.Services;
 
-public class PersistenceManager(
+public class PersistenceService(
     IMetaServiceV2 metaService,
-    IDatabaseContextFactory contextFactory,
-    CredifyConfiguration credifyConfig)
+    CredifyConfiguration credifyConfig,
+    ClientService clientService,
+    CredifyCache cache)
 {
-    public List<TopCreditEntry> TopCredits { get; private set; } = [];
-    private long _bankCredits;
-    public long BankCredits => Interlocked.Read(ref _bankCredits);
-    public StatisticsState StatisticsState { get; private set; } = new();
+    public void ResetBank() => cache.BankCredits = 0;
 
-    public void ResetBank() => _bankCredits = 0;
-
-    public void AddBankCreditsAsync(long credits) => Interlocked.Add(ref _bankCredits, credits);
+    public void AddBankCredits(long credits) => cache.AddBankCredits(credits);
 
     public static bool AvailableFunds(EFClient client, long amount) => amount <= client.GetAdditionalProperty<long>(Plugin.CreditsAmount);
 
@@ -35,12 +31,12 @@ public class PersistenceManager(
 
     public async Task WriteTopScoreAsync()
     {
-        await metaService.SetPersistentMetaValue(Plugin.TopKey, TopCredits);
+        await metaService.SetPersistentMetaValue(Plugin.TopKey, cache.TopCredits);
     }
 
     public async Task WriteStatisticsAsync()
     {
-        await metaService.SetPersistentMetaValue(Plugin.StatisticsKey, StatisticsState);
+        await metaService.SetPersistentMetaValue(Plugin.StatisticsKey, cache.StatisticsState);
     }
 
     public async Task WriteLastLotteryWinnerAsync(int clientId, string client, long amount, int lastPlayers)
@@ -48,12 +44,24 @@ public class PersistenceManager(
         await metaService.SetPersistentMeta(Plugin.LastLottoWinner, $"{clientId}::{client}::{amount}::{lastPlayers}");
     }
 
-    public async Task<(int ClientId, string ClientName, long PayOut, int LastPlayers)?> ReadLastLotteryWinnerAsync()
+    public async Task WriteLastRaffleWinnerAsync(LastWinner lastWinner)
     {
-        var winnerMeta = await metaService.GetPersistentMeta(Plugin.LastLottoWinner);
-        if (winnerMeta is null) return null;
-        var data = winnerMeta.Value.Split("::", 4);
-        return (int.Parse(data[0]), data[1], long.Parse(data[2]), int.Parse(data[3]));
+        await metaService.SetPersistentMetaValue(Plugin.LastRaffleWinner, lastWinner);
+    }
+
+    public async Task<LastWinner?> ReadLastRaffleWinnerAsync()
+    {
+        return await metaService.GetPersistentMetaValue<LastWinner>(Plugin.LastRaffleWinner);
+    }
+
+    public async Task<List<Player>?> ReadRaffleAsync()
+    {
+        return await metaService.GetPersistentMetaValue<List<Player>>(Plugin.RaffleKey);
+    }
+
+    public async Task WriteRaffle(List<Player> rafflePlayers)
+    {
+        await metaService.SetPersistentMetaValue(Plugin.RaffleKey, rafflePlayers);
     }
 
     public async Task WriteRecentBoughtItemsAsync(ClientShopContext item)
@@ -73,8 +81,6 @@ public class PersistenceManager(
         return items ?? [];
     }
 
-    public async Task WriteLotteryAsync(List<Lottery> lotteries) => await metaService.SetPersistentMetaValue(Plugin.LotteryKey, lotteries);
-
     public async Task WriteNextLotteryAsync(DateTimeOffset dateTime)
     {
         await metaService.SetPersistentMeta(Plugin.NextLotteryKey, dateTime.ToString("o", CultureInfo.InvariantCulture));
@@ -85,12 +91,12 @@ public class PersistenceManager(
         await metaService.SetPersistentMetaValue(Plugin.ShopKey, shopItems, client.ClientId);
     }
 
-    public async Task WriteBankCreditsAsync() => await metaService.SetPersistentMeta(Plugin.BankCreditsKey, BankCredits.ToString());
+    public async Task WriteBankCreditsAsync() => await metaService.SetPersistentMeta(Plugin.BankCreditsKey, cache.BankCredits.ToString());
 
     public async Task ReadTopScoreAsync()
     {
         var topCreditsValue = await metaService.GetPersistentMetaValue<List<TopCreditEntry>>(Plugin.TopKey);
-        TopCredits = topCreditsValue ?? [];
+        cache.TopCredits = topCreditsValue ?? [];
     }
 
     private async Task<List<ClientShopItem>> ReadClientShopItemsAsync(EFClient client)
@@ -118,9 +124,10 @@ public class PersistenceManager(
     public async Task ReadBankCreditsAsync()
     {
         var bankCredits = (await metaService.GetPersistentMeta(Plugin.BankCreditsKey))?.Value;
-        _bankCredits = bankCredits is null
+        var credits = bankCredits is null
             ? 0
             : long.Parse(bankCredits);
+        cache.BankCredits = credits;
     }
 
     public async Task<DateTimeOffset?> ReadNextLotteryAsync()
@@ -130,16 +137,10 @@ public class PersistenceManager(
         return DateTimeOffset.Parse(nextLotto);
     }
 
-    public async Task<List<Lottery>> ReadLotteryAsync()
-    {
-        var lotteries = await metaService.GetPersistentMetaValue<List<Lottery>>(Plugin.LotteryKey);
-        return lotteries ?? [];
-    }
-
     public async Task ReadStatisticsAsync()
     {
         var statistics = await metaService.GetPersistentMetaValue<StatisticsState>(Plugin.StatisticsKey);
-        StatisticsState = statistics ?? new StatisticsState();
+        cache.StatisticsState = statistics ?? new StatisticsState();
     }
 
     public async Task OnJoinAsync(EFClient client)
@@ -164,37 +165,36 @@ public class PersistenceManager(
 
     public async Task<long> AddCreditsAsync(int clientId, long credits)
     {
-        lock (StatisticsState) StatisticsState.CreditsWon += (ulong)credits;
+        cache.StatisticsState.AddCreditsWon((ulong)credits);
         var balance = await AlterClientCreditsAsync(clientId, credits);
         return balance;
     }
 
     public async Task<long> AddCreditsAsync(EFClient client, long credits)
     {
-        lock (StatisticsState) StatisticsState.CreditsWon += (ulong)credits;
+        cache.StatisticsState.AddCreditsWon((ulong)credits);
+
         var balance = await AlterClientCreditsAsync(client, credits);
         return balance;
     }
 
     public async Task<long> RemoveCreditsAsync(int clientId, long credits)
     {
-        lock (StatisticsState) StatisticsState.CreditsSpent += (ulong)credits;
+        cache.StatisticsState.AddCreditsSpent((ulong)credits);
         var balance = await AlterClientCreditsAsync(clientId, -credits);
         return balance;
     }
 
     public async Task<long> RemoveCreditsAsync(EFClient client, long credits)
     {
-        lock (StatisticsState) StatisticsState.CreditsSpent += (ulong)credits;
+        cache.StatisticsState.AddCreditsSpent((ulong)credits);
         var balance = await AlterClientCreditsAsync(client, -credits);
         return balance;
     }
 
     private async Task<long> AlterClientCreditsAsync(int clientId, long amount)
     {
-        await using var context = contextFactory.CreateContext(false);
-        var client = (await context.Clients.FirstOrDefaultAsync(x => x.ClientId == clientId))?.ToPartialClient();
-
+        var client = await clientService.Get(clientId);
         ArgumentNullException.ThrowIfNull(client);
         return await AlterClientCreditsAsync(client, amount);
     }
@@ -232,33 +232,33 @@ public class PersistenceManager(
         var userCredits = client.GetAdditionalProperty<long>(Plugin.CreditsAmount);
         userCredits++;
         client.SetAdditionalProperty(Plugin.CreditsAmount, userCredits);
-        AddBankCreditsAsync(1);
-        lock (StatisticsState) StatisticsState.CreditsEarned++;
+        AddBankCredits(1);
+        cache.StatisticsState.IncrementCreditsEarned();
     }
 
     private bool ExistInTop(int targetClientId)
     {
-        var topResult = TopCredits.FirstOrDefault(i => i.ClientId == targetClientId);
+        var topResult = cache.TopCredits.FirstOrDefault(i => i.ClientId == targetClientId);
         return topResult is not null;
     }
 
     public void OrderTop(EFClient client, long amount)
     {
         if (client.ClientId is 0 or 1) return;
-        lock (TopCredits)
+        lock (cache.TopCredits)
         {
             // If the top hasn't got 5 entries yet add user - check for duplicates.
-            if (TopCredits.Count < 5 && !ExistInTop(client.ClientId))
-                TopCredits.Add(new TopCreditEntry { ClientId = client.ClientId, Credits = amount });
+            if (cache.TopCredits.Count < 5 && !ExistInTop(client.ClientId))
+                cache.TopCredits.Add(new TopCreditEntry { ClientId = client.ClientId, Credits = amount });
 
             //If the target's credits are greater than last item OR already exists in top, sort & update top.
-            if (amount <= TopCredits.Last().Credits && !ExistInTop(client.ClientId)) return;
+            if (amount <= cache.TopCredits.Last().Credits && !ExistInTop(client.ClientId)) return;
 
-            var existingCredEntry = TopCredits.FirstOrDefault(credit => credit.ClientId == client.ClientId);
+            var existingCredEntry = cache.TopCredits.FirstOrDefault(credit => credit.ClientId == client.ClientId);
             // Doesn't exist in top - Create new entry and sort
             if (existingCredEntry is null)
             {
-                TopCredits.Add(new TopCreditEntry
+                cache.TopCredits.Add(new TopCreditEntry
                 {
                     ClientId = client.ClientId,
                     Credits = amount
@@ -269,14 +269,14 @@ public class PersistenceManager(
                 existingCredEntry.Credits = amount;
             }
 
-            TopCredits = TopCredits
+            cache.TopCredits = cache.TopCredits
                 .OrderByDescending(credit => credit.Credits)
                 .Take(5)
                 .ToList();
         }
     }
 
-    public void ResetTop() => TopCredits = [];
+    public void ResetTop() => cache.TopCredits = [];
 
-    public void ResetStatistics() => StatisticsState = new StatisticsState();
+    public void ResetStatistics() => cache.StatisticsState = new StatisticsState();
 }

@@ -1,4 +1,5 @@
 ﻿using Credify.Configuration;
+using Credify.Services;
 using Data.Abstractions;
 using Data.Models.Client;
 using Microsoft.EntityFrameworkCore;
@@ -11,15 +12,15 @@ namespace Credify.Commands;
 public class TopCreditsCommand : Command
 {
     private readonly IDatabaseContextFactory _contextFactory;
-    private readonly PersistenceManager _persistenceManager;
+    private readonly CredifyCache _cache;
     private readonly CredifyConfiguration _credifyConfig;
 
     public TopCreditsCommand(CommandConfiguration config, ITranslationLookup translationLookup,
-        IDatabaseContextFactory contextFactory, PersistenceManager persistenceManager,
+        IDatabaseContextFactory contextFactory, CredifyCache cache,
         CredifyConfiguration credifyConfig) : base(config, translationLookup)
     {
         _contextFactory = contextFactory;
-        _persistenceManager = persistenceManager;
+        _cache = cache;
         _credifyConfig = credifyConfig;
         Name = "credifytop";
         Alias = "crtop";
@@ -31,7 +32,7 @@ public class TopCreditsCommand : Command
     public override async Task ExecuteAsync(GameEvent gameEvent)
     {
         // If user requests top and there are no entries.
-        if (_persistenceManager.TopCredits.Count is 0)
+        if (_cache.TopCredits.Count is 0)
         {
             gameEvent.Origin.Tell(_credifyConfig.Translations.Core.NoOneHasCreditsForTop);
             return;
@@ -41,13 +42,13 @@ public class TopCreditsCommand : Command
 
         await using var context = _contextFactory.CreateContext(false);
         var names = await context.Clients
-            .Where(client => _persistenceManager.TopCredits
+            .Where(client => _cache.TopCredits
                 .Select(credit => credit.ClientId)
                 .Contains(client.ClientId))
-            .Select(client => new {client.ClientId, client.CurrentAlias.Name})
+            .Select(client => new { client.ClientId, client.CurrentAlias.Name })
             .ToDictionaryAsync(selector => selector.ClientId, selector => selector.Name);
 
-        var output = _persistenceManager.TopCredits
+        var output = _cache.TopCredits
             .OrderByDescending(entry => entry.Credits)
             .Select((creditEntry, index) => _credifyConfig.Translations.Core.TopPlayerEntry
                 .FormatExt(index + 1, creditEntry.Credits.ToString("N0"), names[creditEntry.ClientId]));

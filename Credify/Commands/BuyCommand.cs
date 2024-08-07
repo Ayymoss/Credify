@@ -1,5 +1,6 @@
 ﻿using Credify.Configuration;
 using Credify.Models;
+using Credify.Services;
 using SharedLibraryCore;
 using SharedLibraryCore.Commands;
 using SharedLibraryCore.Configuration;
@@ -9,14 +10,14 @@ namespace Credify.Commands;
 
 public class BuyCommand : Command
 {
-    private readonly PersistenceManager _persistenceManager;
+    private readonly PersistenceService _persistenceService;
     private readonly CredifyConfiguration _credifyConfig;
 
     public BuyCommand(CommandConfiguration config, ITranslationLookup translationLookup,
-        PersistenceManager persistenceManager, CredifyConfiguration credifyConfig) :
+        PersistenceService persistenceService, CredifyConfiguration credifyConfig) :
         base(config, translationLookup)
     {
-        _persistenceManager = persistenceManager;
+        _persistenceService = persistenceService;
         _credifyConfig = credifyConfig;
         Name = "credifybuy";
         Alias = "crbuy";
@@ -48,7 +49,7 @@ public class BuyCommand : Command
             return;
         }
 
-        var clientItems = await _persistenceManager.GetClientShopItemsAsync(gameEvent.Origin);
+        var clientItems = await _persistenceService.GetClientShopItemsAsync(gameEvent.Origin);
         var serverItems = _credifyConfig.Shop.Items.Where(x => x.CanBeBought).ToList();
 
         // Check if item exists
@@ -59,7 +60,7 @@ public class BuyCommand : Command
         }
 
         // Check if client has enough credits
-        var initialClientCredits = await _persistenceManager.GetClientCreditsAsync(gameEvent.Origin);
+        var initialClientCredits = await _persistenceService.GetClientCreditsAsync(gameEvent.Origin);
         if (initialClientCredits < serverItem.Cost)
         {
             gameEvent.Origin.Tell(_credifyConfig.Translations.Core.InsufficientCredits);
@@ -89,7 +90,7 @@ public class BuyCommand : Command
             clientItem.Amount++;
         }
 
-        await _persistenceManager.WriteRecentBoughtItemsAsync(new ClientShopContext
+        await _persistenceService.WriteRecentBoughtItemsAsync(new ClientShopContext
         {
             Id = clientItem.Id,
             Amount = clientItem.Amount,
@@ -98,8 +99,8 @@ public class BuyCommand : Command
             Bought = DateTimeOffset.UtcNow
         });
 
-        await _persistenceManager.RemoveCreditsAsync(gameEvent.Origin, serverItem.Cost);
-        await _persistenceManager.WriteClientShopAsync(gameEvent.Origin, clientItems);
+        await _persistenceService.RemoveCreditsAsync(gameEvent.Origin, serverItem.Cost);
+        await _persistenceService.WriteClientShopAsync(gameEvent.Origin, clientItems);
         gameEvent.Origin.Tell(_credifyConfig.Translations.Core.BoughtItem
             .FormatExt(serverItem.Name, serverItem.Cost.ToString("N0")));
     }

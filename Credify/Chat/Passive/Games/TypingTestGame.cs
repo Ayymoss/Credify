@@ -1,12 +1,13 @@
 ﻿using System.Text;
 using Credify.Chat.Active.Blackjack.Models;
 using Credify.Configuration;
+using Credify.Services;
 using SharedLibraryCore;
 using SharedLibraryCore.Database.Models;
 
 namespace Credify.Chat.Passive.Games;
 
-public class TypingTestGame(CredifyConfiguration credifyConfig, PersistenceManager persistenceManager, ChatUtils chatUtils) : ChatGame
+public class TypingTestGame(CredifyConfiguration credifyConfig, PersistenceService persistenceService, ChatUtils chatUtils) : ChatGame
 {
     public override async Task StartAsync()
     {
@@ -40,7 +41,7 @@ public class TypingTestGame(CredifyConfiguration credifyConfig, PersistenceManag
             var payout = Convert.ToInt64(Math.Round(credifyConfig.ChatGame.MaxPayout * remainingAsPercentage));
             if (payout < 10) payout = 10;
 
-            await persistenceManager.AddCreditsAsync(client, payout);
+            await persistenceService.AddCreditsAsync(client, payout);
 
             var winner = new ClientAnswerInfo
             {
@@ -79,7 +80,7 @@ public class TypingTestGame(CredifyConfiguration credifyConfig, PersistenceManag
 
         foreach (var winner in GameInfo.Players)
         {
-            var balance = await persistenceManager.GetClientCreditsAsync(winner.Client);
+            var balance = await persistenceService.GetClientCreditsAsync(winner.Client);
             var userMessage = credifyConfig.Translations.Passive.ReactionTell
                 .FormatExt(winnerClient.Payout.ToString("N0"), balance.ToString("N0"));
             if (!winner.Client.IsIngame) continue;

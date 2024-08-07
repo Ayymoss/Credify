@@ -1,4 +1,5 @@
 ﻿using Credify.Configuration;
+using Credify.Services;
 using SharedLibraryCore;
 using SharedLibraryCore.Commands;
 using SharedLibraryCore.Configuration;
@@ -9,13 +10,13 @@ namespace Credify.Commands;
 
 public class SetCreditsCommand : Command
 {
-    private readonly PersistenceManager _persistenceManager;
+    private readonly PersistenceService _persistenceService;
     private readonly CredifyConfiguration _credifyConfig;
 
     public SetCreditsCommand(CommandConfiguration config, ITranslationLookup translationLookup,
-        PersistenceManager persistenceManager, CredifyConfiguration credifyConfig) : base(config, translationLookup)
+        PersistenceService persistenceService, CredifyConfiguration credifyConfig) : base(config, translationLookup)
     {
-        _persistenceManager = persistenceManager;
+        _persistenceService = persistenceService;
         _credifyConfig = credifyConfig;
         Name = "credifysetcredits";
         Description = credifyConfig.Translations.Core.CommandSetCreditsDescription;
@@ -53,7 +54,7 @@ public class SetCreditsCommand : Command
         if (gameEvent.Origin.ClientId != gameEvent.Target.ClientId)
             gameEvent.Target.Tell(_credifyConfig.Translations.Core.CreditsSetByOrigin
                 .FormatExt(gameEvent.Origin.Name, Math.Abs(argAmount).ToString("N0")));
-        _persistenceManager.OrderTop(gameEvent.Target, Math.Abs(argAmount));
-        await _persistenceManager.WriteClientCreditsAsync(gameEvent.Target, argAmount);
+        _persistenceService.OrderTop(gameEvent.Target, Math.Abs(argAmount));
+        await _persistenceService.WriteClientCreditsAsync(gameEvent.Target, argAmount);
     }
 }

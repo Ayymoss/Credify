@@ -1,15 +1,16 @@
 ﻿using Credify.Chat.Active.Blackjack.Models;
 using Credify.Chat.Passive.Games;
 using Credify.Configuration;
+using Credify.Services;
 using Microsoft.Extensions.Logging;
 using SharedLibraryCore.Database.Models;
 
 namespace Credify.Chat.Passive;
 
-public class ChatGameManager(
+public class PassiveManager(
     CredifyConfiguration credifyConfig,
-    ILogger<ChatGameManager> logger,
-    PersistenceManager persistenceManager,
+    ILogger<PassiveManager> logger,
+    PersistenceService persistenceService,
     ChatUtils chatUtils)
 {
     private ChatGame? _currentGame;
@@ -20,15 +21,15 @@ public class ChatGameManager(
         {
             var gameTypes = new List<Type>();
 
-            if (credifyConfig.ChatGame.EnabledTriviaGames.IsTriviaEnabled) gameTypes.Add(typeof(TriviaGame));
-            if (credifyConfig.ChatGame.EnabledTriviaGames.IsCountdownEnabled) gameTypes.Add(typeof(CountdownGame));
-            if (credifyConfig.ChatGame.EnabledTriviaGames.IsMathTestEnabled) gameTypes.Add(typeof(MathTestGame));
-            if (credifyConfig.ChatGame.EnabledTriviaGames.IsTypingTestEnabled) gameTypes.Add(typeof(TypingTestGame));
+            if (credifyConfig.ChatGame.EnabledPassiveGames.IsTriviaEnabled) gameTypes.Add(typeof(TriviaGame));
+            if (credifyConfig.ChatGame.EnabledPassiveGames.IsCountdownEnabled) gameTypes.Add(typeof(CountdownGame));
+            if (credifyConfig.ChatGame.EnabledPassiveGames.IsMathTestEnabled) gameTypes.Add(typeof(MathTestGame));
+            if (credifyConfig.ChatGame.EnabledPassiveGames.IsTypingTestEnabled) gameTypes.Add(typeof(TypingTestGame));
 
             if (gameTypes.Count is 0) return;
 
             var selectedGameType = gameTypes[Random.Shared.Next(gameTypes.Count)];
-            _currentGame = (ChatGame)Activator.CreateInstance(selectedGameType, credifyConfig, persistenceManager, chatUtils)!;
+            _currentGame = (ChatGame)Activator.CreateInstance(selectedGameType, credifyConfig, persistenceService, chatUtils)!;
             if (_currentGame is null)
             {
                 logger.LogError("Couldn't get a new game instance");

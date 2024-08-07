@@ -5,6 +5,7 @@ using Credify.Chat.Active.Roulette.Models.BetTypes.Inside;
 using Credify.Chat.Active.Roulette.Models.BetTypes.Outside;
 using Credify.Configuration;
 using Credify.Configuration.Translations;
+using Credify.Services;
 using SharedLibraryCore;
 using SharedLibraryCore.Helpers;
 
@@ -12,7 +13,7 @@ using SharedLibraryCore.Helpers;
 
 namespace Credify.Chat.Active.Roulette.Utilities;
 
-public class HandleInput(PersistenceManager persistenceManager, CredifyConfiguration config)
+public class HandleInput(PersistenceService persistenceService, CredifyConfiguration config)
 {
     private readonly RouletteTranslations _rouletteTrans = config.Translations.Roulette;
 
@@ -55,7 +56,7 @@ public class HandleInput(PersistenceManager persistenceManager, CredifyConfigura
 
         var tasks = players.Select(async player =>
         {
-            var playerCredits = await persistenceManager.GetClientCreditsAsync(player.Client);
+            var playerCredits = await persistenceService.GetClientCreditsAsync(player.Client);
             var result = await player.Client.PromptClientInput(
                 [_rouletteTrans.Prefix(_rouletteTrans.HowMuchToBet.FormatExt(playerCredits.ToString("N0")))], input =>
                 {
