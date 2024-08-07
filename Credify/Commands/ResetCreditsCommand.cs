@@ -52,7 +52,7 @@ public class ResetCreditsCommand : Command
         gameEvent.Origin.Tell(_credifyConfig.Translations.Core.ResettingCreditsInit);
         await using var context = _context.CreateContext();
         await ResetMetaItems(context, Plugin.CreditsAmount, _credifyConfig.Translations.Core.ResettingCredits, gameEvent);
-        await ResetMetaItems(context, Plugin.LotteryKey, _credifyConfig.Translations.Core.ResettingLotteryTickets,
+        await ResetMetaItems(context, Plugin.RaffleKey, _credifyConfig.Translations.Core.ResettingLotteryTickets,
             gameEvent);
         await ResetMetaItems(context, Plugin.ShopKey, _credifyConfig.Translations.Core.ResettingShopItems, gameEvent);
         await context.SaveChangesAsync();

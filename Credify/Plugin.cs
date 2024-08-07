@@ -46,14 +46,12 @@ public class Plugin : IPluginV2
     public const string CreditsAmount = "Credits_Amount";
     public const string TopKey = "Credits_TopList";
     public const string StatisticsKey = "Credits_Statistics";
-    public const string LotteryKey = "Credits_Lottery";
-    public const string NextRaffleKey = "Credits_NextLottery";
-    public const string ShopKey = "Credits_Shop";
-    public const string BankCreditsKey = "Credits_Bank";
-    public const string LastLottoWinner = "Credits_LastLottoWinner";
-    public const string RecentBoughtItems = "Credits_RecentBoughtItems";
     public const string RaffleKey = "Credits_Raffle";
     public const string LastRaffleWinner = "Credits_LastRaffleWinner";
+    public const string NextRaffleKey = "Credits_NextRaffle";
+    public const string ShopKey = "Credits_Shop";
+    public const string BankCreditsKey = "Credits_Bank";
+    public const string RecentBoughtItems = "Credits_RecentBoughtItems";
 
     public const string PluginName = "Credify";
     public string Name => PluginName;
