@@ -207,6 +207,26 @@ public class QuestConfiguration
             ObjectiveCount = 3,
             IsRepeatable = false,
             IsPermanent = false
+        },
+        new Quest
+        {
+            Enabled = true,
+            Name = "Humiliation (Get knifed)",
+            Reward = 2_000,
+            ObjectiveType = ObjectiveType.Humiliation,
+            ObjectiveCount = 10,
+            IsRepeatable = false,
+            IsPermanent = false
+        },
+        new Quest
+        {
+            Enabled = true,
+            Name = "Trivia Fanatic (Answer Chat Trivia)",
+            Reward = 250_000,
+            ObjectiveType = ObjectiveType.Trivia,
+            ObjectiveCount = 50,
+            IsRepeatable = false,
+            IsPermanent = true
         }
     ];
 }

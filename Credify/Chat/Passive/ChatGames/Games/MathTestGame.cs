@@ -1,4 +1,5 @@
 ﻿using Credify.Chat.Active.Blackjack.Models;
+using Credify.Chat.Passive.Quests.Enums;
 using Credify.Configuration;
 using Credify.Services;
 using SharedLibraryCore;
@@ -81,6 +82,7 @@ public class MathTestGame(CredifyConfiguration credifyConfig, PersistenceService
 
         foreach (var winner in GameInfo.Players)
         {
+            ICredifyEventService.RaiseEvent(ObjectiveType.Trivia, winner.Client);
             var balance = await persistenceService.GetClientCreditsAsync(winner.Client);
             var userMessage = credifyConfig.Translations.Passive.ReactionTell
                 .FormatExt(winnerClient.Payout.ToString("N0"), balance.ToString("N0"));

@@ -19,4 +19,6 @@ public enum ObjectiveType
     Impact = 14,
     Silenced = 15,
     MyNameJeff = 16,
+    Humiliation = 17,
+    Trivia = 18,
 }

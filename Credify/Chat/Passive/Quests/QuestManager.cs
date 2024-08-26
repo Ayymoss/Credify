@@ -153,9 +153,13 @@ public class QuestManager(CredifyConfiguration config, PersistenceService persis
                     case ObjectiveType.Kill:
                         UpdatePlayerProgress(origin, (int)quest.ObjectiveType, 1);
                         break;
+                    case ObjectiveType.Humiliation when meansOfDeath is MeansOfDeath.Melee && weapon is not Weapon.RiotShield:
+                        UpdatePlayerProgress(target, (int)quest.ObjectiveType, 1);
+                        break;
                 }
 
                 await CheckQuestCompletionAsync(origin, quest);
+                await CheckQuestCompletionAsync(target, quest); // For humiliation
             }
         }
         finally
@@ -200,6 +204,7 @@ public class QuestManager(CredifyConfiguration config, PersistenceService persis
 
             switch (objective)
             {
+                case ObjectiveType.Trivia:
                 case ObjectiveType.Baller:
                 case ObjectiveType.Donation:
                 case ObjectiveType.Raffle:
@@ -222,11 +227,9 @@ public class QuestManager(CredifyConfiguration config, PersistenceService persis
                     break;
             }
 
-
             await CheckQuestCompletionAsync(client, quest);
         }
         finally
-
         {
             if (_semaphoreSlim.CurrentCount is 0) _semaphoreSlim.Release();
         }

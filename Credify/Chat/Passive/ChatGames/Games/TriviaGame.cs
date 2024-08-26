@@ -1,4 +1,5 @@
 ﻿using Credify.Chat.Active.Blackjack.Models;
+using Credify.Chat.Passive.Quests.Enums;
 using Credify.Configuration;
 using Credify.Helpers;
 using Credify.Models.ApiModels;
@@ -112,8 +113,12 @@ public class TriviaGame(CredifyConfiguration credifyConfig, PersistenceService p
             return;
         }
 
-        var players = GameInfo.Players.Where(x => x.Winner).ToList();
+        foreach (var player in GameInfo.Players)
+        {
+            ICredifyEventService.RaiseEvent(ObjectiveType.Trivia, player.Client);
+        }
 
+        var players = GameInfo.Players.Where(x => x.Winner).ToList();
         if (players.Count is 0)
         {
             var message = credifyConfig.Translations.Passive.TriviaNoWinner.FormatExt(Plugin.PluginName, GameInfo.Answer);
