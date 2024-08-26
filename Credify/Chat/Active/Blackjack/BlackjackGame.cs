@@ -257,7 +257,7 @@ public class BlackjackGame(PersistenceService persistenceService, CredifyConfigu
             if (_activePlayers.Count is not 1) await TellPlayerAsync(player.Key, false, [FormatPlayerOutcomes()]);
             if (_players[player.Key].Payout is 0) continue;
             
-            if (_players[player.Key].Payout!.Value > 10_000) ICredifyEventService.RaiseEvent(ObjectiveType.Baller, player.Key);
+            if (_players[player.Key].Payout!.Value >= 10_000) ICredifyEventService.RaiseEvent(ObjectiveType.Baller, player.Key);
             await persistenceService.AddCreditsAsync(player.Key, _players[player.Key].Payout!.Value);
             await TellPlayerAsync(player.Key, false,
             [
