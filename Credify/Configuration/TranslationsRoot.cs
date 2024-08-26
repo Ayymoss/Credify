@@ -9,4 +9,5 @@ public class TranslationsRoot
     public PassiveTranslations Passive { get; set; } = new();
     public BlackjackTranslations Blackjack { get; set; } = new();
     public RouletteTranslations Roulette { get; set; } = new();
+    public QuestsTranslations Quests { get; set; } = new();
 }

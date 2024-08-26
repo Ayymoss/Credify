@@ -80,6 +80,7 @@ public class CoreTranslations
     public string MaximumAmount { get; set; } = "(Color::Yellow)Maximum amount is (Color::Green){{maxAmount}}";
     public string CommandBlackjack { get; set; } ="Join Blackjack";
     public string CommandRoulette { get; set; } = "Join Roulette";
+    public string CommandQuestDescription { get; set; } = "Shows the quests";
 
     // @formatter:on
 }

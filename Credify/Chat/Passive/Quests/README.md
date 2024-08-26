@@ -37,5 +37,3 @@
 * **Progress Tracking:** Display quest progress in a user-friendly way, either in chat or through a dedicated command.
 * **Optional Quest Rerolls:** Consider allowing players to reroll a quest they don't like, perhaps with a small credit cost.
 * **Quest Completion Rewards:** Award credits upon completion, but also consider granting additional bonuses like temporary perks, badges, or unique items.
-
-// Gemini for suggestions

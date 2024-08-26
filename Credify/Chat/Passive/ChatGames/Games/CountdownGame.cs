@@ -7,7 +7,7 @@ using Humanizer;
 using SharedLibraryCore;
 using SharedLibraryCore.Database.Models;
 
-namespace Credify.Chat.Passive.Games;
+namespace Credify.Chat.Passive.ChatGames.Games;
 
 public class CountdownGame(CredifyConfiguration credifyConfig, PersistenceService persistenceService, ChatUtils chatUtils)
     : ChatGame

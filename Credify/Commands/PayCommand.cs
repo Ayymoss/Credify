@@ -1,4 +1,5 @@
-﻿using Credify.Configuration;
+﻿using Credify.Chat.Passive.Quests.Enums;
+using Credify.Configuration;
 using Credify.Models;
 using Credify.Services;
 using SharedLibraryCore;
@@ -73,6 +74,8 @@ public class PayCommand : Command
             gameEvent.Origin.Tell(_credifyConfig.Translations.Core.MaximumAmount.FormatExt(_credifyConfig.Core.MaxGiveCredits));
             return;
         }
+
+        if (credits > 500) ICredifyEventService.RaiseEvent(ObjectiveType.Donation, gameEvent.Origin);
 
         await _persistenceService.RemoveCreditsAsync(gameEvent.Origin, credits);
         await _persistenceService.AddCreditsAsync(gameEvent.Target, credits);

@@ -1,7 +1,7 @@
 ﻿using Credify.Chat.Active.Blackjack.Models;
 using SharedLibraryCore.Database.Models;
 
-namespace Credify.Chat.Passive;
+namespace Credify.Chat.Passive.ChatGames;
 
 public abstract class ChatGame
 {

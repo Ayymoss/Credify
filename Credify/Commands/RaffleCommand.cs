@@ -1,5 +1,6 @@
 ﻿using Credify.Chat.Active.Raffle;
 using Credify.Chat.Active.Raffle.Enums;
+using Credify.Chat.Passive.Quests.Enums;
 using Credify.Configuration;
 using Credify.Services;
 using SharedLibraryCore;
@@ -66,6 +67,7 @@ public class RaffleCommand : Command
         {
             case StatusTypes.Success:
                 gameEvent.Origin.Tell(_credifyConfig.Translations.Raffle.Success.FormatExt(result.Ticket?.ToString("N0")));
+                ICredifyEventService.RaiseEvent(ObjectiveType.Raffle, gameEvent.Origin);
                 break;
             case StatusTypes.ClientAlreadyPurchased:
                 gameEvent.Origin.Tell(_credifyConfig.Translations.Raffle.ClientAlreadyPurchased);
