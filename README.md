@@ -1,45 +1,62 @@
-## Credify - An IW4MAdmin Plugin
+## Credify - A Feature-Rich Plugin for IW4MAdmin
 
-Credify is an engaging betting system for IW4MAdmin that lets players gamble their in-game credits on team or player outcomes. Players can also participate in mindless gambling using their credits.
+Credify enhances your IW4MAdmin server with a dynamic credit system, engaging games, a customizable shop, and exciting quests, providing a more rewarding and entertaining experience for your players.
 
-When new players join, they receive credits equal to their total kills (if any), otherwise they start with 0 credits. Each kill grants 1 credit. Betting requires a minimum of 10 players.
+### Features:
 
-Credits are global, not server-specific, and can be viewed with the !crtop command. However, team/player bets are server-specific.
+* **Global Credit System:** Players earn credits for various actions, including kills, winning games, completing quests, and participating in events. Credits can be used for gambling, purchasing items from the shop, and participating in special activities.
+* **Interactive Games:**
+    * **Blackjack:** A classic card game where players try to beat the dealer without exceeding 21.
+    * **Roulette:**  Experience the thrill of the casino with customizable bets and payouts.
+    * **Raffle:** Enter the periodic raffle for a chance to win big!
+    * **Chat Games:** Engage players with fun, timed chat games like Trivia, Countdown, Math Test, and Typing Test.
+* **Customizable Shop:**  Set up a virtual shop with items players can purchase using their credits.  Configure item costs, availability, and maximum purchase amounts to tailor the shop to your server's needs.
+* **Challenging Quests:**  Motivate players with daily and permanent quests that reward them for completing in-game objectives.
+* **Global Statistics:** Track server-wide credit earnings, spending, and winnings to gain insights into player activity.
+* **Top Credit Leaderboard:**  Recognize and encourage competitive spirit with a leaderboard showcasing the players with the most credits.
 
-## Commands
-### User Commands
+### Commands:
 
-```
-!crhelp - Displays help for the plugin
+**User Commands:**
 
-!cr <optional name> - Returns yours or someone's credits
-!crpay <name> <amount> - Give someone your credits
-!crstats - Displays global credits statistics
-!crtop - List top players by credits
+| Command       | Alias       | Description                                                                                |
+|---------------|-------------|--------------------------------------------------------------------------------------------|
+| `!credify`    | `!cr`       | Check your credits or another player's credits.                                            |
+| `!credifyhelp` | `!crhelp`  | Display help information for Credify commands.                                             |
+| `!credifypay`  | `!crpay`   | Pay credits to another player.                                                             |
+| `!credifystats`| `!crstats` | View global credit statistics.                                                             |
+| `!credifytop` | `!crtop`  | Display the top 5 credit holders.                                                          |
+| `!credifyquests` | `!crq` | Display your current quests and progress. |
+| `!credifyroulette`| `!crrl` | Join or leave the Roulette table. |
+| `!credifyblackjack` | `!crbj` | Join or leave the Blackjack table. |
+| `!credifyraffle` | `!crraf` | Purchase a raffle ticket (optional ticket number). |
+| `!credifyshowraffle` | `!crsr` | View the current raffle participants and pot. |
+| `!credifyshop` | `!crshop` | Display the available items in the shop. |
+| `!credifybuy`   | `!crbuy`  | Purchase an item from the shop using its ID. |
+| `!credifyinventory` | `!crinv` | View your purchased shop items. |
+| `!creditsrps` | `!crrps` | Play Rock Paper Scissors (use `rock`, `paper`, or `scissors` as arguments). |
 
-!crrl - Join the Roulette Table
-!crbj - Join the Blackjack Table
-!crrps - Play Rock Paper Scissors
+**Admin Commands:**
 
-!crsl - Displays the current lotto pot and who has entered
-!crlotto <amount> - Buy lotto ticket(s) for a chance to win the pot
+| Command       | Alias       | Description                                                                                 |
+|---------------|-------------|---------------------------------------------------------------------------------------------|
+| `!credifysetcredits` | `!crset`  | Set a player's credits.                                                                     |
+| `!credifyrecentbuys` | `!crrb`   | View a list of recent shop purchases.                                                         |
+| `!credifyresetcredits` | `!crreset` | **USE WITH CAUTION:** Reset the entire credit system.                                      |
+
+### Installation:
+
+Subscribe to Credify via [IW4MAdmin Plugin Store](https://store.raidmax.org/).
+
+### Configuration:
+
+Credify offers a wide range of configuration options to customize the credit system, games, shop, and quests. You can adjust credit earning rates, game payouts, shop items, quest objectives, and more to create a unique and balanced experience for your players.
+
+### Support & Updates:
+
+For questions, support, or feature requests, please visit the Credify GitHub repository.
+
+**Enjoy Credify and enhance your IW4MAdmin server with exciting credit-based features!** 
 
 
 
-!crshop - Displays the shop
-!crbuy <ID> - Buy an item from the shop
-!crinv - Displays your inventory
-```
-- Use "all" instead of an amount to stake everything.
-  
-### Admin Commands
-```
-!crset <name> <amount> - Set a player's credits
-!crrb - Check players recent shop purchases.
-!crreset - Reset the entire credit system - USE WITH CAUTION
-```
-
-## Requirements
-.NET 8
-
-IW4MAdmin v2024.8.XX.X+ or later.
