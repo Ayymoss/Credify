@@ -33,6 +33,7 @@ public class RecentBuysCommand : Command
         gameEvent.Origin.Tell(_credifyConfig.Translations.Core.RecentBuysTitle);
 
         var output = recentBuys.OrderByDescending(entry => entry.Bought)
+            .Where(x => x.Bought > TimeProvider.System.GetUtcNow().AddMonths(-1))
             .Select((buyer, index) => _credifyConfig.Translations.Core.RecentBoughtItemEntry
                 .FormatExt(index + 1, buyer.ClientName, buyer.ClientId, serverItems.First(x => x.Id == buyer.Id).Name,
                     buyer.Bought.Humanize()));

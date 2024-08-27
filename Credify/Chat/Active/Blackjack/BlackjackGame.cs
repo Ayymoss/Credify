@@ -1,6 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using System.Text;
 using Credify.Chat.Active.Blackjack.Models;
+using Credify.Chat.Passive.Quests.Enums;
 using Credify.Configuration;
 using Credify.Services;
 using SharedLibraryCore;
@@ -256,6 +257,7 @@ public class BlackjackGame(PersistenceService persistenceService, CredifyConfigu
             if (_activePlayers.Count is not 1) await TellPlayerAsync(player.Key, false, [FormatPlayerOutcomes()]);
             if (_players[player.Key].Payout is 0) continue;
 
+            ICredifyEventService.RaiseEvent(ObjectiveType.Baller, player.Key, _players[player.Key].Payout!.Value);
             await persistenceService.AddCreditsAsync(player.Key, _players[player.Key].Payout!.Value);
             await TellPlayerAsync(player.Key, false,
             [
@@ -269,6 +271,12 @@ public class BlackjackGame(PersistenceService persistenceService, CredifyConfigu
 
     private async Task EndGameAsync(CancellationToken token)
     {
+        foreach (var player in _activePlayers.Keys)
+        {
+            // Increase their quest for successful round
+            ICredifyEventService.RaiseEvent(ObjectiveType.Blackjack, player);
+        }
+
         _activePlayers.Clear();
         _houseHand.Clear();
         await _dealerPlaysToken.CancelAsync();
@@ -508,29 +516,30 @@ public class BlackjackGame(PersistenceService persistenceService, CredifyConfigu
 
     private static ConcurrentQueue<BlackjackCard> ResetDeck()
     {
-        var deck = (
-            from BlackjackCard.Suit suit
-                in Enum.GetValues(typeof(BlackjackCard.Suit))
-            from BlackjackCard.Rank rank
-                in Enum.GetValues(typeof(BlackjackCard.Rank))
-            select new BlackjackCard(suit, rank)
-        ).ToList();
+        var deck = new List<BlackjackCard>();
+        var suits = Enum.GetValues(typeof(BlackjackCard.Suit)).Cast<BlackjackCard.Suit>();
+        var ranks = Enum.GetValues(typeof(BlackjackCard.Rank)).Cast<BlackjackCard.Rank>().ToList();
+        foreach (var suit in suits)
+        {
+            foreach (var rank in ranks)
+            {
+                deck.Add(new BlackjackCard(suit, rank));
+            }
+        }
 
         var shuffledDeck = new ConcurrentQueue<BlackjackCard>(deck.OrderBy(_ => Guid.NewGuid()));
         return shuffledDeck;
     }
 
-    private List<EFClient> GetRequestStakesRemainders() =>
-        _players.Where(x => x.Value.Stake is null)
-            .Where(x => _activePlayers.ContainsKey(x.Key))
-            .Select(x => x.Key)
-            .ToList();
+    private List<EFClient> GetRequestStakesRemainders() => _players.Where(x => x.Value.Stake is null)
+        .Where(x => _activePlayers.ContainsKey(x.Key))
+        .Select(x => x.Key)
+        .ToList();
 
-    private List<EFClient> GetDecisionStateRemainders() =>
-        _activePlayers
-            .Where(x => x.Value.State is BlackjackEnums.PlayerState.Playing)
-            .Select(x => x.Key)
-            .ToList();
+    private List<EFClient> GetDecisionStateRemainders() => _activePlayers
+        .Where(x => x.Value.State is BlackjackEnums.PlayerState.Playing)
+        .Select(x => x.Key)
+        .ToList();
 
     private static int CalculateHandValue(IEnumerable<BlackjackCard> hand)
     {

@@ -3,6 +3,7 @@ using Credify.Chat.Active.Roulette.Enums;
 using Credify.Chat.Active.Roulette.Models;
 using Credify.Chat.Active.Roulette.Models.BetTypes.Inside;
 using Credify.Chat.Active.Roulette.Utilities;
+using Credify.Chat.Passive.Quests.Enums;
 using Credify.Configuration;
 using Credify.Services;
 using SharedLibraryCore;
@@ -38,6 +39,7 @@ public class Table(
             foreach (var player in _players)
             {
                 player.ClearBet();
+                ICredifyEventService.RaiseEvent(ObjectiveType.Roulette, player.Client);
             }
 
             await RemoveBrokePlayers();
@@ -65,11 +67,11 @@ public class Table(
     {
         var message = translations.Roulette.Prefix(translations.Roulette.SpinningWheel);
         await HandleOutput.TellAsync(_players, [$"{message}..."]);
-        await Task.Delay(1_250, token);
+        await Task.Delay(1_000, token);
         await HandleOutput.TellAsync(_players, [$"{message}.."]);
         await Task.Delay(1_500, token);
         await HandleOutput.TellAsync(_players, [$"{message}."]);
-        await Task.Delay(1_750, token);
+        await Task.Delay(2_000, token);
     }
 
     private async Task HandleResult(SpinResult spinResult)
@@ -84,6 +86,7 @@ public class Table(
                 continue;
             }
 
+            ICredifyEventService.RaiseEvent(ObjectiveType.Baller, player.Client, player.Bet.Payout);
             output.Tell(player, translations.Roulette.Won.FormatExt((player.Bet.Payout - player.Bet.Stake).ToString("N0")));
             await persistenceService.AddCreditsAsync(player.Client, player.Bet.Payout);
 

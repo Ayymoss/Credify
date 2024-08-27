@@ -1,4 +1,5 @@
-﻿using Credify.Configuration;
+﻿using Credify.Chat.Passive.Quests.Enums;
+using Credify.Configuration;
 using Credify.Models;
 using Credify.Services;
 using SharedLibraryCore;
@@ -103,14 +104,15 @@ public class RockPaperScissorsCommand : Command
                 message = _credifyConfig.Translations.Core.GambleDraw.FormatExt(stake.ToString("N0"), userBalance.ToString("N0"));
                 break;
             case 1: // User wins
-                await _persistenceService.AddCreditsAsync(gameEvent.Origin, stake);
+                ICredifyEventService.RaiseEvent(ObjectiveType.Baller, gameEvent.Origin, stake * 2);
+                userBalance = await _persistenceService.AddCreditsAsync(gameEvent.Origin, stake); // Since money is never taken, this is x2
                 message = _credifyConfig.Translations.Core.GambleWon
-                    .FormatExt(stake.ToString("N0"), (userBalance + stake).ToString("N0"));
+                    .FormatExt(stake.ToString("N0"), userBalance.ToString("N0"));
                 break;
             default: // User loses
-                var newBalance = await _persistenceService.RemoveCreditsAsync(gameEvent.Origin, stake);
+                userBalance = await _persistenceService.RemoveCreditsAsync(gameEvent.Origin, stake);
                 message = _credifyConfig.Translations.Core.GambleLost
-                    .FormatExt(stake.ToString("N0"), newBalance.ToString("N0"));
+                    .FormatExt(stake.ToString("N0"), userBalance.ToString("N0"));
                 break;
         }
 

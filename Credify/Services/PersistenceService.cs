@@ -1,5 +1,7 @@
 ﻿using System.Globalization;
 using Credify.Chat.Active.Raffle.Models;
+using Credify.Chat.Passive.Quests.Enums;
+using Credify.Chat.Passive.Quests.Models;
 using Credify.Configuration;
 using Credify.Models;
 using SharedLibraryCore;
@@ -16,9 +18,7 @@ public class PersistenceService(
     CredifyCache cache)
 {
     public void ResetBank() => cache.BankCredits = 0;
-
     public void AddBankCredits(long credits) => cache.AddBankCredits(credits);
-
     public static bool AvailableFunds(EFClient client, long amount) => amount <= client.GetAdditionalProperty<long>(Plugin.CreditsAmount);
 
     public async Task WriteClientCreditsAsync(EFClient client, long? amount = null)
@@ -51,7 +51,7 @@ public class PersistenceService(
 
     public async Task<List<Player>?> ReadRaffleAsync()
     {
-        return await metaService.GetPersistentMetaValue<List<Player>>(Plugin.RaffleKey);
+        return await metaService.GetPersistentMetaValue<List<Player>>(Plugin.RaffleKey) ?? [];
     }
 
     public async Task WriteRaffle(List<Player> rafflePlayers)
@@ -72,8 +72,7 @@ public class PersistenceService(
 
     public async Task<IEnumerable<ClientShopContext>> ReadRecentBoughtItemsAsync()
     {
-        var items = await metaService.GetPersistentMetaValue<List<ClientShopContext>>(Plugin.RecentBoughtItems);
-        return items ?? [];
+        return await metaService.GetPersistentMetaValue<List<ClientShopContext>>(Plugin.RecentBoughtItems) ?? [];
     }
 
     public async Task WriteNextRaffleAsync(DateTimeOffset dateTime)
@@ -90,15 +89,12 @@ public class PersistenceService(
 
     public async Task ReadTopScoreAsync()
     {
-        var topCreditsValue = await metaService.GetPersistentMetaValue<List<TopCreditEntry>>(Plugin.TopKey);
-        cache.TopCredits = topCreditsValue ?? [];
+        cache.TopCredits = await metaService.GetPersistentMetaValue<List<TopCreditEntry>>(Plugin.TopKey) ?? [];
     }
 
     private async Task<List<ClientShopItem>> ReadClientShopItemsAsync(EFClient client)
     {
-        var shopItems = await metaService.GetPersistentMetaValue<List<ClientShopItem>>(Plugin.ShopKey, client.ClientId);
-
-        shopItems ??= [];
+        var shopItems = await metaService.GetPersistentMetaValue<List<ClientShopItem>>(Plugin.ShopKey, client.ClientId) ?? [];
         client.SetAdditionalProperty(Plugin.ShopKey, shopItems);
         return shopItems;
     }
@@ -114,6 +110,19 @@ public class PersistenceService(
 
         userCredits = await ReadClientShopItemsAsync(client);
         return userCredits;
+    }
+
+    public async Task<List<QuestMeta>> ReadClientQuestsAsync(EFClient client)
+    {
+        var quests = await metaService.GetPersistentMetaValue<List<QuestMeta>>(Plugin.ClientQuestsKey, client.ClientId) ?? [];
+        client.SetAdditionalProperty(Plugin.ClientQuestsKey, quests);
+        return quests;
+    }
+
+    public async Task WriteClientQuestsAsync(EFClient client)
+    {
+        var quests = client.GetAdditionalProperty<List<QuestMeta>>(Plugin.ClientQuestsKey) ?? [];
+        await metaService.SetPersistentMetaValue(Plugin.ClientQuestsKey, quests, client.ClientId);
     }
 
     public async Task ReadBankCreditsAsync()
@@ -140,9 +149,9 @@ public class PersistenceService(
 
     public async Task OnJoinAsync(EFClient client)
     {
+        await ReadClientQuestsAsync(client);
         await ReadClientShopItemsAsync(client);
-        var userCredits = await LoadUserCreditsAsync(client);
-        client.Tell(credifyConfig.Translations.Core.UserCredits.FormatExt(userCredits.ToString("N0")));
+        await LoadUserCreditsAsync(client);
     }
 
     public async Task<long> GetClientCreditsAsync(EFClient client)
@@ -158,40 +167,19 @@ public class PersistenceService(
         return userCredits;
     }
 
-    public async Task<long> AddCreditsAsync(int clientId, long credits)
-    {
-        cache.StatisticsState.AddCreditsWon((ulong)credits);
-        var balance = await AlterClientCreditsAsync(clientId, credits);
-        return balance;
-    }
-
     public async Task<long> AddCreditsAsync(EFClient client, long credits)
     {
         cache.StatisticsState.AddCreditsWon((ulong)credits);
-
         var balance = await AlterClientCreditsAsync(client, credits);
-        return balance;
-    }
-
-    public async Task<long> RemoveCreditsAsync(int clientId, long credits)
-    {
-        cache.StatisticsState.AddCreditsSpent((ulong)credits);
-        var balance = await AlterClientCreditsAsync(clientId, -credits);
         return balance;
     }
 
     public async Task<long> RemoveCreditsAsync(EFClient client, long credits)
     {
         cache.StatisticsState.AddCreditsSpent((ulong)credits);
+        ICredifyEventService.RaiseEvent(ObjectiveType.CreditsSpent, client, credits);
         var balance = await AlterClientCreditsAsync(client, -credits);
         return balance;
-    }
-
-    private async Task<long> AlterClientCreditsAsync(int clientId, long amount)
-    {
-        var client = await clientService.Get(clientId);
-        ArgumentNullException.ThrowIfNull(client);
-        return await AlterClientCreditsAsync(client, amount);
     }
 
     private async Task<long> AlterClientCreditsAsync(EFClient client, long amount) // TODO: Optimise
@@ -202,13 +190,14 @@ public class PersistenceService(
             credits = client.GetAdditionalProperty<long>(Plugin.CreditsAmount);
             newCredits = credits + amount;
             client.SetAdditionalProperty(Plugin.CreditsAmount, newCredits);
-            OrderTop(client, newCredits);
-            return newCredits;
+        }
+        else
+        {
+            credits = await LoadUserCreditsAsync(client);
+            newCredits = credits + amount;
+            await WriteClientCreditsAsync(client, newCredits);
         }
 
-        credits = await LoadUserCreditsAsync(client);
-        newCredits = credits + amount;
-        await WriteClientCreditsAsync(client, newCredits);
         OrderTop(client, newCredits);
         return newCredits;
     }
@@ -264,6 +253,8 @@ public class PersistenceService(
                 existingCredEntry.Credits = amount;
             }
 
+            ICredifyEventService.RaiseEvent(ObjectiveType.TopHolder, client);
+
             cache.TopCredits = cache.TopCredits
                 .OrderByDescending(credit => credit.Credits)
                 .Take(5)
@@ -272,6 +263,5 @@ public class PersistenceService(
     }
 
     public void ResetTop() => cache.TopCredits = [];
-
     public void ResetStatistics() => cache.StatisticsState = new StatisticsState();
 }

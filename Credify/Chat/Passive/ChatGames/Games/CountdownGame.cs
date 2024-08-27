@@ -1,4 +1,5 @@
 ﻿using Credify.Chat.Active.Blackjack.Models;
+using Credify.Chat.Passive.Quests.Enums;
 using Credify.Configuration;
 using Credify.Helpers;
 using Credify.Models.ApiModels;
@@ -7,7 +8,7 @@ using Humanizer;
 using SharedLibraryCore;
 using SharedLibraryCore.Database.Models;
 
-namespace Credify.Chat.Passive.Games;
+namespace Credify.Chat.Passive.ChatGames.Games;
 
 public class CountdownGame(CredifyConfiguration credifyConfig, PersistenceService persistenceService, ChatUtils chatUtils)
     : ChatGame
@@ -26,7 +27,7 @@ public class CountdownGame(CredifyConfiguration credifyConfig, PersistenceServic
 
         var message = credifyConfig.Translations.Passive.CountdownBroadcast.FormatExt(Plugin.PluginName, GameInfo.GameName,
             GameInfo.Question);
-        await chatUtils.BroadcastToAllServers(new[] { message });
+        await chatUtils.BroadcastToAllServers([message]);
         Utilities.ExecuteAfterDelay(credifyConfig.ChatGame.TriviaTimeout, End, CancellationToken.None);
     }
 
@@ -101,6 +102,11 @@ public class CountdownGame(CredifyConfiguration credifyConfig, PersistenceServic
                 credifyConfig.Translations.Passive.TypingTestNoAnswer.FormatExt(Plugin.PluginName);
             await chatUtils.BroadcastToAllServers([message]);
             return;
+        }
+
+        foreach (var player in GameInfo.Players)
+        {
+            ICredifyEventService.RaiseEvent(ObjectiveType.Trivia, player.Client);
         }
 
         var players = GameInfo.Players.Where(x => x.Winner).ToList();

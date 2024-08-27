@@ -1,4 +1,5 @@
-﻿using Credify.Configuration;
+﻿using Credify.Chat.Passive.Quests.Enums;
+using Credify.Configuration;
 using Credify.Models;
 using Credify.Services;
 using SharedLibraryCore;
@@ -74,6 +75,7 @@ public class PayCommand : Command
             return;
         }
 
+        ICredifyEventService.RaiseEvent(ObjectiveType.Donation, gameEvent.Origin, credits);
         await _persistenceService.RemoveCreditsAsync(gameEvent.Origin, credits);
         await _persistenceService.AddCreditsAsync(gameEvent.Target, credits);
 

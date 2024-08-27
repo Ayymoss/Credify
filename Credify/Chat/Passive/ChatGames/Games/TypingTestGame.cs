@@ -1,11 +1,12 @@
 ﻿using System.Text;
 using Credify.Chat.Active.Blackjack.Models;
+using Credify.Chat.Passive.Quests.Enums;
 using Credify.Configuration;
 using Credify.Services;
 using SharedLibraryCore;
 using SharedLibraryCore.Database.Models;
 
-namespace Credify.Chat.Passive.Games;
+namespace Credify.Chat.Passive.ChatGames.Games;
 
 public class TypingTestGame(CredifyConfiguration credifyConfig, PersistenceService persistenceService, ChatUtils chatUtils) : ChatGame
 {
@@ -68,7 +69,7 @@ public class TypingTestGame(CredifyConfiguration credifyConfig, PersistenceServi
         if (GameInfo.Players.Count is 0)
         {
             var message = credifyConfig.Translations.Passive.TypingTestNoAnswer.FormatExt(Plugin.PluginName);
-            await chatUtils.BroadcastToAllServers(new[] { message });
+            await chatUtils.BroadcastToAllServers([message]);
             return;
         }
 
@@ -80,6 +81,7 @@ public class TypingTestGame(CredifyConfiguration credifyConfig, PersistenceServi
 
         foreach (var winner in GameInfo.Players)
         {
+            ICredifyEventService.RaiseEvent(ObjectiveType.Trivia, winner.Client);
             var balance = await persistenceService.GetClientCreditsAsync(winner.Client);
             var userMessage = credifyConfig.Translations.Passive.ReactionTell
                 .FormatExt(winnerClient.Payout.ToString("N0"), balance.ToString("N0"));

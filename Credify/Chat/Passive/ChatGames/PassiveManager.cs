@@ -1,11 +1,11 @@
 ﻿using Credify.Chat.Active.Blackjack.Models;
-using Credify.Chat.Passive.Games;
+using Credify.Chat.Passive.ChatGames.Games;
 using Credify.Configuration;
 using Credify.Services;
 using Microsoft.Extensions.Logging;
 using SharedLibraryCore.Database.Models;
 
-namespace Credify.Chat.Passive;
+namespace Credify.Chat.Passive.ChatGames;
 
 public class PassiveManager(
     CredifyConfiguration credifyConfig,
@@ -44,7 +44,7 @@ public class PassiveManager(
         }
     }
 
-    public async Task HandleChatEventAsync(EFClient client, string message)
+    public async Task HandleChatAsync(EFClient client, string message)
     {
         if (_currentGame?.GameState is not GameState.Started) return;
         await _currentGame.HandleChatMessageAsync(client, message);

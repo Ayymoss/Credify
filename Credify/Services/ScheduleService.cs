@@ -1,12 +1,18 @@
 ﻿using Credify.Chat.Active.Raffle;
 using Credify.Chat.Passive;
+using Credify.Chat.Passive.ChatGames;
+using Credify.Chat.Passive.Quests;
 using Credify.Configuration;
 using SharedLibraryCore;
 using SharedLibraryCore.Interfaces;
 
 namespace Credify.Services;
 
-public class ScheduleService(CredifyConfiguration config, RaffleManager raffleManager, PassiveManager passiveManager)
+public class ScheduleService(
+    CredifyConfiguration config,
+    RaffleManager raffleManager,
+    PassiveManager passiveManager,
+    QuestManager questManager)
 {
     public void TriggerSchedules(IManager manager, CancellationToken token)
     {
@@ -16,6 +22,8 @@ public class ScheduleService(CredifyConfiguration config, RaffleManager raffleMa
             cancellationToken => AdvertisementDelayAsync(manager, cancellationToken), token);
 
         Utilities.ExecuteAfterDelay(TimeSpan.FromMinutes(1), LotteryDelayCheck, token);
+
+        Utilities.ExecuteAfterDelay(TimeSpan.FromMinutes(1), GenerateDailyQuestsAsync, token);
     }
 
     private async Task InitChatGameAsync(CancellationToken token)
@@ -42,7 +50,7 @@ public class ScheduleService(CredifyConfiguration config, RaffleManager raffleMa
             List<string> messages =
             [
                 config.Translations.Core.AdvertisementMessage.FormatExt(Plugin.PluginName),
-                config.Translations.Core.AdvertisementLotto.FormatExt(Plugin.PluginName),
+                config.Translations.Core.AdvertisementRaffle.FormatExt(Plugin.PluginName),
                 config.Translations.Core.AdvertisementShop.FormatExt(Plugin.PluginName)
             ];
             await server.BroadcastAsync(messages, token: token);
@@ -50,5 +58,17 @@ public class ScheduleService(CredifyConfiguration config, RaffleManager raffleMa
 
         Utilities.ExecuteAfterDelay(config.Core.AdvertisementIntervalMinutes,
             cancellationToken => AdvertisementDelayAsync(manager, cancellationToken), token);
+    }
+
+    private Task GenerateDailyQuestsAsync(CancellationToken token)
+    {
+        questManager.GenerateDailyQuests();
+
+        var now = TimeProvider.System.GetLocalNow();
+        var nextMidnight = new DateTimeOffset(now.Year, now.Month, now.Day, 0, 0, 0, now.Offset).AddDays(1);
+        var timeUntilMidnight = nextMidnight - now;
+
+        Utilities.ExecuteAfterDelay(timeUntilMidnight, GenerateDailyQuestsAsync, token);
+        return Task.CompletedTask;
     }
 }

@@ -6,7 +6,12 @@ using Player = Credify.Chat.Active.Roulette.Models.Player;
 
 namespace Credify.Chat.Active.Roulette;
 
-public class RouletteManager(CredifyConfiguration config, TranslationsRoot translations, PersistenceService persistenceService, HandleInput input, HandleOutput output)
+public class RouletteManager(
+    CredifyConfiguration config,
+    TranslationsRoot translations,
+    PersistenceService persistenceService,
+    HandleInput input,
+    HandleOutput output)
 {
     private readonly Table _table = new(config, translations, persistenceService, input, output);
 

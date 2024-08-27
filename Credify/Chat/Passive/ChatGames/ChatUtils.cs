@@ -2,7 +2,7 @@
 using Credify.Configuration;
 using SharedLibraryCore.Interfaces;
 
-namespace Credify.Chat.Passive;
+namespace Credify.Chat.Passive.ChatGames;
 
 public class ChatUtils(CredifyConfiguration credifyConfig)
 {
