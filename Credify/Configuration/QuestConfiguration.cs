@@ -211,7 +211,7 @@ public class QuestConfiguration
         new Quest
         {
             Enabled = true,
-            Name = "Humiliation (Get knifed)",
+            Name = "Humiliation (Get Knifed)",
             Reward = 2_000,
             ObjectiveType = ObjectiveType.Humiliation,
             ObjectiveCount = 10,

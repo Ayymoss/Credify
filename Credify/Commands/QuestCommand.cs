@@ -33,6 +33,7 @@ public class QuestCommand : Command
             .Where(x => !x.Completed) // Remove completed perms to de-clutter view.
             .Where(quest => _questManager.ActiveQuests.Any(aq => aq.IsPermanent && (int)aq.ObjectiveType == quest.QuestId))
             .Select(QuestMessage)
+            .OrderBy(_ => Guid.NewGuid())
             .ToList();
 
         var dailyQuests = playerQuests
