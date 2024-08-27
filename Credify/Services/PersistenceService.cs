@@ -151,8 +151,7 @@ public class PersistenceService(
     {
         await ReadClientQuestsAsync(client);
         await ReadClientShopItemsAsync(client);
-        var userCredits = await LoadUserCreditsAsync(client);
-        client.Tell(credifyConfig.Translations.Core.UserCredits.FormatExt(userCredits.ToString("N0")));
+        await LoadUserCreditsAsync(client);
     }
 
     public async Task<long> GetClientCreditsAsync(EFClient client)

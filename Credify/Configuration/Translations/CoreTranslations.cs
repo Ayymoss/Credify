@@ -3,21 +3,21 @@
 public class CoreTranslations
 {
     // @formatter:off
-    public string AdvertisementMessage { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] Gamble your Credits today! (Color::Accent)!crbet(Color::White), (Color::Accent)!crhelp";
-    public string AdvertisementLotto { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] Join the Lotto! (Color::Accent)!crlotto(Color::White), (Color::Accent)!crsl";
+    public string AdvertisementMessage { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] Gamble your Credits today! (Color::Accent)!crbj(Color::White), !crrl(Color::White), (Color::Accent)!crhelp";
+    public string AdvertisementRaffle { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] Join the Raffle! (Color::Accent)!crraf(Color::White), (Color::Accent)!crsr";
     public string AdvertisementShop { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] Buy items from the shop! (Color::Accent)!crshop(Color::White)";
     public string InsufficientCredits { get; set; } = "(Color::Yellow)Insufficient credits";
     public string PassIdAsArgument { get; set; } = "(Color::Yellow)Pass the 'Id' from IW4MAdminConfiguration as an argument";
     public string ResettingCreditsInit { get; set; } = "(Color::Accent)--Credit Reset--";
     public string ResettingCredits { get; set; } = "(Color::Yellow)Resetting credits... (Color::White){{count}} players reset";
-    public string ResettingLotteryTickets { get; set; } = "(Color::Yellow)Resetting lottery tickets... (Color::White){{count}} players reset";
+    public string ResettingRaffleTickets { get; set; } = "(Color::Yellow)Resetting raffle tickets... (Color::White){{count}} players reset";
     public string ResettingShopItems { get; set; } = "(Color::Yellow)Resetting shop items... (Color::White){{count}} players reset";
     public string ResettingTopStats { get; set; } = "(Color::Yellow)Resetting top stats...";
     public string ResettingStatistics { get; set; } = "(Color::Yellow)Resetting statistics...";
     public string ResettingBank { get; set; } = "(Color::Yellow)Resetting server bank...";
     public string ResetCreditsComplete { get; set; } = "(Color::Accent)--Credit Reset Complete--";
     public string CommandResetCreditsDescription { get; set; } = "Resets the credits globally";
-    public string UserCredits { get; set; } = "You have (Color::Accent)${{userCredits}} (Color::White)credits";
+    public string UserCredits { get; set; } = "You have (Color::Accent)${{userCredits}} (Color::White)credits ((Color::Accent)!crhelp(Color::White))";
     public string NoOneHasCreditsForTop { get; set; } = "No one has any credits for top";
     public string TopCreditsTitle { get; set; } = "(Color::Accent)--Top Credits--";
     public string CommandTopCreditsDescription { get; set; } = "List top 5 players with most credits.";
@@ -44,11 +44,10 @@ public class CoreTranslations
     public string ErrorFindingTargetUser { get; set; } = "(Color::Yellow)Error trying to find user";
     public string CommandHelpDescription { get; set; } = "Shows Credify user commands";
     public string HelpHeader { get; set; } = "(Color::Accent)--Credify Commands--";
-    public string HelpHelp { get; set; } = "[(Color::Yellow)!crhelp(Color::White)] Shows Credify user commands";
-    public string HelpGamble { get; set; } = "[(Color::Yellow)!crrb/!crrl(Color::White)] Gamble your credits";
+    public string HelpGamble { get; set; } = "[(Color::Yellow)!crbj/!crrl(Color::White)] Gamble your credits";
     public string HelpStatistics { get; set; } = "[(Color::Yellow)!crstats(Color::White)] Check the global credit statistics";
     public string HelpTopCredits { get; set; } = "[(Color::Yellow)!crtop(Color::White)] Check the top credit holders";
-    public string HelpLotto { get; set; } = "[(Color::Yellow)!crlotto(Color::White)] Buy lotto tickets! (1cr = 10 tickets)";
+    public string HelpRaffle { get; set; } = "[(Color::Yellow)!crraf(Color::White)] Buy a raffle ticket! (Color::Yellow)!crsr (Color::White)to see players!";
     public string HelpPayCredits { get; set; } = "[(Color::Yellow)!crpay(Color::White)] Pay credits to another player";
     public string HelpShop { get; set; } = "[(Color::Yellow)!crshop(Color::White)] Shop for items with your credits";
     public string HelpShopInventory { get; set; } = "[(Color::Yellow)!crinv(Color::White)] Check your bought shop items";

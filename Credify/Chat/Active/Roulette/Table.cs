@@ -86,7 +86,7 @@ public class Table(
                 continue;
             }
 
-            if (player.Bet.Payout >= 10_000) ICredifyEventService.RaiseEvent(ObjectiveType.Baller, player.Client);
+            ICredifyEventService.RaiseEvent(ObjectiveType.Baller, player.Client, player.Bet.Payout);
             output.Tell(player, translations.Roulette.Won.FormatExt((player.Bet.Payout - player.Bet.Stake).ToString("N0")));
             await persistenceService.AddCreditsAsync(player.Client, player.Bet.Payout);
 

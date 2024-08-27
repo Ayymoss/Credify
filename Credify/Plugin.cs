@@ -31,6 +31,7 @@ Clarify the purpose of credits for new players to avoid confusion.
 public class Plugin : IPluginV2
 {
     private readonly PersistenceService _persistenceService;
+    private readonly CredifyConfiguration _config;
     private readonly PassiveManager _passiveManager;
     private readonly ChatUtils _chatUtils;
     private readonly BlackjackManager _blackjack;
@@ -67,6 +68,7 @@ public class Plugin : IPluginV2
         _raffleManager = raffleManager;
         _questManager = questManager;
         _persistenceService = persistenceService;
+        _config = config;
         if (!config.IsEnabled) return;
 
         ICredifyEventService.OnCredifyEvent += OnCredifyEvent;
@@ -120,6 +122,8 @@ public class Plugin : IPluginV2
     private async Task OnClientStateAuthorized(ClientStateAuthorizeEvent clientEvent, CancellationToken token)
     {
         await _persistenceService.OnJoinAsync(clientEvent.Client);
+        var userCredits = await _persistenceService.GetClientCreditsAsync(clientEvent.Client);
+        clientEvent.Client.Tell(_config.Translations.Core.UserCredits.FormatExt(userCredits.ToString("N0")));
     }
 
     private async Task OnClientKilled(ClientKillEvent clientEvent, CancellationToken token)

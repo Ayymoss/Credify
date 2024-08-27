@@ -63,6 +63,8 @@ public class QuestManager(CredifyConfiguration config, PersistenceService persis
 
     private void UpdatePlayerProgress(EFClient client, int questId, int increment)
     {
+        if (client.ClientId is not 0) return;
+
         var clientQuests = GetPlayerQuests(client);
         var questMeta = clientQuests.FirstOrDefault(x => x.QuestId == questId);
 
@@ -84,6 +86,8 @@ public class QuestManager(CredifyConfiguration config, PersistenceService persis
 
     private async Task CheckQuestCompletionAsync(EFClient client, Quest quest)
     {
+        if (client.ClientId is not 0) return;
+
         var playerQuests = GetPlayerQuests(client);
         var questMeta = playerQuests.FirstOrDefault(q => q.QuestId == (int)quest.ObjectiveType);
         if (questMeta is null) return;
@@ -126,14 +130,12 @@ public class QuestManager(CredifyConfiguration config, PersistenceService persis
 
         var origin = killEvent.Origin;
         var target = killEvent.Target;
-
+#if DEBUG
         Console.WriteLine($"{origin.CleanedName} (@{origin.ClientId}) -> " +
                           $"{target.CleanedName} (@{target.ClientId}) | " +
                           $"MOD: {meansOfDeath.ToString()} ({killEvent.MeansOfDeath}) - " +
                           $"WEP: {weapon.ToString()} ({killEvent.WeaponName})");
-
-        if (killEvent.Origin.ClientId is 0) return;
-
+#endif
         try
         {
             await _semaphoreSlim.WaitAsync();
@@ -205,14 +207,14 @@ public class QuestManager(CredifyConfiguration config, PersistenceService persis
             switch (objective)
             {
                 case ObjectiveType.Trivia:
-                case ObjectiveType.Baller:
-                case ObjectiveType.Donation:
                 case ObjectiveType.Raffle:
                 case ObjectiveType.Blackjack:
                 case ObjectiveType.TopHolder:
                 case ObjectiveType.Roulette:
                     UpdatePlayerProgress(client, (int)quest.ObjectiveType, 1);
                     break;
+                case ObjectiveType.Donation:
+                case ObjectiveType.Baller:
                 case ObjectiveType.CreditsSpent:
                     if (data is not long longValue) return;
 

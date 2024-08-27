@@ -25,14 +25,13 @@ public class CreditHelpCommand : Command
     {
         await gameEvent.Origin.TellAsync([
             _credifyConfig.Translations.Core.HelpHeader,
-            _credifyConfig.Translations.Core.HelpHelp,
             _credifyConfig.Translations.Core.HelpStatistics,
             _credifyConfig.Translations.Core.HelpTopCredits,
             _credifyConfig.Translations.Core.HelpPayCredits,
             _credifyConfig.Translations.Core.HelpShop,
             _credifyConfig.Translations.Core.HelpShopInventory,
             _credifyConfig.Translations.Core.HelpShopBuy,
-            _credifyConfig.Translations.Core.HelpLotto,
+            _credifyConfig.Translations.Core.HelpRaffle,
             _credifyConfig.Translations.Core.HelpGamble
         ]);
     }

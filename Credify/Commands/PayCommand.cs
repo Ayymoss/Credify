@@ -75,8 +75,7 @@ public class PayCommand : Command
             return;
         }
 
-        if (credits > 500) ICredifyEventService.RaiseEvent(ObjectiveType.Donation, gameEvent.Origin);
-
+        ICredifyEventService.RaiseEvent(ObjectiveType.Donation, gameEvent.Origin, credits);
         await _persistenceService.RemoveCreditsAsync(gameEvent.Origin, credits);
         await _persistenceService.AddCreditsAsync(gameEvent.Target, credits);
 

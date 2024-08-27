@@ -104,7 +104,7 @@ public class RockPaperScissorsCommand : Command
                 message = _credifyConfig.Translations.Core.GambleDraw.FormatExt(stake.ToString("N0"), userBalance.ToString("N0"));
                 break;
             case 1: // User wins
-                if (stake * 2 >= 10_000) ICredifyEventService.RaiseEvent(ObjectiveType.Baller, gameEvent.Origin);
+                ICredifyEventService.RaiseEvent(ObjectiveType.Baller, gameEvent.Origin, stake * 2);
                 userBalance = await _persistenceService.AddCreditsAsync(gameEvent.Origin, stake); // Since money is never taken, this is x2
                 message = _credifyConfig.Translations.Core.GambleWon
                     .FormatExt(stake.ToString("N0"), userBalance.ToString("N0"));

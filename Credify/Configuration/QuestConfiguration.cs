@@ -141,20 +141,20 @@ public class QuestConfiguration
         new Quest
         {
             Enabled = true,
-            Name = "Generous Gambler (Donate $500)",
+            Name = "Generous Gambler (Donate Credits)",
             Reward = 1_000,
             ObjectiveType = ObjectiveType.Donation,
-            ObjectiveCount = 1,
+            ObjectiveCount = 500,
             IsRepeatable = false,
             IsPermanent = false
         },
         new Quest
         {
             Enabled = true,
-            Name = "High Roller (Win $10k)",
-            Reward = 10_000,
+            Name = "High Roller (Win Credits)",
+            Reward = 25_000,
             ObjectiveType = ObjectiveType.Baller,
-            ObjectiveCount = 1,
+            ObjectiveCount = 25_000,
             IsRepeatable = false,
             IsPermanent = false
         },

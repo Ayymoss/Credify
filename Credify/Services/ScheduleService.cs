@@ -50,7 +50,7 @@ public class ScheduleService(
             List<string> messages =
             [
                 config.Translations.Core.AdvertisementMessage.FormatExt(Plugin.PluginName),
-                config.Translations.Core.AdvertisementLotto.FormatExt(Plugin.PluginName),
+                config.Translations.Core.AdvertisementRaffle.FormatExt(Plugin.PluginName),
                 config.Translations.Core.AdvertisementShop.FormatExt(Plugin.PluginName)
             ];
             await server.BroadcastAsync(messages, token: token);
