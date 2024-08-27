@@ -7,8 +7,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\..\_Cloned\IW4MAdmin\Data\Data.csproj" />
-        <ProjectReference Include="..\..\..\_Cloned\IW4MAdmin\SharedLibraryCore\SharedLibraryCore.csproj"/>
+        <PackageReference Include="RaidMax.IW4MAdmin.SharedLibraryCore" Version="2024.8.16.1-preview"/>
     </ItemGroup>
 
 </Project>
