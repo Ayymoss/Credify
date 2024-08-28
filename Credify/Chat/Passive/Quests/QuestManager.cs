@@ -63,7 +63,7 @@ public class QuestManager(CredifyConfiguration config, PersistenceService persis
 
     private void UpdatePlayerProgress(EFClient client, int questId, int increment)
     {
-        if (client.ClientId is not 0) return;
+        if (client.ClientId is 0) return;
 
         var clientQuests = GetPlayerQuests(client);
         var questMeta = clientQuests.FirstOrDefault(x => x.QuestId == questId);
@@ -86,7 +86,7 @@ public class QuestManager(CredifyConfiguration config, PersistenceService persis
 
     private async Task CheckQuestCompletionAsync(EFClient client, Quest quest)
     {
-        if (client.ClientId is not 0) return;
+        if (client.ClientId is 0) return;
 
         var playerQuests = GetPlayerQuests(client);
         var questMeta = playerQuests.FirstOrDefault(q => q.QuestId == (int)quest.ObjectiveType);
