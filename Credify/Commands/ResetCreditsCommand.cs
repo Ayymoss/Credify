@@ -1,5 +1,4 @@
 ﻿using Credify.Configuration;
-using Credify.Models;
 using Credify.Services;
 using Data.Abstractions;
 using Data.Context;
