@@ -34,9 +34,17 @@ public class PersistenceService(
         await metaService.SetPersistentMetaValue(Plugin.TopKey, cache.TopCredits);
     }
 
+    public async Task ReadStatisticsAsync()
+    {
+        var store = await metaService.GetPersistentMetaValue<StatisticsStateStore>(Plugin.StatisticsKey);
+
+        if (store is null) cache.StatisticsState = new StatisticsState();
+        else cache.StatisticsState.SetReadCredits(store);
+    }
+
     public async Task WriteStatisticsAsync()
     {
-        await metaService.SetPersistentMetaValue(Plugin.StatisticsKey, cache.StatisticsState);
+        await metaService.SetPersistentMetaValue(Plugin.StatisticsKey, cache.StatisticsState.GetWriteCredits());
     }
 
     public async Task WriteLastRaffleWinnerAsync(LastWinner lastWinner)
@@ -139,12 +147,6 @@ public class PersistenceService(
         var nextLotto = (await metaService.GetPersistentMeta(Plugin.NextRaffleKey))?.Value;
         if (nextLotto is null) return null;
         return DateTimeOffset.Parse(nextLotto);
-    }
-
-    public async Task ReadStatisticsAsync()
-    {
-        var statistics = await metaService.GetPersistentMetaValue<StatisticsState>(Plugin.StatisticsKey);
-        cache.StatisticsState = statistics ?? new StatisticsState();
     }
 
     public async Task OnJoinAsync(EFClient client)

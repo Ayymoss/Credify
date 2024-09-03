@@ -18,6 +18,8 @@ public class QuestManager(CredifyConfiguration config, PersistenceService persis
 
     public List<QuestMeta> GetPlayerQuests(EFClient client)
     {
+        if (ActiveQuests.Count is 0) return [];
+
         var clientQuests = client.GetAdditionalProperty<List<QuestMeta>>(Plugin.ClientQuestsKey) ?? [];
 
         var missingQuestIds = ActiveQuests
@@ -26,6 +28,18 @@ public class QuestManager(CredifyConfiguration config, PersistenceService persis
             .ToList();
 
         clientQuests.AddRange(missingQuestIds.Select(questId => new QuestMeta { QuestId = questId, Progress = 0, Completed = false }));
+
+        // Update daily quests so that they don't show previous values. Kinda hacky. Meh.
+        foreach (var quest in clientQuests)
+        {
+            if (quest is not { Completed: true, CompletedDay: not null } ||
+                quest.CompletedDay == TimeProvider.System.GetLocalNow().Day) continue;
+
+            quest.Completed = false;
+            quest.Progress = 0;
+            quest.CompletedDay = null;
+        }
+
         client.SetAdditionalProperty(Plugin.ClientQuestsKey, clientQuests);
         return clientQuests;
     }

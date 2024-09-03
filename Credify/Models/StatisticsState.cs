@@ -28,10 +28,14 @@ public record StatisticsState
     public void AddCreditsWon(ulong amount) => Interlocked.Add(ref _creditsWon, amount);
     public void IncrementCreditsEarned() => Interlocked.Increment(ref _creditsEarned);
 
-    public void Reset()
+    public void SetReadCredits(StatisticsStateStore store)
     {
-        CreditsSpent = 0;
-        CreditsEarned = 0;
-        CreditsWon = 0;
+        CreditsSpent = store.Spent;
+        CreditsEarned = store.Earned;
+        CreditsWon = store.Won;
     }
+
+    public StatisticsStateStore GetWriteCredits() => new(CreditsSpent, CreditsEarned, CreditsWon);
 }
+
+public record StatisticsStateStore(ulong Spent, ulong Earned, ulong Won);

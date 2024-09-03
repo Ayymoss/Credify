@@ -1,4 +1,5 @@
-﻿using Credify.Chat.Passive.Quests;
+﻿using System.Text.Json;
+using Credify.Chat.Passive.Quests;
 using Credify.Chat.Passive.Quests.Models;
 using Credify.Configuration;
 using SharedLibraryCore;
@@ -62,14 +63,14 @@ public class QuestCommand : Command
         await gameEvent.Origin.TellAsync(messages);
     }
 
-    private string QuestMessage(QuestMeta quest)
+    private string QuestMessage(QuestMeta questMeta)
     {
-        var activeQuest = _questManager.ActiveQuests.First(aq => (int)aq.ObjectiveType == quest.QuestId);
+        var activeQuest = _questManager.ActiveQuests.First(aq => (int)aq.ObjectiveType == questMeta.QuestId);
 
-        var progressMessage = quest.Progress == activeQuest.ObjectiveCount
+        var progressMessage = questMeta.Progress == activeQuest.ObjectiveCount
             ? _credifyConfig.Translations.Quests.Completed
             : _credifyConfig.Translations.Quests.ProgressFormat
-                .FormatExt(quest.Progress.ToString("N0"), activeQuest.ObjectiveCount.ToString("N0"));
+                .FormatExt(questMeta.Progress.ToString("N0"), activeQuest.ObjectiveCount.ToString("N0"));
 
         return _credifyConfig.Translations.Quests.Quest.FormatExt(activeQuest.Name, progressMessage);
     }
