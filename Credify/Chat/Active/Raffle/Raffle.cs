@@ -42,7 +42,8 @@ public class Raffle(
     public async Task DrawWinnerAsync(IManager manager)
     {
         var winner = players.ElementAt(Random.Shared.Next(players.Count));
-        var client = await clientService.Get(winner.ClientId);
+        var client = manager.GetActiveClients().FirstOrDefault(x => x.ClientId == winner.ClientId);
+        client ??= await clientService.Get(winner.ClientId);
         if (client is null) return;
 
         var bankCredits = cache.BankCredits;
@@ -51,7 +52,7 @@ public class Raffle(
         await persistenceService.WriteBankCreditsAsync();
         await persistenceService.AddCreditsAsync(client, bankCredits);
         await persistenceService.WriteLastRaffleWinnerAsync(new LastWinner(client.ClientId, client.CleanedName, bankCredits,
-            players.Count));
+            players.Count)); //TODO: Add percentage.
 
         var winPercentage = (double)1 / players.Count * 100;
         var announcement = _raffleTrans.AnnounceRaffleWinner

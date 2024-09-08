@@ -128,7 +128,7 @@ public class Plugin : IPluginV2
 
     private async Task OnClientKilled(ClientKillEvent clientEvent, CancellationToken token)
     {
-        _persistenceService.OnKill(clientEvent.Client);
+        await _persistenceService.OnKill(clientEvent.Client);
         await _questManager.HandleKillAsync(clientEvent);
     }
 

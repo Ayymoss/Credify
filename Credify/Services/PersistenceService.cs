@@ -213,12 +213,10 @@ public class PersistenceService(
         return credits;
     }
 
-    public void OnKill(EFClient client)
+    public async Task OnKill(EFClient client)
     {
-        var userCredits = client.GetAdditionalProperty<long>(Plugin.CreditsAmount);
-        userCredits++;
-        client.SetAdditionalProperty(Plugin.CreditsAmount, userCredits);
-        AddBankCredits(1);
+        await AddCreditsAsync(client, 1);
+        AddBankCredits(1000000);
         cache.StatisticsState.IncrementCreditsEarned();
     }
 
@@ -233,12 +231,14 @@ public class PersistenceService(
         if (client.ClientId is 0 or 1) return;
         lock (cache.TopCredits)
         {
-            // If the top hasn't got 5 entries yet add user - check for duplicates.
-            if (cache.TopCredits.Count < 5 && !ExistInTop(client.ClientId))
-                cache.TopCredits.Add(new TopCreditEntry { ClientId = client.ClientId, Credits = amount });
+            //// If the top hasn't got 5 entries yet add user - check for duplicates.
+            //if (cache.TopCredits.Count < 5 && !ExistInTop(client.ClientId))
+            //{
+            //    cache.TopCredits.Add(new TopCreditEntry { ClientId = client.ClientId, Credits = amount });
+            //}
 
             //If the target's credits are greater than last item OR already exists in top, sort & update top.
-            if (amount <= cache.TopCredits.Last().Credits && !ExistInTop(client.ClientId)) return;
+            if (amount <= cache.TopCredits.LastOrDefault()?.Credits && !ExistInTop(client.ClientId)) return;
 
             var existingCredEntry = cache.TopCredits.FirstOrDefault(credit => credit.ClientId == client.ClientId);
             // Doesn't exist in top - Create new entry and sort
@@ -249,13 +249,13 @@ public class PersistenceService(
                     ClientId = client.ClientId,
                     Credits = amount
                 });
+
+                ICredifyEventService.RaiseEvent(ObjectiveType.TopHolder, client);
             }
             else // Exists already in top, just set credits and update
             {
                 existingCredEntry.Credits = amount;
             }
-
-            ICredifyEventService.RaiseEvent(ObjectiveType.TopHolder, client);
 
             cache.TopCredits = cache.TopCredits
                 .OrderByDescending(credit => credit.Credits)
