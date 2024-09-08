@@ -216,7 +216,7 @@ public class PersistenceService(
     public async Task OnKill(EFClient client)
     {
         await AddCreditsAsync(client, 1);
-        AddBankCredits(1000000);
+        AddBankCredits(1);
         cache.StatisticsState.IncrementCreditsEarned();
     }
 
@@ -231,12 +231,6 @@ public class PersistenceService(
         if (client.ClientId is 0 or 1) return;
         lock (cache.TopCredits)
         {
-            //// If the top hasn't got 5 entries yet add user - check for duplicates.
-            //if (cache.TopCredits.Count < 5 && !ExistInTop(client.ClientId))
-            //{
-            //    cache.TopCredits.Add(new TopCreditEntry { ClientId = client.ClientId, Credits = amount });
-            //}
-
             //If the target's credits are greater than last item OR already exists in top, sort & update top.
             if (amount <= cache.TopCredits.LastOrDefault()?.Credits && !ExistInTop(client.ClientId)) return;
 
