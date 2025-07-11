@@ -3,7 +3,7 @@
 public class CoreTranslations
 {
     // @formatter:off
-    public string AdvertisementMessage { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] Gamble your Credits today! (Color::Accent)!crbj(Color::White), !crrl(Color::White), (Color::Accent)!crhelp";
+    public string AdvertisementMessage { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] Gamble your Credits today! (Color::Accent)!crbj(Color::White), (Color::Accent)!crrl(Color::White), (Color::Accent)!crhelp";
     public string AdvertisementRaffle { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] Join the Raffle! (Color::Accent)!crraf(Color::White), (Color::Accent)!crsr";
     public string AdvertisementShop { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] Buy items from the shop! (Color::Accent)!crshop(Color::White)";
     public string InsufficientCredits { get; set; } = "(Color::Yellow)Insufficient credits";
