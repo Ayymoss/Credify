@@ -5,8 +5,8 @@ public class BlackjackTranslations
     // @formatter:off
     public string Title { get; set; } = "[(Color::Pink)Blackjack(Color::White)]";
     public string TitleShort { get; set; } = "[(Color::Pink)BJ(Color::White)]";
-    public string Join { get; set; } = "(Color::Yellow)You have joined the game! (Color::White)(!crbet to leave)";
-    public string Leave { get; set; } = "(Color::Yellow)You have left the game! (Color::White)(!crbet to join)";
+    public string Join { get; set; } = "(Color::Yellow)You have joined the game! (Color::White)(Type amount you want to bet!)";
+    public string Leave { get; set; } = "(Color::Yellow)You have left the game! (Color::White)(!crbj to join)";
     public string StartingGame { get; set; } = "(Color::Accent)Starting a new game with {{count}} player(s)";
     public string PlaceBets { get; set; } = "(Color::Yellow)Type the amount of credits you'd like to bet. (Color::White)You have (Color::Green)${{credits}} (Color::White)available";
     public string BetTimeout { get; set; } = "(Color::Yellow)You took too long to bet. (Color::White)You have been removed from the game";
@@ -14,8 +14,8 @@ public class BlackjackTranslations
     public string DealerCards { get; set; } = "Dealer's cards [(Color::Yellow){{total}}(Color::White)]: (Color::Accent){{cards}}";
     public string PlayerCards { get; set; } = "Your cards [(Color::Yellow){{total}}(Color::White)]: (Color::Accent){{cards}}";
     public string BlackjackConfirmation { get; set; } = "(Color::Accent)You have blackjack! (Color::White)Standing...";
-    public string Announcement { get; set; } = "(Color::Accent){{name}} (Color::White)has (Color::Purple)blackjack(Color::White), winning (Color::Green)${{amount}}(Color::White)! (Color::Accent)Play with (Color::Yellow)!crbet";
-    public string JoinAnnouncement { get; set; } = "(Color::Accent){{name}} (Color::White)has joined blackjack with {{count}} other(s)! (Color::Accent)Play with (Color::Yellow)!crbet";
+    public string Announcement { get; set; } = "(Color::Accent){{name}} (Color::White)has (Color::Purple)blackjack(Color::White), winning (Color::Green)${{amount}}(Color::White)! (Color::Accent)Play with (Color::Yellow)!crbj";
+    public string JoinAnnouncement { get; set; } = "(Color::Accent){{name}} (Color::White)has joined blackjack with {{count}} other(s)! (Color::Accent)Play with (Color::Yellow)!crbj";
     public string PlayersDeciding { get; set; } = "(Color::Yellow)Waiting for {{count}} player(s) to decide...";
     public string PlayerDecision { get; set; } = "Type: (Color::Accent)[H]it (Color::White)to hit. (Color::Accent)[S]tand (Color::White)to stand. (Color::Accent)[C]ards (Color::White)to see your cards";
     public string PlayerBustConfirmation { get; set; } = "(Color::Yellow)You busted!";
