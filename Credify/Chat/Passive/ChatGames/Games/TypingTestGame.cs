@@ -36,12 +36,7 @@ public class TypingTestGame(CredifyConfiguration credifyConfig, PersistenceServi
         {
             await MessageReceivedLock.WaitAsync();
 
-            var reactionTime = DateTimeOffset.UtcNow - GameInfo.Started;
-            var remainingAsPercentage = (credifyConfig.ChatGame.TypingTestTimeout - reactionTime).TotalSeconds /
-                                        credifyConfig.ChatGame.TypingTestTimeout.TotalSeconds;
-            var payout = Convert.ToInt64(Math.Round(credifyConfig.ChatGame.MaxPayout * remainingAsPercentage));
-            if (payout < 10) payout = 10;
-
+            var payout = credifyConfig.ChatGame.MaxPayout;
             await persistenceService.AddCreditsAsync(client, payout);
 
             var winner = new ClientAnswerInfo
