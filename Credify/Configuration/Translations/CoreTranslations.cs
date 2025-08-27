@@ -77,7 +77,7 @@ public class CoreTranslations
     public string CommandRockPaperScissorsDescription { get; set; } = "Play rock paper scissors";
     public string CommandCoinFlipDescription { get; set; } = "Bet your money on a coin flip";
     public string BadRpsArgument { get; set; } = "(Color::Yellow)Invalid argument. (Color::White)Use (Color::Accent)!crrps <rock|paper|scissors> <bet>";
-    public string BadCfArgument { get; set; } = "(Color::Yellow)Invalid argument. (Color::White)Use (Color::Accent)!crrps <h|t> <bet>";
+    public string BadCfArgument { get; set; } = "(Color::Yellow)Invalid argument. (Color::White)Use (Color::Accent)!crcf <h|t> <bet>";
     public string MaximumAmount { get; set; } = "(Color::Yellow)Maximum amount is (Color::Green){{maxAmount}}";
     public string CommandBlackjack { get; set; } ="Join Blackjack";
     public string CommandRoulette { get; set; } = "Join Roulette";
