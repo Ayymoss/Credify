@@ -189,6 +189,10 @@ public class PersistenceService(
         long credits, newCredits;
         if (client.IsIngame)
         {
+            if (client.GetAdditionalProperty<long?>(Plugin.CreditsAmount) is null)
+            {
+                await LoadUserCreditsAsync(client);
+            }
             credits = client.GetAdditionalProperty<long>(Plugin.CreditsAmount);
             newCredits = credits + amount;
             client.SetAdditionalProperty(Plugin.CreditsAmount, newCredits);

@@ -53,7 +53,7 @@ public class Plugin : IPluginV2
 
     public const string PluginName = "Credify";
     public string Name => PluginName;
-    public string Version => "2025-07-11";
+    public string Version => "2025-08-27";
     public string Author => "Amos";
 
     public Plugin(PersistenceService persistenceService, CredifyConfiguration config, PassiveManager passiveManager, ChatUtils chatUtils,
