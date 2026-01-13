@@ -82,6 +82,41 @@ public class CoreTranslations
     public string CommandBlackjack { get; set; } ="Join Blackjack";
     public string CommandRoulette { get; set; } = "Join Roulette";
     public string CommandQuestDescription { get; set; } = "Shows the quests";
+    
+    // Streak & Bounty
+    public string StreakReward { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] (Color::Accent){{streak}} (Color::White)kill streak! (Color::Green)+${{reward}}";
+    public string StreakAnnouncement { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] (Color::Accent){{name}} (Color::White)is on a (Color::Red){{streak}} (Color::White)kill streak!";
+    public string BountyPlaced { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] (Color::Red)BOUNTY: (Color::Green)${{amount}} (Color::White)on (Color::Accent){{name}}(Color::White)! Kill them to claim!";
+    public string BountyClaimed { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] (Color::Accent){{killer}} (Color::White)claimed the (Color::Green)${{amount}} (Color::White)bounty on (Color::Accent){{victim}}(Color::White)!";
+    
+    // Slots
+    public string CommandSlotsDescription { get; set; } = "Spin the slot machine";
+    public string SlotsDisabled { get; set; } = "(Color::Yellow)Slots is disabled";
+    public string SlotsWin { get; set; } = "[(Color::Pink)SLOTS(Color::White)] {{reels}} - (Color::Green)You won ${{profit}}! (Color::White)Balance: (Color::Accent)${{balance}}";
+    public string SlotsLose { get; set; } = "[(Color::Pink)SLOTS(Color::White)] {{reels}} - (Color::Red)No match! (Color::White)Lost ${{bet}}. Balance: (Color::Accent)${{balance}}";
+    public string SlotsJackpot { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] (Color::Yellow)JACKPOT! (Color::Accent){{name}} (Color::White)won (Color::Green)${{amount}} (Color::White)on slots!";
+    
+    // Wheel of Fortune
+    public string CommandWheelDescription { get; set; } = "Spin the Wheel of Fortune";
+    public string WheelDisabled { get; set; } = "(Color::Yellow)Wheel of Fortune is disabled";
+    public string WheelWin { get; set; } = "[(Color::Pink)WHEEL(Color::White)] Landed on (Color::Accent){{segment}} (Color::White)- (Color::Green)Won ${{profit}}! (Color::White)Balance: (Color::Accent)${{balance}}";
+    public string WheelBreakEven { get; set; } = "[(Color::Pink)WHEEL(Color::White)] Landed on (Color::Accent){{segment}} (Color::White)- Break even! Balance: (Color::Accent)${{balance}}";
+    public string WheelPartialLoss { get; set; } = "[(Color::Pink)WHEEL(Color::White)] Landed on (Color::Accent){{segment}} (Color::White)- Lost ${{loss}}. Balance: (Color::Accent)${{balance}}";
+    public string WheelBankrupt { get; set; } = "[(Color::Pink)WHEEL(Color::White)] (Color::Red)BANKRUPT! (Color::White)Lost ${{bet}}. Balance: (Color::Accent)${{balance}}";
+    public string WheelJackpot { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] (Color::Yellow)JACKPOT! (Color::Accent){{name}} (Color::White)won (Color::Green)${{amount}} (Color::White)on the wheel!";
+    
+    // Bounty Contracts
+    public string CommandPlaceBountyDescription { get; set; } = "Place a bounty on a player";
+    public string CommandListBountiesDescription { get; set; } = "List all active bounties";
+    public string BountyContractDisabled { get; set; } = "(Color::Yellow)Bounty contracts are disabled";
+    public string BountyContractPlaced { get; set; } = "[(Color::Pink)BOUNTY(Color::White)] You placed a (Color::Green)${{amount}} (Color::White)bounty on (Color::Accent){{target}}(Color::White). Fee: (Color::Yellow)${{fee}}";
+    public string BountyContractTargeted { get; set; } = "[(Color::Pink)BOUNTY(Color::White)] (Color::Red)WARNING: (Color::White)There's a (Color::Green)${{amount}} (Color::White)bounty on your head from (Color::Accent){{placer}}(Color::White)!";
+    public string BountyContractAnnouncement { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] (Color::Red)BOUNTY CONTRACT: (Color::Green)${{amount}} (Color::White)on (Color::Accent){{target}}(Color::White)!";
+    public string BountyContractClaimed { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] (Color::Accent){{killer}} (Color::White)collected (Color::Green)${{amount}} (Color::White)in bounties on (Color::Accent){{victim}}(Color::White)!";
+    public string NoBountiesActive { get; set; } = "(Color::Yellow)No active bounties";
+    public string BountiesHeader { get; set; } = "(Color::Accent)--Active Bounties--";
+    public string BountyListEntry { get; set; } = "[(Color::Accent)#{{rank}}(Color::White)] (Color::Green)${{amount}} (Color::White)on (Color::Accent){{target}}";
+    public string BountiesMoreCount { get; set; } = "(Color::Yellow)...and {{count}} more bounties";
 
     // @formatter:on
 }

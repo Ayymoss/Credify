@@ -1,4 +1,4 @@
-﻿using Credify.Chat.Active.Raffle;
+﻿using Credify.Chat.Feature.Raffle;
 using SharedLibraryCore;
 using SharedLibraryCore.Configuration;
 using SharedLibraryCore.Interfaces;

@@ -1,5 +1,5 @@
-﻿using Credify.Chat.Active.Raffle;
-using Credify.Chat.Active.Raffle.Enums;
+﻿using Credify.Chat.Feature.Raffle;
+using Credify.Chat.Feature.Raffle.Enums;
 using Credify.Chat.Passive.Quests.Enums;
 using Credify.Configuration;
 using Credify.Services;

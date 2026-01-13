@@ -1,7 +1,8 @@
-﻿using System.Text.RegularExpressions;
+using System.Text.RegularExpressions;
 using Credify.Chat.Passive.Quests.Enums;
 using Credify.Chat.Passive.Quests.Models;
 using Credify.Configuration;
+using Credify.Constants;
 using Credify.Services;
 using SharedLibraryCore;
 using SharedLibraryCore.Database.Models;
@@ -20,7 +21,7 @@ public class QuestManager(CredifyConfiguration config, PersistenceService persis
     {
         if (ActiveQuests.Count is 0) return [];
 
-        var clientQuests = client.GetAdditionalProperty<List<QuestMeta>>(Plugin.ClientQuestsKey) ?? [];
+        var clientQuests = client.GetAdditionalProperty<List<QuestMeta>>(PluginConstants.ClientQuestsKey) ?? [];
 
         var missingQuestIds = ActiveQuests
             .Select(q => (int)q.ObjectiveType)
@@ -40,7 +41,7 @@ public class QuestManager(CredifyConfiguration config, PersistenceService persis
             quest.CompletedDay = null;
         }
 
-        client.SetAdditionalProperty(Plugin.ClientQuestsKey, clientQuests);
+        client.SetAdditionalProperty(PluginConstants.ClientQuestsKey, clientQuests);
         return clientQuests;
     }
 
@@ -95,7 +96,7 @@ public class QuestManager(CredifyConfiguration config, PersistenceService persis
         if (questMeta.Completed) return;
 
         questMeta.Progress += increment;
-        client.SetAdditionalProperty(Plugin.ClientQuestsKey, clientQuests);
+        client.SetAdditionalProperty(PluginConstants.ClientQuestsKey, clientQuests);
     }
 
     private async Task CheckQuestCompletionAsync(EFClient client, Quest quest)
@@ -123,7 +124,7 @@ public class QuestManager(CredifyConfiguration config, PersistenceService persis
             questMeta.CompletedDay = null;
         }
 
-        client.SetAdditionalProperty(Plugin.ClientQuestsKey, playerQuests);
+        client.SetAdditionalProperty(PluginConstants.ClientQuestsKey, playerQuests);
     }
 
     #endregion

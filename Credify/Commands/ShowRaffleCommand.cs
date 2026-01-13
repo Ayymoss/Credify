@@ -1,4 +1,4 @@
-﻿using Credify.Chat.Active.Raffle;
+﻿using Credify.Chat.Feature.Raffle;
 using Credify.Configuration;
 using Credify.Services;
 using Humanizer;

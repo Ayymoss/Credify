@@ -1,13 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net8.0</TargetFramework>
+        <TargetFramework>net10.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="RaidMax.IW4MAdmin.SharedLibraryCore" Version="2024.8.16.1-preview"/>
+        <PackageReference Include="RaidMax.IW4MAdmin.SharedLibraryCore" Version="2026.1.6.1"/>
+    </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="Chat\Active\Games\" />
+      <Folder Include="Chat\Feature\" />
     </ItemGroup>
 
 </Project>

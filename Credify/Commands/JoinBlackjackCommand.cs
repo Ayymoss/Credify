@@ -1,4 +1,4 @@
-﻿using Credify.Chat.Active.Blackjack;
+﻿using Credify.Chat.Active.Games.Blackjack;
 using Credify.Configuration;
 using Credify.Services;
 using SharedLibraryCore;

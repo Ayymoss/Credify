@@ -1,4 +1,4 @@
-﻿using Credify.Chat.Active.Roulette;
+﻿using Credify.Chat.Active.Games.Roulette;
 using Credify.Configuration;
 using Credify.Services;
 using SharedLibraryCore;
@@ -41,12 +41,12 @@ public class JoinRouletteCommand : Command
             return;
         }
 
-        if (!_roulette.IsPlayerInGame(gameEvent.Origin))
+        if (!_roulette.IsPlayerPlaying(gameEvent.Origin))
         {
-            await _roulette.AddPlayerAsync(gameEvent.Origin);
+            await _roulette.JoinGameAsync(gameEvent.Origin);
             return;
         }
 
-        _roulette.RemovePlayer(gameEvent.Origin);
+        await _roulette.LeaveGameAsync(gameEvent.Origin);
     }
 }

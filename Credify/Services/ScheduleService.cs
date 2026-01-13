@@ -1,8 +1,9 @@
-﻿using Credify.Chat.Active.Raffle;
+using Credify.Chat.Feature.Raffle;
 using Credify.Chat.Passive;
 using Credify.Chat.Passive.ChatGames;
 using Credify.Chat.Passive.Quests;
 using Credify.Configuration;
+using Credify.Constants;
 using SharedLibraryCore;
 using SharedLibraryCore.Interfaces;
 
@@ -49,9 +50,9 @@ public class ScheduleService(
             if (server.ConnectedClients.Count is 0) continue;
             List<string> messages =
             [
-                config.Translations.Core.AdvertisementMessage.FormatExt(Plugin.PluginName),
-                config.Translations.Core.AdvertisementRaffle.FormatExt(Plugin.PluginName),
-                config.Translations.Core.AdvertisementShop.FormatExt(Plugin.PluginName)
+                config.Translations.Core.AdvertisementMessage.FormatExt(PluginConstants.PluginName),
+                config.Translations.Core.AdvertisementRaffle.FormatExt(PluginConstants.PluginName),
+                config.Translations.Core.AdvertisementShop.FormatExt(PluginConstants.PluginName)
             ];
             await server.BroadcastAsync(messages, token: token);
         }

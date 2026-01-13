@@ -1,11 +1,15 @@
-﻿using Credify.Chat.Active.Blackjack;
-using Credify.Chat.Active.Raffle;
-using Credify.Chat.Active.Roulette;
-using Credify.Chat.Active.Roulette.Utilities;
+using Credify.Chat.Active.Games.Blackjack;
+using Credify.Chat.Active.Games.Poker;
+using Credify.Chat.Active.Games.Roulette;
+using Credify.Chat.Active.Games.Roulette.Utilities;
+using Credify.Chat.Feature.Bounty;
+using Credify.Chat.Feature.Raffle;
 using Credify.Chat.Passive.ChatGames;
 using Credify.Chat.Passive.Quests;
 using Credify.Chat.Passive.Quests.Enums;
 using Credify.Configuration;
+using Credify.Constants;
+using Credify.EventHandlers;
 using Credify.Services;
 using Microsoft.Extensions.DependencyInjection;
 using SharedLibraryCore;
@@ -17,58 +21,50 @@ using SharedLibraryCore.Interfaces.Events;
 
 namespace Credify;
 
-// TODO:
-/*
-Reaction Tests should have 'Per Server Timing' and use the incoming message timestamp rather than a timer.
-This would prevent issues with server message delays.
-
-Consider adding a Discord integration for the plugin.
-
-Clarify the purpose of credits for new players to avoid confusion.
-    When player joins add "do !crhelp for more" to the welcome message.
-*/
-
 public class Plugin : IPluginV2
 {
     private readonly PersistenceService _persistenceService;
-    private readonly CredifyConfiguration _config;
-    private readonly PassiveManager _passiveManager;
     private readonly ChatUtils _chatUtils;
-    private readonly BlackjackManager _blackjack;
     private readonly RouletteManager _rouletteManager;
     private readonly ScheduleService _scheduleService;
     private readonly RaffleManager _raffleManager;
-    private readonly QuestManager _questManager;
+    private readonly PokerManager _pokerManager;
+    private readonly ClientKilledEventHandler _clientKilledEventHandler;
+    private readonly ClientMessagedEventHandler _clientMessagedEventHandler;
+    private readonly ClientStateAuthorizedEventHandler _clientStateAuthorizedEventHandler;
+    private readonly ClientStateDisposedEventHandler _clientStateDisposedEventHandler;
+    private readonly CredifyEventHandler _credifyEventHandler;
 
-    public const string CreditsAmount = "Credits_Amount";
-    public const string TopKey = "Credits_TopList";
-    public const string StatisticsKey = "Credits_Statistics";
-    public const string RaffleKey = "Credits_Raffle";
-    public const string LastRaffleWinner = "Credits_LastRaffleWinner";
-    public const string NextRaffleKey = "Credits_NextRaffle";
-    public const string ShopKey = "Credits_Shop";
-    public const string BankCreditsKey = "Credits_Bank";
-    public const string RecentBoughtItems = "Credits_RecentBoughtItems";
-    public const string ClientQuestsKey = "Credits_ClientQuests";
-
-    public const string PluginName = "Credify";
-    public string Name => PluginName;
+    public string Name => PluginConstants.PluginName;
     public string Version => "2025-08-27";
     public string Author => "Amos";
 
-    public Plugin(PersistenceService persistenceService, CredifyConfiguration config, PassiveManager passiveManager, ChatUtils chatUtils,
-        BlackjackManager blackjack, RouletteManager rouletteManager, ScheduleService scheduleService, RaffleManager raffleManager,
-        QuestManager questManager)
+    public Plugin(
+        PersistenceService persistenceService,
+        ChatUtils chatUtils,
+        RouletteManager rouletteManager,
+        ScheduleService scheduleService,
+        RaffleManager raffleManager,
+        PokerManager pokerManager,
+        ClientKilledEventHandler clientKilledEventHandler,
+        ClientMessagedEventHandler clientMessagedEventHandler,
+        ClientStateAuthorizedEventHandler clientStateAuthorizedEventHandler,
+        ClientStateDisposedEventHandler clientStateDisposedEventHandler,
+        CredifyEventHandler credifyEventHandler,
+        CredifyConfiguration config)
     {
-        _passiveManager = passiveManager;
+        _persistenceService = persistenceService;
         _chatUtils = chatUtils;
-        _blackjack = blackjack;
         _rouletteManager = rouletteManager;
         _scheduleService = scheduleService;
         _raffleManager = raffleManager;
-        _questManager = questManager;
-        _persistenceService = persistenceService;
-        _config = config;
+        _pokerManager = pokerManager;
+        _clientKilledEventHandler = clientKilledEventHandler;
+        _clientMessagedEventHandler = clientMessagedEventHandler;
+        _clientStateAuthorizedEventHandler = clientStateAuthorizedEventHandler;
+        _clientStateDisposedEventHandler = clientStateDisposedEventHandler;
+        _credifyEventHandler = credifyEventHandler;
+        
         if (!config.IsEnabled) return;
 
         ICredifyEventService.OnCredifyEvent += OnCredifyEvent;
@@ -85,62 +81,82 @@ public class Plugin : IPluginV2
     {
         // Core
         serviceCollection.AddConfiguration("CredifyConfigurationV2", new CredifyConfiguration());
-        serviceCollection.AddSingleton<PersistenceService>();
+        serviceCollection.AddSingleton<CredifyCache>();
+        serviceCollection.AddSingleton<ServerTimeTracker>();
+
+        // Persistence Services (order matters due to dependencies)
+        serviceCollection.AddSingleton<StatisticsService>();
+        serviceCollection.AddSingleton<BankService>();
+        serviceCollection.AddSingleton<CreditsService>();
+        serviceCollection.AddSingleton<ShopPersistenceService>();
+        serviceCollection.AddSingleton<QuestPersistenceService>();
+        serviceCollection.AddSingleton<RafflePersistenceService>();
+        serviceCollection.AddSingleton<PersistenceService>(); // Facade that depends on above services
+
         serviceCollection.AddSingleton<PassiveManager>();
         serviceCollection.AddSingleton<ChatUtils>();
-        serviceCollection.AddSingleton<BlackjackManager>();
         serviceCollection.AddSingleton<TranslationsRoot>();
         serviceCollection.AddSingleton<ScheduleService>();
-        serviceCollection.AddSingleton<CredifyCache>();
+
+        // Active Games Core
+        serviceCollection.AddSingleton<Credify.Chat.Active.Core.GamePlayerCommunication>();
+        
+        // Blackjack
+        serviceCollection.AddSingleton<BlackjackManager>();
 
         // Roulette
         serviceCollection.AddSingleton<HandleInput>();
         serviceCollection.AddSingleton<HandleOutput>();
         serviceCollection.AddSingleton<RouletteManager>();
 
+        // Poker
+        serviceCollection.AddSingleton<PokerManager>();
+
         // Raffle
         serviceCollection.AddSingleton<RaffleManager>();
 
         // Quests
         serviceCollection.AddSingleton<QuestManager>();
+        
+        // Streaks & Bounties
+        serviceCollection.AddSingleton<StreakTracker>();
+        
+        // Bounty Contracts
+        serviceCollection.AddSingleton<BountyContractManager>();
+        
+        // Event Handlers
+        serviceCollection.AddSingleton<CredifyEventHandler>();
+        serviceCollection.AddSingleton<ClientKilledEventHandler>();
+        serviceCollection.AddSingleton<ClientMessagedEventHandler>();
+        serviceCollection.AddSingleton<ClientStateAuthorizedEventHandler>();
+        serviceCollection.AddSingleton<ClientStateDisposedEventHandler>();
     }
 
     #region Events
 
-    private void OnCredifyEvent(ObjectiveType objective, EFClient client, object? data)
+    private async void OnCredifyEvent(ObjectiveType objective, EFClient client, object? data)
     {
-        Task.Run(async () => await _questManager.HandleCredifyEvent(objective, client, data));
+        await _credifyEventHandler.HandleAsync(objective, client, data);
     }
 
     private async Task OnClientMessaged(ClientMessageEvent messageEvent, CancellationToken token)
     {
-        await _passiveManager.HandleChatAsync(messageEvent.Client, messageEvent.Message);
-        await _blackjack.HandleChatAsync(messageEvent.Client, messageEvent.Message);
-        await _questManager.HandleChatAsync(messageEvent.Client, messageEvent.Message);
+        await _clientMessagedEventHandler.HandleAsync(messageEvent, token);
     }
 
     private async Task OnClientStateAuthorized(ClientStateAuthorizeEvent clientEvent, CancellationToken token)
     {
-        await _persistenceService.OnJoinAsync(clientEvent.Client);
-        var userCredits = await _persistenceService.GetClientCreditsAsync(clientEvent.Client);
-        clientEvent.Client.Tell(_config.Translations.Core.UserCredits.FormatExt(userCredits.ToString("N0")));
+        await _clientStateAuthorizedEventHandler.HandleAsync(clientEvent, token);
     }
 
     private async Task OnClientKilled(ClientKillEvent clientEvent, CancellationToken token)
     {
-        await _persistenceService.OnKill(clientEvent.Client);
-        await _questManager.HandleKillAsync(clientEvent);
+        await _clientKilledEventHandler.HandleAsync(clientEvent, token);
     }
 
     private async Task OnClientStateDisposed(ClientStateDisposeEvent clientEvent, CancellationToken token)
     {
-        await _persistenceService.WriteClientQuestsAsync(clientEvent.Client);
-        await _persistenceService.WriteClientCreditsAsync(clientEvent.Client);
-        await _persistenceService.WriteStatisticsAsync();
-        await _persistenceService.WriteTopScoreAsync();
-        await _persistenceService.WriteBankCreditsAsync();
-        await _blackjack.LeaveGameAsync(clientEvent.Client);
-        _rouletteManager.RemovePlayer(clientEvent.Client);
+        await _clientStateDisposedEventHandler.HandleAsync(clientEvent, token);
     }
 
     private async Task OnLoad(IManager manager, CancellationToken token)
@@ -152,14 +168,13 @@ public class Plugin : IPluginV2
         await _raffleManager.LoadRaffleAsync(manager);
         await _raffleManager.ReadAndCalculateNextDrawAsync();
 
-        new Thread(StartRoulette) { Name = "Roulette" }.Start();
+        // Use Task.Run instead of Thread for async operations
+        _ = Task.Run(async () => await _rouletteManager.StartGameAsync(token), token);
+        _ = Task.Run(async () => await _pokerManager.StartGameAsync(token), token);
 
         _scheduleService.TriggerSchedules(manager, token);
 
         Console.WriteLine($"[{Name}] loaded. Version: {Version}");
-        return;
-
-        async void StartRoulette() => await _rouletteManager.StartGameAsync(token);
     }
 
     #endregion

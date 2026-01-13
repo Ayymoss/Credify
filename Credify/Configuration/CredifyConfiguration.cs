@@ -9,5 +9,11 @@ public class CredifyConfiguration
     public RouletteConfiguration Roulette { get; set; } = new();
     public Shop Shop { get; set; } = new();
     public QuestConfiguration Quest { get; set; } = new();
+    public StreakConfiguration Streak { get; set; } = new();
+    public BountyConfiguration Bounty { get; set; } = new();
+    public SlotsConfiguration Slots { get; set; } = new();
+    public WheelConfiguration Wheel { get; set; } = new();
+    public BountyContractConfiguration BountyContract { get; set; } = new();
+    public PokerConfiguration Poker { get; set; } = new();
     public TranslationsRoot Translations { get; set; } = new();
 }

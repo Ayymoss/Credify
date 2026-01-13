@@ -1,4 +1,5 @@
-﻿using Credify.Configuration;
+using Credify.Configuration;
+using Credify.Constants;
 using Credify.Services;
 using SharedLibraryCore;
 using SharedLibraryCore.Commands;
@@ -48,7 +49,7 @@ public class SetCreditsCommand : Command
             return;
         }
 
-        gameEvent.Target.SetAdditionalProperty(Plugin.CreditsAmount, Math.Abs(argAmount));
+        gameEvent.Target.SetAdditionalProperty(PluginConstants.CreditsAmount, Math.Abs(argAmount));
         gameEvent.Origin.Tell(_credifyConfig.Translations.Core.SetCreditsForTarget
             .FormatExt(gameEvent.Target.Name, Math.Abs(argAmount).ToString("N0")));
         if (gameEvent.Origin.ClientId != gameEvent.Target.ClientId)
