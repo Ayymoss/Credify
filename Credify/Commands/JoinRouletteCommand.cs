@@ -1,4 +1,5 @@
-﻿using Credify.Chat.Active.Games.Roulette;
+﻿using Credify.Chat.Active.Core;
+using Credify.Chat.Active.Games.Roulette;
 using Credify.Configuration;
 using Credify.Services;
 using SharedLibraryCore;
@@ -7,18 +8,12 @@ using SharedLibraryCore.Interfaces;
 
 namespace Credify.Commands;
 
-public class JoinRouletteCommand : Command
+public class JoinRouletteCommand : BaseGameJoinCommand<RouletteManager>
 {
-    private readonly CredifyConfiguration _credifyConfig;
-    private readonly PersistenceService _persistenceService;
-    private readonly RouletteManager _roulette;
-
-    public JoinRouletteCommand(CommandConfiguration config, ITranslationLookup translationLookup, CredifyConfiguration credifyConfig,
-        PersistenceService persistenceService, RouletteManager roulette) : base(config, translationLookup)
+    public JoinRouletteCommand(CommandConfiguration config, ITranslationLookup translationLookup, 
+        CredifyConfiguration credifyConfig, PersistenceService persistenceService, RouletteManager roulette) 
+        : base(config, translationLookup, roulette, credifyConfig, persistenceService)
     {
-        _credifyConfig = credifyConfig;
-        _persistenceService = persistenceService;
-        _roulette = roulette;
         Name = "credifyroulette";
         Alias = "crrl";
         Description = credifyConfig.Translations.Core.CommandRoulette;
@@ -26,27 +21,7 @@ public class JoinRouletteCommand : Command
         RequiresTarget = false;
     }
 
-    public override async Task ExecuteAsync(GameEvent gameEvent)
-    {
-        if (!_credifyConfig.Roulette.IsEnabled)
-        {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.Roulette.Disabled);
-            return;
-        }
-
-        var funds = await _persistenceService.GetClientCreditsAsync(gameEvent.Origin);
-        if (funds < 10)
-        {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.Core.InsufficientCredits);
-            return;
-        }
-
-        if (!_roulette.IsPlayerPlaying(gameEvent.Origin))
-        {
-            await _roulette.JoinGameAsync(gameEvent.Origin);
-            return;
-        }
-
-        await _roulette.LeaveGameAsync(gameEvent.Origin);
-    }
+    protected override bool IsGameEnabled => CredifyConfig.Roulette.IsEnabled;
+    protected override long MinimumCredits => GameConstants.MinimumCredits;
+    protected override string DisabledMessage => CredifyConfig.Translations.Roulette.Disabled;
 }

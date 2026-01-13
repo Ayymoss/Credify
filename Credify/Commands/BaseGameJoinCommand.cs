@@ -13,24 +13,18 @@ namespace Credify.Commands;
 /// Implements the template method pattern to eliminate code duplication.
 /// </summary>
 /// <typeparam name="TManager">The game manager type that implements IActiveGame</typeparam>
-public abstract class BaseGameJoinCommand<TManager> : Command where TManager : IActiveGame
+public abstract class BaseGameJoinCommand<TManager>(
+    CommandConfiguration config,
+    ITranslationLookup translationLookup,
+    TManager gameManager,
+    CredifyConfiguration credifyConfig,
+    PersistenceService persistenceService)
+    : Command(config, translationLookup)
+    where TManager : IActiveGame
 {
-    protected readonly TManager GameManager;
-    protected readonly CredifyConfiguration CredifyConfig;
-    protected readonly PersistenceService PersistenceService;
-
-    protected BaseGameJoinCommand(
-        CommandConfiguration config,
-        ITranslationLookup translationLookup,
-        TManager gameManager,
-        CredifyConfiguration credifyConfig,
-        PersistenceService persistenceService)
-        : base(config, translationLookup)
-    {
-        GameManager = gameManager;
-        CredifyConfig = credifyConfig;
-        PersistenceService = persistenceService;
-    }
+    protected readonly TManager GameManager = gameManager;
+    protected readonly CredifyConfiguration CredifyConfig = credifyConfig;
+    protected readonly PersistenceService PersistenceService = persistenceService;
 
     public override async Task ExecuteAsync(GameEvent gameEvent)
     {
@@ -48,7 +42,7 @@ public abstract class BaseGameJoinCommand<TManager> : Command where TManager : I
             var funds = await PersistenceService.GetClientCreditsAsync(gameEvent.Origin);
             if (funds < MinimumCredits)
             {
-                gameEvent.Origin.Tell(CredifyConfig.Translations.Core.InsufficientCredits);
+                gameEvent.Origin.Tell(InsufficientCreditsMessage);
                 return;
             }
 
@@ -88,6 +82,12 @@ public abstract class BaseGameJoinCommand<TManager> : Command where TManager : I
     /// Gets the message to display when the game is disabled.
     /// </summary>
     protected abstract string DisabledMessage { get; }
+
+    /// <summary>
+    /// Gets the message to display when the player has insufficient credits.
+    /// Override to customize the message.
+    /// </summary>
+    protected virtual string InsufficientCreditsMessage => CredifyConfig.Translations.Core.InsufficientCredits;
 
     /// <summary>
     /// Joins the player to the game. Override for custom join logic.

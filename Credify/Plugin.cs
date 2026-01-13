@@ -1,3 +1,4 @@
+using Credify.Chat.Active.Core;
 using Credify.Chat.Active.Games.Blackjack;
 using Credify.Chat.Active.Games.Poker;
 using Credify.Chat.Active.Games.Roulette;
@@ -36,7 +37,7 @@ public class Plugin : IPluginV2
     private readonly CredifyEventHandler _credifyEventHandler;
 
     public string Name => PluginConstants.PluginName;
-    public string Version => "2025-08-27";
+    public string Version => "2026-01-13";
     public string Author => "Amos";
 
     public Plugin(
@@ -99,7 +100,7 @@ public class Plugin : IPluginV2
         serviceCollection.AddSingleton<ScheduleService>();
 
         // Active Games Core
-        serviceCollection.AddSingleton<Credify.Chat.Active.Core.GamePlayerCommunication>();
+        serviceCollection.AddSingleton<GamePlayerCommunication>();
         
         // Blackjack
         serviceCollection.AddSingleton<BlackjackManager>();

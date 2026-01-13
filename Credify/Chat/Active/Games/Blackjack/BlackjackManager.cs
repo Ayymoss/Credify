@@ -13,6 +13,7 @@ public class BlackjackManager(
     CredifyConfiguration credifyConfig,
     PersistenceService persistenceService,
     GamePlayerCommunication communication)
+    : IActiveGame
 {
     private readonly BlackjackGame _game = new(persistenceService, credifyConfig, communication);
 

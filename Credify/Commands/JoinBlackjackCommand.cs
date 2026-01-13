@@ -1,4 +1,5 @@
-﻿using Credify.Chat.Active.Games.Blackjack;
+﻿using Credify.Chat.Active.Core;
+using Credify.Chat.Active.Games.Blackjack;
 using Credify.Configuration;
 using Credify.Services;
 using SharedLibraryCore;
@@ -7,19 +8,13 @@ using SharedLibraryCore.Interfaces;
 
 namespace Credify.Commands;
 
-public class JoinBlackjackCommand : Command
+public class JoinBlackjackCommand : BaseGameJoinCommand<BlackjackManager>
 {
-    private readonly BlackjackManager _blackjackManager;
-    private readonly CredifyConfiguration _credifyConfig;
-    private readonly PersistenceService _persistenceService;
-
     public JoinBlackjackCommand(CommandConfiguration config, ITranslationLookup translationLookup,
         BlackjackManager blackjackManager, CredifyConfiguration credifyConfig,
-        PersistenceService persistenceService) : base(config, translationLookup)
+        PersistenceService persistenceService) 
+        : base(config, translationLookup, blackjackManager, credifyConfig, persistenceService)
     {
-        _blackjackManager = blackjackManager;
-        _credifyConfig = credifyConfig;
-        _persistenceService = persistenceService;
         Name = "credifyblackjack";
         Alias = "crbj";
         Description = credifyConfig.Translations.Core.CommandBlackjack;
@@ -27,45 +22,30 @@ public class JoinBlackjackCommand : Command
         RequiresTarget = false;
     }
 
-    public override async Task ExecuteAsync(GameEvent gameEvent)
+    protected override bool IsGameEnabled => CredifyConfig.Blackjack.IsEnabled;
+    protected override long MinimumCredits => GameConstants.MinimumCredits;
+    protected override string DisabledMessage => CredifyConfig.Translations.Blackjack.Disabled;
+
+    protected override async Task HandleJoinSuccessAsync(GameEvent gameEvent)
     {
-        if (!_credifyConfig.Blackjack.IsEnabled)
+        if (CredifyConfig.Blackjack.JoinAnnouncements)
         {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.Blackjack.Disabled);
-            return;
-        }
-
-        var funds = await _persistenceService.GetClientCreditsAsync(gameEvent.Origin);
-        if (funds < 10)
-        {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.Core.InsufficientCredits);
-            return;
-        }
-
-        var player = gameEvent.Origin;
-        if (!_blackjackManager.IsPlayerPlaying(player))
-        {
-            await _blackjackManager.JoinGameAsync(gameEvent.Origin);
-
-            if (_credifyConfig.Blackjack.JoinAnnouncements)
+            foreach (var server in gameEvent.Origin.CurrentServer.Manager.GetServers())
             {
-                foreach (var server in gameEvent.Origin.CurrentServer.Manager.GetServers())
-                {
-                    if (server.ConnectedClients.Count is 0) continue;
-                    server.Broadcast($"{_credifyConfig.Translations.Blackjack.Title} " +
-                                     $"{_credifyConfig.Translations.Blackjack.JoinAnnouncement.FormatExt(gameEvent.Origin.CleanedName, _blackjackManager.GetPlayerCount() - 1)}");
-                }
+                if (server.ConnectedClients.Count is 0) continue;
+                server.Broadcast($"{CredifyConfig.Translations.Blackjack.Title} " +
+                                 $"{CredifyConfig.Translations.Blackjack.JoinAnnouncement.FormatExt(gameEvent.Origin.CleanedName, GameManager.GetPlayerCount() - 1)}");
             }
-            else
-            {
-                gameEvent.Origin.Tell($"{_credifyConfig.Translations.Blackjack.Title} " +
-                                      $"{_credifyConfig.Translations.Blackjack.Join}");
-            }
-
-            return;
         }
+        else
+        {
+            gameEvent.Origin.Tell($"{CredifyConfig.Translations.Blackjack.Title} " +
+                                  $"{CredifyConfig.Translations.Blackjack.Join}");
+        }
+    }
 
-        await _blackjackManager.LeaveGameAsync(gameEvent.Origin);
-        gameEvent.Origin.Tell(_credifyConfig.Translations.Blackjack.Leave);
+    protected override async Task HandleLeaveSuccessAsync(GameEvent gameEvent)
+    {
+        gameEvent.Origin.Tell(CredifyConfig.Translations.Blackjack.Leave);
     }
 }
