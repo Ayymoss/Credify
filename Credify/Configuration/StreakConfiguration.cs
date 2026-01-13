@@ -10,11 +10,11 @@ public class StreakConfiguration
     /// </summary>
     public Dictionary<int, int> KillStreakRewards { get; set; } = new()
     {
-        [5] = 50,
-        [10] = 150,
-        [15] = 300,
-        [20] = 500,
-        [25] = 750
+        [10] = 200,
+        [15] = 350,
+        [20] = 550,
+        [25] = 800,
+        [30] = 1100
     };
     
     /// <summary>
@@ -25,5 +25,5 @@ public class StreakConfiguration
     /// <summary>
     /// Minimum streak to announce (to avoid spam)
     /// </summary>
-    public int MinimumStreakToAnnounce { get; set; } = 10;
+    public int MinimumStreakToAnnounce { get; set; } = 15;
 }

@@ -1,5 +1,6 @@
 ﻿using Credify.Chat.Active.Core;
 using Credify.Chat.Active.Games.Roulette;
+using Credify.Commands.Base;
 using Credify.Configuration;
 using Credify.Services;
 using SharedLibraryCore;
@@ -8,12 +9,18 @@ using SharedLibraryCore.Interfaces;
 
 namespace Credify.Commands;
 
-public class JoinRouletteCommand : BaseGameJoinCommand<RouletteManager>
+public class JoinRouletteCommand : Command
 {
+    private readonly GameJoinCommandHelper<RouletteManager> _helper;
+    private readonly CredifyConfiguration _credifyConfig;
+
     public JoinRouletteCommand(CommandConfiguration config, ITranslationLookup translationLookup, 
-        CredifyConfiguration credifyConfig, PersistenceService persistenceService, RouletteManager roulette) 
-        : base(config, translationLookup, roulette, credifyConfig, persistenceService)
+        CredifyConfiguration credifyConfig, PersistenceService persistenceService, RouletteManager roulette,
+        ActiveGameTracker gameTracker) 
+        : base(config, translationLookup)
     {
+        _helper = new GameJoinCommandHelper<RouletteManager>(roulette, credifyConfig, persistenceService, gameTracker);
+        _credifyConfig = credifyConfig;
         Name = "credifyroulette";
         Alias = "crrl";
         Description = credifyConfig.Translations.Core.CommandRoulette;
@@ -21,7 +28,13 @@ public class JoinRouletteCommand : BaseGameJoinCommand<RouletteManager>
         RequiresTarget = false;
     }
 
-    protected override bool IsGameEnabled => CredifyConfig.Roulette.IsEnabled;
-    protected override long MinimumCredits => GameConstants.MinimumCredits;
-    protected override string DisabledMessage => CredifyConfig.Translations.Roulette.Disabled;
+    public override async Task ExecuteAsync(GameEvent gameEvent)
+    {
+        await _helper.ExecuteAsync(
+            gameEvent,
+            isGameEnabled: _credifyConfig.Roulette.IsEnabled,
+            minimumCredits: GameConstants.MinimumCredits,
+            disabledMessage: _credifyConfig.Translations.Roulette.Disabled,
+            insufficientCreditsMessage: _credifyConfig.Translations.Core.InsufficientCredits);
+    }
 }

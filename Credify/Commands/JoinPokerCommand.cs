@@ -1,5 +1,6 @@
 using Credify.Chat.Active.Core;
 using Credify.Chat.Active.Games.Poker;
+using Credify.Commands.Base;
 using Credify.Configuration;
 using Credify.Services;
 using SharedLibraryCore;
@@ -9,12 +10,20 @@ using SharedLibraryCore.Database.Models;
 
 namespace Credify.Commands;
 
-public class JoinPokerCommand : BaseGameJoinCommand<PokerManager>
+public class JoinPokerCommand : Command
 {
+    private readonly GameJoinCommandHelper<PokerManager> _helper;
+    private readonly CredifyConfiguration _credifyConfig;
+    private readonly PokerManager _poker;
+
     public JoinPokerCommand(CommandConfiguration config, ITranslationLookup translationLookup, 
-        CredifyConfiguration credifyConfig, PersistenceService persistenceService, PokerManager poker) 
-        : base(config, translationLookup, poker, credifyConfig, persistenceService)
+        CredifyConfiguration credifyConfig, PersistenceService persistenceService, PokerManager poker,
+        ActiveGameTracker gameTracker) 
+        : base(config, translationLookup)
     {
+        _helper = new GameJoinCommandHelper<PokerManager>(poker, credifyConfig, persistenceService, gameTracker);
+        _credifyConfig = credifyConfig;
+        _poker = poker;
         Name = "credifypoker";
         Alias = "crpk";
         Description = "Join or leave the poker table (Texas Hold'em)";
@@ -22,21 +31,19 @@ public class JoinPokerCommand : BaseGameJoinCommand<PokerManager>
         RequiresTarget = false;
     }
 
-    protected override bool IsGameEnabled => CredifyConfig.Poker.IsEnabled;
-    protected override long MinimumCredits => CredifyConfig.Poker.MinimumBuyIn;
-    protected override string DisabledMessage => CredifyConfig.Translations.Poker.Disabled;
-    protected override string InsufficientCreditsMessage => 
-        CredifyConfig.Translations.Poker.InsufficientCredits.FormatExt(MinimumCredits.ToString("N0"));
-
-    protected override Task JoinGameAsync(EFClient player)
+    public override async Task ExecuteAsync(GameEvent gameEvent)
     {
-        // Poker requires a buy-in amount
-        return GameManager.JoinGameAsync(player, MinimumCredits);
-    }
-
-    protected override Task HandleLeaveSuccessAsync(GameEvent gameEvent)
-    {
-        gameEvent.Origin.Tell(CredifyConfig.Translations.Poker.LeaveGame);
-        return Task.CompletedTask;
+        var minimumBuyIn = _credifyConfig.Poker.MinimumBuyIn;
+        await _helper.ExecuteAsync(
+            gameEvent,
+            isGameEnabled: _credifyConfig.Poker.IsEnabled,
+            minimumCredits: minimumBuyIn,
+            disabledMessage: _credifyConfig.Translations.Poker.Disabled,
+            insufficientCreditsMessage: _credifyConfig.Translations.Poker.InsufficientCredits.FormatExt(minimumBuyIn.ToString("N0")),
+            customJoinAsync: async (player) => await _poker.JoinGameAsync(player, minimumBuyIn),
+            handleLeaveSuccessAsync: async (ge) =>
+            {
+                ge.Origin.Tell(_credifyConfig.Translations.Poker.LeaveGame);
+            });
     }
 }

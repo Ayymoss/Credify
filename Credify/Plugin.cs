@@ -22,6 +22,8 @@ using SharedLibraryCore.Interfaces.Events;
 
 namespace Credify;
 
+// TODO: Check Roulette/Blackjack's implementation for feature/saliency. 
+// TODO: The 'help' command needs to be refactored hopefully to be scalable so I don't need to remember.
 public class Plugin : IPluginV2
 {
     private readonly PersistenceService _persistenceService;
@@ -30,11 +32,13 @@ public class Plugin : IPluginV2
     private readonly ScheduleService _scheduleService;
     private readonly RaffleManager _raffleManager;
     private readonly PokerManager _pokerManager;
+    private readonly BlackjackManager _blackjackManager;
     private readonly ClientKilledEventHandler _clientKilledEventHandler;
     private readonly ClientMessagedEventHandler _clientMessagedEventHandler;
     private readonly ClientStateAuthorizedEventHandler _clientStateAuthorizedEventHandler;
     private readonly ClientStateDisposedEventHandler _clientStateDisposedEventHandler;
     private readonly CredifyEventHandler _credifyEventHandler;
+    private readonly ActiveGameTracker _activeGameTracker;
 
     public string Name => PluginConstants.PluginName;
     public string Version => "2026-01-13";
@@ -47,11 +51,13 @@ public class Plugin : IPluginV2
         ScheduleService scheduleService,
         RaffleManager raffleManager,
         PokerManager pokerManager,
+        BlackjackManager blackjackManager,
         ClientKilledEventHandler clientKilledEventHandler,
         ClientMessagedEventHandler clientMessagedEventHandler,
         ClientStateAuthorizedEventHandler clientStateAuthorizedEventHandler,
         ClientStateDisposedEventHandler clientStateDisposedEventHandler,
         CredifyEventHandler credifyEventHandler,
+        ActiveGameTracker activeGameTracker,
         CredifyConfiguration config)
     {
         _persistenceService = persistenceService;
@@ -60,11 +66,13 @@ public class Plugin : IPluginV2
         _scheduleService = scheduleService;
         _raffleManager = raffleManager;
         _pokerManager = pokerManager;
+        _blackjackManager = blackjackManager;
         _clientKilledEventHandler = clientKilledEventHandler;
         _clientMessagedEventHandler = clientMessagedEventHandler;
         _clientStateAuthorizedEventHandler = clientStateAuthorizedEventHandler;
         _clientStateDisposedEventHandler = clientStateDisposedEventHandler;
         _credifyEventHandler = credifyEventHandler;
+        _activeGameTracker = activeGameTracker;
         
         if (!config.IsEnabled) return;
 
@@ -101,6 +109,7 @@ public class Plugin : IPluginV2
 
         // Active Games Core
         serviceCollection.AddSingleton<GamePlayerCommunication>();
+        serviceCollection.AddSingleton<ActiveGameTracker>();
         
         // Blackjack
         serviceCollection.AddSingleton<BlackjackManager>();
@@ -168,6 +177,11 @@ public class Plugin : IPluginV2
         await _persistenceService.ReadBankCreditsAsync();
         await _raffleManager.LoadRaffleAsync(manager);
         await _raffleManager.ReadAndCalculateNextDrawAsync();
+
+        // Register all active games with the tracker
+        _activeGameTracker.RegisterGame(_blackjackManager);
+        _activeGameTracker.RegisterGame(_rouletteManager);
+        _activeGameTracker.RegisterGame(_pokerManager);
 
         // Use Task.Run instead of Thread for async operations
         _ = Task.Run(async () => await _rouletteManager.StartGameAsync(token), token);

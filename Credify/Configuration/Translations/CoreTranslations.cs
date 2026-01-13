@@ -117,6 +117,7 @@ public class CoreTranslations
     public string BountiesHeader { get; set; } = "(Color::Accent)--Active Bounties--";
     public string BountyListEntry { get; set; } = "[(Color::Accent)#{{rank}}(Color::White)] (Color::Green)${{amount}} (Color::White)on (Color::Accent){{target}}";
     public string BountiesMoreCount { get; set; } = "(Color::Yellow)...and {{count}} more bounties";
+    public string AlreadyInAnotherGame { get; set; } = "(Color::Yellow)You are already in {{gameName}}. Leave that game first.";
 
     // @formatter:on
 }
