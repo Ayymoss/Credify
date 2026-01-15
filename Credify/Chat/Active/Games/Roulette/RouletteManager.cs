@@ -1,4 +1,4 @@
-﻿using Credify.Chat.Active.Core;
+using Credify.Chat.Active.Core;
 using Credify.Chat.Active.Games.Roulette.Utilities;
 using Credify.Configuration;
 using Credify.Services;
@@ -18,11 +18,11 @@ public class RouletteManager : IActiveGame
         CredifyConfiguration config,
         TranslationsRoot translations,
         PersistenceService persistenceService,
-        HandleInput input,
         GamePlayerCommunication communication)
     {
-        var output = new HandleOutput(translations, communication);
-        _table = new Table(config, translations, persistenceService, input, output);
+        var input = new RouletteHandleInput(persistenceService, config);
+        var output = new RouletteHandleOutput(translations, communication);
+        _table = new Table(config, translations, persistenceService, communication, input, output);
     }
 
     /// <summary>
@@ -52,7 +52,7 @@ public class RouletteManager : IActiveGame
     /// <summary>
     /// IActiveGame implementation - checks if a player is in the game.
     /// </summary>
-    public bool IsPlayerPlaying(EFClient player) => _table.IsPlayerInGame(player);
+    public bool IsPlayerPlaying(EFClient player) => _table.IsPlayerPlaying(player);
 
     /// <summary>
     /// IActiveGame implementation - gets the current number of players.

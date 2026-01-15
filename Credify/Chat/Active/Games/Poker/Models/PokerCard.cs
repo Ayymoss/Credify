@@ -21,24 +21,15 @@ public class PokerCard(PokerCard.Suit suit, PokerCard.Rank rank)
             _ => ((int)CardRank).ToString()
         };
         
-        var suitSymbol = CardSuit switch
-        {
-            Suit.Hearts => "♥",
-            Suit.Diamonds => "♦",
-            Suit.Clubs => "♣",
-            Suit.Spades => "♠",
-            _ => CardSuit.ToString()[0].ToString()
-        };
-        
-        return $"{rankString}{suitSymbol}";
+        return $"{rankString}-{CardSuit.ToString().ToUpper()}";
     }
 
     public enum Suit
     {
-        Hearts,
-        Diamonds,
-        Clubs,
-        Spades
+        H,
+        D,
+        C,
+        S
     }
 
     public enum Rank

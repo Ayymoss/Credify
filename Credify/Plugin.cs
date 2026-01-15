@@ -22,8 +22,8 @@ using SharedLibraryCore.Interfaces.Events;
 
 namespace Credify;
 
-// TODO: Check Roulette/Blackjack's implementation for feature/saliency. 
-// TODO: The 'help' command needs to be refactored hopefully to be scalable so I don't need to remember.
+// Active Games are looping. We can't play them.
+
 public class Plugin : IPluginV2
 {
     private readonly PersistenceService _persistenceService;
@@ -41,7 +41,7 @@ public class Plugin : IPluginV2
     private readonly ActiveGameTracker _activeGameTracker;
 
     public string Name => PluginConstants.PluginName;
-    public string Version => "2026-01-13";
+    public string Version => "2026-01-15";
     public string Author => "Amos";
 
     public Plugin(
@@ -89,7 +89,7 @@ public class Plugin : IPluginV2
     public static void RegisterDependencies(IServiceCollection serviceCollection)
     {
         // Core
-        serviceCollection.AddConfiguration("CredifyConfigurationV2", new CredifyConfiguration());
+        serviceCollection.AddConfiguration("CredifyConfigurationV3", new CredifyConfiguration());
         serviceCollection.AddSingleton<CredifyCache>();
         serviceCollection.AddSingleton<ServerTimeTracker>();
 
@@ -106,6 +106,7 @@ public class Plugin : IPluginV2
         serviceCollection.AddSingleton<ChatUtils>();
         serviceCollection.AddSingleton<TranslationsRoot>();
         serviceCollection.AddSingleton<ScheduleService>();
+        serviceCollection.AddSingleton<CommandDiscoveryService>();
 
         // Active Games Core
         serviceCollection.AddSingleton<GamePlayerCommunication>();
@@ -115,8 +116,6 @@ public class Plugin : IPluginV2
         serviceCollection.AddSingleton<BlackjackManager>();
 
         // Roulette
-        serviceCollection.AddSingleton<HandleInput>();
-        serviceCollection.AddSingleton<HandleOutput>();
         serviceCollection.AddSingleton<RouletteManager>();
 
         // Poker
@@ -127,6 +126,9 @@ public class Plugin : IPluginV2
 
         // Quests
         serviceCollection.AddSingleton<QuestManager>();
+        
+        // Wheel
+        serviceCollection.AddSingleton<WheelService>();
         
         // Streaks & Bounties
         serviceCollection.AddSingleton<StreakTracker>();

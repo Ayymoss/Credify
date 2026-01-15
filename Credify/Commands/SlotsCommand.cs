@@ -1,4 +1,5 @@
 using Credify.Chat.Passive.Quests.Enums;
+using Credify.Commands.Attributes;
 using Credify.Configuration;
 using Credify.Constants;
 using Credify.Services;
@@ -9,6 +10,7 @@ using SharedLibraryCore.Interfaces;
 
 namespace Credify.Commands;
 
+[CommandCategory("Games")]
 public class SlotsCommand : Command
 {
     private readonly PersistenceService _persistenceService;

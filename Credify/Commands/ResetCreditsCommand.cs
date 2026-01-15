@@ -1,3 +1,4 @@
+using Credify.Commands.Attributes;
 using Credify.Configuration;
 using Credify.Constants;
 using Credify.Services;
@@ -12,6 +13,7 @@ using EFClient = Data.Models.Client.EFClient;
 
 namespace Credify.Commands;
 
+[CommandCategory("Admin")]
 public class ResetCreditsCommand : Command
 {
     private readonly IDatabaseContextFactory _context;

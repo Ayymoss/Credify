@@ -1,6 +1,8 @@
-﻿using Credify.Chat.Active.Games.Roulette.Enums;
+using Credify.Chat.Active.Core;
+using Credify.Chat.Active.Games.Roulette.Enums;
 using Credify.Chat.Active.Games.Roulette.Models;
 using Credify.Chat.Active.Games.Roulette.Models.BetTypes;
+using Credify.Chat.Active.Games.Roulette.Models.BetTypes.Inside;
 using Credify.Chat.Active.Games.Roulette.Services;
 using Credify.Configuration;
 using Credify.Configuration.Translations;
@@ -12,9 +14,10 @@ using SharedLibraryCore.Helpers;
 
 namespace Credify.Chat.Active.Games.Roulette.Utilities;
 
-public class HandleInput(PersistenceService persistenceService, CredifyConfiguration config)
+public class RouletteHandleInput(PersistenceService persistenceService, CredifyConfiguration config)
 {
     private readonly RouletteTranslations _rouletteTrans = config.Translations.Roulette;
+    private readonly StakeValidator _stakeValidator = new(persistenceService, 10);
 
     private record PlayerBet(Player Player, int? Stake);
 
@@ -22,7 +25,7 @@ public class HandleInput(PersistenceService persistenceService, CredifyConfigura
 
     public record PlayerBetType(Player Player, BaseBet? BaseBet);
 
-    public async Task<List<PlayerBetType>> GetPlayerInputsAsync(List<Player> players, CancellationToken token)
+    public async Task<List<PlayerBetType>> GetPlayerInputsAsync(List<Models.Player> players, CancellationToken token)
     {
         var playerBets = await GetBetsAsync(players, token);
         var playerBetCategories = await GetBetCategoriesAsync(playerBets.Where(x => x.Stake.HasValue)
@@ -56,19 +59,18 @@ public class HandleInput(PersistenceService persistenceService, CredifyConfigura
         var tasks = players.Select(async player =>
         {
             var playerCredits = await persistenceService.GetClientCreditsAsync(player.Client);
+            var stakeParser = new RouletteStakeParser(_stakeValidator, playerCredits, _rouletteTrans, config);
             var result = await player.Client.PromptClientInput(
                 [_rouletteTrans.Prefix(_rouletteTrans.HowMuchToBet.FormatExt(playerCredits.ToString("N0")))], input =>
                 {
+                    var parseResult = stakeParser.Parse(input);
                     var innerResult = new ParsedInputResult<int?>();
-                    if (!int.TryParse(input, out var innerBet))
-                        return Task.FromResult(innerResult.WithError(_rouletteTrans.Prefix(_rouletteTrans.InvalidBetInput)));
+                    if (!parseResult.IsValid)
+                    {
+                        return Task.FromResult(innerResult.WithError(parseResult.ErrorMessage));
+                    }
 
-                    if (innerBet < 10) return Task.FromResult(innerResult.WithError(_rouletteTrans.Prefix(_rouletteTrans.MinimumBet)));
-
-                    if (innerBet > playerCredits)
-                        return Task.FromResult(innerResult.WithError(_rouletteTrans.Prefix(config.Translations.Core.InsufficientCredits)));
-
-                    innerResult.Result = innerBet;
+                    innerResult.Result = (int)parseResult.Result;
                     return Task.FromResult(innerResult);
                 }, _rouletteTrans.Prefix(_rouletteTrans.InputTimeout), linkedTokenSource.Token);
 
@@ -91,24 +93,22 @@ public class HandleInput(PersistenceService persistenceService, CredifyConfigura
 
         var tasks = players.Select(async player =>
         {
+            var categoryParser = new RouletteBetCategoryParser(_rouletteTrans);
             var result = await player.Client.PromptClientInput(
             [
                 _rouletteTrans.Prefix(_rouletteTrans.InnerOrOutsideBet),
                 _rouletteTrans.Prefix(_rouletteTrans.InnerOrOutsideBetAcceptableInputs)
             ], input =>
             {
+                var parseResult = categoryParser.Parse(input);
                 var innerResult = new ParsedInputResult<BetCategory?>();
-                var parsed = input.ToLower();
-                innerResult.Result = parsed switch
+                if (!parseResult.IsValid)
                 {
-                    "o" or "out" or "outside" => BetCategory.Outside,
-                    "i" or "in" or "inside" => BetCategory.Inside,
-                    _ => BetCategory.Unknown
-                };
+                    return Task.FromResult(innerResult.WithError(parseResult.ErrorMessage));
+                }
 
-                return Task.FromResult(innerResult.Result is BetCategory.Unknown
-                    ? innerResult.WithError(_rouletteTrans.Prefix(_rouletteTrans.InvalidBetCategory))
-                    : innerResult);
+                innerResult.Result = parseResult.Result;
+                return Task.FromResult(innerResult);
             }, _rouletteTrans.Prefix(_rouletteTrans.InputTimeout), linkedTokenSource.Token);
 
             if (players.Count is not 1 && result.Result.HasValue)
@@ -136,7 +136,19 @@ public class HandleInput(PersistenceService persistenceService, CredifyConfigura
                     _rouletteTrans.Prefix(_rouletteTrans.InsidePickNumbers),
                     _rouletteTrans.Prefix(_rouletteTrans.InsideBetOptions)
                 ],
-                input => Task.FromResult(ParseInsideBet(input, player.Stake!.Value)), _rouletteTrans.Prefix(_rouletteTrans.InputTimeout),
+                input =>
+                {
+                    var parser = new RouletteInsideBetParser(player.Stake!.Value, _rouletteTrans);
+                    var parseResult = parser.Parse(input);
+                    var innerResult = new ParsedInputResult<InsideBaseBet?>();
+                    if (!parseResult.IsValid)
+                    {
+                        return Task.FromResult(innerResult.WithError(parseResult.ErrorMessage));
+                    }
+
+                    innerResult.Result = parseResult.Result;
+                    return Task.FromResult(innerResult);
+                }, _rouletteTrans.Prefix(_rouletteTrans.InputTimeout),
                 linkedTokenSource.Token);
 
             if (players.Count is not 1 && result.Result is not null)
@@ -164,7 +176,19 @@ public class HandleInput(PersistenceService persistenceService, CredifyConfigura
                     _rouletteTrans.Prefix(_rouletteTrans.OutsideSelectBet),
                     _rouletteTrans.Prefix(_rouletteTrans.OutsideBetOptions)
                 ],
-                input => Task.FromResult(ParseOutsideBet(input, player.Stake!.Value)),
+                input =>
+                {
+                    var parser = new RouletteOutsideBetParser(player.Stake!.Value, _rouletteTrans);
+                    var parseResult = parser.Parse(input);
+                    var innerResult = new ParsedInputResult<OutsideBaseBet?>();
+                    if (!parseResult.IsValid)
+                    {
+                        return Task.FromResult(innerResult.WithError(parseResult.ErrorMessage));
+                    }
+
+                    innerResult.Result = parseResult.Result;
+                    return Task.FromResult(innerResult);
+                },
                 _rouletteTrans.Prefix(_rouletteTrans.InputTimeout),
                 linkedTokenSource.Token);
 
@@ -178,47 +202,6 @@ public class HandleInput(PersistenceService persistenceService, CredifyConfigura
 
         var completedTasks = await Task.WhenAll(tasks);
         return completedTasks.Where(x => x.BaseBet is not null).ToList();
-    }
-
-    #endregion
-
-    #region Validation
-
-    private ParsedInputResult<InsideBaseBet?> ParseInsideBet(string input, int betValue)
-    {
-        var result = new ParsedInputResult<InsideBaseBet?>();
-        var (isValid, bet, errorMessage) = RouletteBetValidator.ValidateInsideBet(input, betValue);
-        
-        if (!isValid)
-        {
-            return errorMessage switch
-            {
-                "Invalid number of arguments for inside bet" => result.WithError(_rouletteTrans.Prefix(_rouletteTrans.InvalidNumberOfArguments)),
-                "Invalid range or duplicate numbers" => result.WithError(_rouletteTrans.Prefix(_rouletteTrans.InvalidRangeOrDuplicateNumbers)),
-                _ => result.WithError(_rouletteTrans.Prefix(_rouletteTrans.InvalidBetType))
-            };
-        }
-
-        result.Result = bet;
-        return result;
-    }
-
-    private ParsedInputResult<OutsideBaseBet?> ParseOutsideBet(string input, int betValue)
-    {
-        var result = new ParsedInputResult<OutsideBaseBet?>();
-        var (isValid, bet, errorMessage) = RouletteBetValidator.ValidateOutsideBet(input, betValue);
-        
-        if (!isValid)
-        {
-            return errorMessage switch
-            {
-                "Invalid number of arguments for outside bet" => result.WithError(_rouletteTrans.Prefix(_rouletteTrans.InvalidNumberOfArguments)),
-                _ => result.WithError(_rouletteTrans.Prefix(_rouletteTrans.InvalidBetType))
-            };
-        }
-
-        result.Result = bet;
-        return result;
     }
 
     #endregion

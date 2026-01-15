@@ -11,24 +11,14 @@ namespace Credify.Commands.Base;
 /// Used via composition to avoid inheritance issues with command discovery.
 /// </summary>
 /// <typeparam name="TManager">The game manager type that implements IActiveGame</typeparam>
-public class GameJoinCommandHelper<TManager> where TManager : IActiveGame
+public class GameJoinCommandHelper<TManager>(
+    TManager gameManager,
+    CredifyConfiguration credifyConfig,
+    PersistenceService persistenceService,
+    ActiveGameTracker gameTracker)
+    where TManager : IActiveGame
 {
-    private readonly TManager _gameManager;
-    private readonly CredifyConfiguration _credifyConfig;
-    private readonly PersistenceService _persistenceService;
-    private readonly ActiveGameTracker _gameTracker;
-
-    public GameJoinCommandHelper(
-        TManager gameManager,
-        CredifyConfiguration credifyConfig,
-        PersistenceService persistenceService,
-        ActiveGameTracker gameTracker)
-    {
-        _gameManager = gameManager;
-        _credifyConfig = credifyConfig;
-        _persistenceService = persistenceService;
-        _gameTracker = gameTracker;
-    }
+    private readonly TManager _gameManager = gameManager;
 
     /// <summary>
     /// Executes the common join/leave logic for a game command.
@@ -55,16 +45,16 @@ public class GameJoinCommandHelper<TManager> where TManager : IActiveGame
         if (!_gameManager.IsPlayerPlaying(gameEvent.Origin))
         {
             // Check if player is in any other active game
-            if (_gameTracker.IsPlayerInAnyGame(gameEvent.Origin, _gameManager))
+            if (gameTracker.IsPlayerInAnyGame(gameEvent.Origin, _gameManager))
             {
-                var otherGameName = _gameTracker.GetGameNamePlayerIsIn(gameEvent.Origin, _gameManager);
-                gameEvent.Origin.Tell(_credifyConfig.Translations.Core.AlreadyInAnotherGame
+                var otherGameName = gameTracker.GetGameNamePlayerIsIn(gameEvent.Origin, _gameManager);
+                gameEvent.Origin.Tell(credifyConfig.Translations.Core.AlreadyInAnotherGame
                     .FormatExt(otherGameName ?? "another game"));
                 return;
             }
 
             // Validate minimum credits
-            var funds = await _persistenceService.GetClientCreditsAsync(gameEvent.Origin);
+            var funds = await persistenceService.GetClientCreditsAsync(gameEvent.Origin);
             if (funds < minimumCredits)
             {
                 gameEvent.Origin.Tell(insufficientCreditsMessage);

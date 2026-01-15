@@ -1,4 +1,4 @@
-using Credify.Chat.Active.Games.Blackjack.Models;
+using Credify.Chat.Passive.ChatGames.Models;
 using Credify.Configuration;
 using Credify.Constants;
 using Credify.Services;
@@ -14,66 +14,6 @@ namespace Credify.Chat.Passive.ChatGames.Games;
 public class AcronymGame(CredifyConfiguration credifyConfig, PersistenceService persistenceService, ChatUtils chatUtils)
     : ChatGame
 {
-    // Curated list of gaming/CoD acronyms with their meanings
-    private static readonly Dictionary<string, string[]> Acronyms = new()
-    {
-        // Game modes
-        ["FFA"] = ["Free For All"],
-        ["TDM"] = ["Team Deathmatch"],
-        ["DOM"] = ["Domination"],
-        ["S&D"] = ["Search and Destroy", "Search & Destroy", "SnD"],
-        ["CTF"] = ["Capture The Flag"],
-        ["HQ"] = ["Headquarters"],
-        ["KC"] = ["Kill Confirmed"],
-        ["HP"] = ["Hardpoint"],
-        ["GW"] = ["Ground War"],
-        
-        // Gameplay terms
-        ["ADS"] = ["Aim Down Sights", "Aim Down Sight"],
-        ["TTK"] = ["Time To Kill"],
-        ["KDR"] = ["Kill Death Ratio", "Kill/Death Ratio"],
-        ["SPM"] = ["Score Per Minute"],
-        ["OBJ"] = ["Objective"],
-        ["UAV"] = ["Unmanned Aerial Vehicle"],
-        ["EMP"] = ["Electromagnetic Pulse"],
-        ["RPG"] = ["Rocket Propelled Grenade"],
-        ["LMG"] = ["Light Machine Gun"],
-        ["SMG"] = ["Submachine Gun"],
-        ["DMR"] = ["Designated Marksman Rifle"],
-        ["AR"] = ["Assault Rifle"],
-        
-        // Slang/Community
-        ["GG"] = ["Good Game"],
-        ["GGWP"] = ["Good Game Well Played"],
-        ["AFK"] = ["Away From Keyboard"],
-        ["BRB"] = ["Be Right Back"],
-        ["NPC"] = ["Non Player Character", "Non-Player Character"],
-        ["DLC"] = ["Downloadable Content"],
-        ["OP"] = ["Overpowered"],
-        ["MVP"] = ["Most Valuable Player"],
-        ["KS"] = ["Killstreak"],
-        ["WP"] = ["Well Played"],
-        ["GL"] = ["Good Luck"],
-        ["HF"] = ["Have Fun"],
-        ["GLHF"] = ["Good Luck Have Fun"],
-        ["POTG"] = ["Play Of The Game"],
-        ["OHK"] = ["One Hit Kill"],
-        ["QS"] = ["Quickscope"],
-        ["NS"] = ["Noscope", "No Scope", "Nice Shot"],
-        ["HC"] = ["Hardcore"],
-        ["MP"] = ["Multiplayer"],
-        ["SP"] = ["Single Player", "Singleplayer"],
-        ["FPS"] = ["First Person Shooter", "Frames Per Second"],
-        ["PVP"] = ["Player Versus Player", "Player vs Player"],
-        ["PVE"] = ["Player Versus Environment", "Player vs Environment"],
-        ["RCON"] = ["Remote Console", "Remote Control"],
-        ["IW"] = ["Infinity Ward"],
-        ["COD"] = ["Call of Duty"],
-        ["MW"] = ["Modern Warfare"],
-        ["BO"] = ["Black Ops"],
-        ["WZ"] = ["Warzone"],
-        ["BR"] = ["Battle Royale"]
-    };
 
     public override async Task StartAsync()
     {
@@ -121,7 +61,7 @@ public class AcronymGame(CredifyConfiguration credifyConfig, PersistenceService 
 
             // Calculate fair reaction time based on per-server timing
             var serverEndpoint = client.CurrentServer.EndPoint;
-            var reactionTimeSeconds = CalculateReactionTime(serverEndpoint, gameTime, eventTime);
+            var reactionTimeSeconds = CalculateReactionTime(serverEndpoint, gameTime, eventTime, chatUtils.GetServerTimeTracker());
 
             var player = new ClientAnswerInfo
             {
@@ -202,15 +142,29 @@ public class AcronymGame(CredifyConfiguration credifyConfig, PersistenceService 
                 .FormatExt(player.Payout.ToString("N0"), balance.ToString("N0"));
             if (!player.Client.IsIngame) continue;
             player.Client.Tell(userMessage);
+            
+            // Tell non-winners their time offset
+            if (player != winner)
+            {
+                var timeOffset = player.ReactionTimeSeconds - winner.ReactionTimeSeconds;
+                var offsetMessage = credifyConfig.Translations.Passive.ReactionTimeOffset
+                    .FormatExt($"{timeOffset:F3}");
+                player.Client.Tell(offsetMessage);
+            }
         }
     }
 
     private void GenerateQuestion()
     {
-        // Select a random acronym
-        var acronyms = Acronyms.Keys.ToArray();
+        // Select a random acronym from configuration
+        var acronyms = credifyConfig.ChatGame.Acronyms.Keys.ToArray();
+        if (acronyms.Length == 0)
+        {
+            throw new InvalidOperationException("No acronyms configured in ChatGameConfiguration.Acronyms");
+        }
+        
         var selectedAcronym = acronyms[Random.Shared.Next(acronyms.Length)];
-        var validAnswers = Acronyms[selectedAcronym];
+        var validAnswers = credifyConfig.ChatGame.Acronyms[selectedAcronym];
 
         GameInfo.Question = selectedAcronym;
         GameInfo.Answer = validAnswers[0]; // Primary answer for display

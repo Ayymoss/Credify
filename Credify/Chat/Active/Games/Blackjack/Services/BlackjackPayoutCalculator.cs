@@ -1,4 +1,5 @@
 using Credify.Chat.Active.Core;
+using Credify.Chat.Active.Games.Blackjack.Enums;
 using Credify.Chat.Active.Games.Blackjack.Models;
 using Credify.Configuration;
 
@@ -61,7 +62,7 @@ public class BlackjackPayoutCalculator(BlackjackConfiguration config)
     /// <summary>
     /// Determines the game outcome for a player based on their hand and the dealer's hand.
     /// </summary>
-    public BlackjackEnums.GameOutcome DetermineOutcome(
+    public GameOutcome DetermineOutcome(
         IReadOnlyCollection<BlackjackCard> playerHand,
         IReadOnlyCollection<BlackjackCard> dealerHand)
     {
@@ -71,7 +72,7 @@ public class BlackjackPayoutCalculator(BlackjackConfiguration config)
         // Player busted
         if (playerValue > GameConstants.Blackjack.BlackjackValue)
         {
-            return BlackjackEnums.GameOutcome.Lose;
+            return GameOutcome.Lose;
         }
 
         // Player has blackjack
@@ -79,42 +80,42 @@ public class BlackjackPayoutCalculator(BlackjackConfiguration config)
         {
             if (IsBlackjack(dealerHand))
             {
-                return BlackjackEnums.GameOutcome.Push;
+                return GameOutcome.Push;
             }
-            return BlackjackEnums.GameOutcome.Blackjack;
+            return GameOutcome.Blackjack;
         }
 
         // Dealer busted
         if (dealerValue > GameConstants.Blackjack.BlackjackValue)
         {
-            return BlackjackEnums.GameOutcome.Win;
+            return GameOutcome.Win;
         }
 
         // Compare values
         if (playerValue > dealerValue)
         {
-            return BlackjackEnums.GameOutcome.Win;
+            return GameOutcome.Win;
         }
 
         if (playerValue == dealerValue)
         {
-            return BlackjackEnums.GameOutcome.Push;
+            return GameOutcome.Push;
         }
 
-        return BlackjackEnums.GameOutcome.Lose;
+        return GameOutcome.Lose;
     }
 
     /// <summary>
     /// Calculates the payout amount for a player based on their stake and outcome.
     /// </summary>
-    public long CalculatePayout(long stake, BlackjackEnums.GameOutcome outcome)
+    public long CalculatePayout(long stake, GameOutcome outcome)
     {
         return outcome switch
         {
-            BlackjackEnums.GameOutcome.Blackjack => Convert.ToInt64(Math.Round(stake * config.PayoutBlackjack)),
-            BlackjackEnums.GameOutcome.Win => Convert.ToInt64(Math.Round(stake * config.PayoutWin)),
-            BlackjackEnums.GameOutcome.Push => stake, // Return bet amount
-            BlackjackEnums.GameOutcome.Lose => 0,
+            GameOutcome.Blackjack => Convert.ToInt64(Math.Round(stake * config.PayoutBlackjack)),
+            GameOutcome.Win => Convert.ToInt64(Math.Round(stake * config.PayoutWin)),
+            GameOutcome.Push => stake, // Return bet amount
+            GameOutcome.Lose => 0,
             _ => 0
         };
     }
@@ -122,7 +123,7 @@ public class BlackjackPayoutCalculator(BlackjackConfiguration config)
     /// <summary>
     /// Calculates the net profit (payout - stake) for a player.
     /// </summary>
-    public long CalculateNetProfit(long stake, BlackjackEnums.GameOutcome outcome)
+    public long CalculateNetProfit(long stake, GameOutcome outcome)
     {
         var payout = CalculatePayout(stake, outcome);
         return payout - stake;

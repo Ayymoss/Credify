@@ -6,5 +6,6 @@ public enum PlayerAction
     Check,
     Call,
     Raise,
-    AllIn
+    AllIn,
+    TopUp
 }

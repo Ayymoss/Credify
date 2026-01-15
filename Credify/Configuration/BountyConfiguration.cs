@@ -22,7 +22,7 @@ public class BountyConfiguration
     /// <summary>
     /// Maximum auto-bounty amount
     /// </summary>
-    public int MaxAutoBounty { get; set; } = 600;
+    public int MaxAutoBounty { get; set; } = 1000;
     
     /// <summary>
     /// Whether to announce when a bounty is placed
@@ -48,7 +48,7 @@ public class BountyConfiguration
     /// <summary>
     /// Time window in minutes for tracking recent kills for anti-boost detection
     /// </summary>
-    public int AntiBoostTimeWindowMinutes { get; set; } = 1;
+    public int AntiBoostTimeWindowMinutes { get; set; } = 5;
     
     /// <summary>
     /// Minimum number of unique victims required to reach the bounty threshold

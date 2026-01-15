@@ -1,5 +1,6 @@
-﻿using Credify.Chat.Active.Core;
+using Credify.Chat.Active.Core;
 using Credify.Chat.Active.Games.Roulette;
+using Credify.Commands.Attributes;
 using Credify.Commands.Base;
 using Credify.Configuration;
 using Credify.Services;
@@ -9,6 +10,7 @@ using SharedLibraryCore.Interfaces;
 
 namespace Credify.Commands;
 
+[CommandCategory("Games")]
 public class JoinRouletteCommand : Command
 {
     private readonly GameJoinCommandHelper<RouletteManager> _helper;
@@ -23,7 +25,7 @@ public class JoinRouletteCommand : Command
         _credifyConfig = credifyConfig;
         Name = "credifyroulette";
         Alias = "crrl";
-        Description = credifyConfig.Translations.Core.CommandRoulette;
+        Description = credifyConfig.Translations.Core.CommandRouletteDescription;
         Permission = Data.Models.Client.EFClient.Permission.User;
         RequiresTarget = false;
     }

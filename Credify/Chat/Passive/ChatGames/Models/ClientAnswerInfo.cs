@@ -1,6 +1,6 @@
 using SharedLibraryCore.Database.Models;
 
-namespace Credify.Chat.Active.Games.Blackjack.Models;
+namespace Credify.Chat.Passive.ChatGames.Models;
 
 public class ClientAnswerInfo
 {

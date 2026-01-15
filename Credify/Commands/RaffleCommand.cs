@@ -1,6 +1,7 @@
-﻿using Credify.Chat.Feature.Raffle;
+using Credify.Chat.Feature.Raffle;
 using Credify.Chat.Feature.Raffle.Enums;
 using Credify.Chat.Passive.Quests.Enums;
+using Credify.Commands.Attributes;
 using Credify.Configuration;
 using Credify.Services;
 using SharedLibraryCore;
@@ -11,6 +12,7 @@ using EFClient = Data.Models.Client.EFClient;
 
 namespace Credify.Commands;
 
+[CommandCategory("Raffle")]
 public class RaffleCommand : Command
 {
     private readonly PersistenceService _persistenceService;

@@ -1,4 +1,4 @@
-﻿using Credify.Chat.Active.Games.Blackjack.Models;
+﻿using Credify.Chat.Passive.ChatGames.Models;
 using Credify.Chat.Passive.ChatGames.Games;
 using Credify.Configuration;
 using Credify.Services;

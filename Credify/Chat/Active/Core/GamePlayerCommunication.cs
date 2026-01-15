@@ -8,8 +8,9 @@ namespace Credify.Chat.Active.Core;
 /// Centralized service for player communication in active games.
 /// Handles messaging patterns, prefixes, and multi-server broadcasts.
 /// </summary>
-public class GamePlayerCommunication(TranslationsRoot translations)
+public class GamePlayerCommunication
 {
+    // Note: translations parameter was removed as it was unused
     /// <summary>
     /// Sends a message to a single player with optional game prefix.
     /// </summary>

@@ -5,7 +5,7 @@ using Credify.Services;
 using SharedLibraryCore;
 using SharedLibraryCore.Database.Models;
 using System.Text;
-using Credify.Chat.Active.Games.Blackjack.Models;
+using Credify.Chat.Passive.ChatGames.Models;
 
 namespace Credify.Chat.Passive.ChatGames.Games;
 
@@ -45,7 +45,7 @@ public class TypingTestGame(CredifyConfiguration credifyConfig, PersistenceServi
 
             // Calculate fair reaction time based on per-server timing
             var serverEndpoint = client.CurrentServer.EndPoint;
-            var reactionTimeSeconds = CalculateReactionTime(serverEndpoint, gameTime, eventTime);
+            var reactionTimeSeconds = CalculateReactionTime(serverEndpoint, gameTime, eventTime, chatUtils.GetServerTimeTracker());
 
             var player = new ClientAnswerInfo
             {
@@ -129,6 +129,15 @@ public class TypingTestGame(CredifyConfiguration credifyConfig, PersistenceServi
                 .FormatExt(player.Payout.ToString("N0"), balance.ToString("N0"));
             if (!player.Client.IsIngame) continue;
             player.Client.Tell(userMessage);
+            
+            // Tell non-winners their time offset
+            if (player != winner)
+            {
+                var timeOffset = player.ReactionTimeSeconds - winner.ReactionTimeSeconds;
+                var offsetMessage = credifyConfig.Translations.Passive.ReactionTimeOffset
+                    .FormatExt($"{timeOffset:F3}");
+                player.Client.Tell(offsetMessage);
+            }
         }
     }
 

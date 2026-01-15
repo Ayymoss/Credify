@@ -1,7 +1,6 @@
-using Credify.Chat.Active.Games.Blackjack.Models;
+using Credify.Chat.Passive.ChatGames.Models;
 using Credify.Configuration;
 using Credify.Constants;
-using Credify.Helpers;
 using Credify.Services;
 using SharedLibraryCore;
 using SharedLibraryCore.Database.Models;
@@ -10,14 +9,12 @@ namespace Credify.Chat.Passive.ChatGames.Games;
 
 /// <summary>
 /// A word completion game where players fill in missing letters.
-/// Uses Random Word API to fetch words dynamically.
+/// Uses a configurable word bank from ChatGameConfiguration.FillInBlankWords.
 /// </summary>
 public class CompleteTheWordGame(CredifyConfiguration credifyConfig, PersistenceService persistenceService, ChatUtils chatUtils)
     : ChatGame
 {
-    private const int MinWordLength = 6;
-    private const int MaxWordLength = 10;
-    private const double HidePercentage = 0.5; // Hide 50% of letters
+    private const double HidePercentage = 0.4; // Hide 40% of letters
     
     public override async Task StartAsync()
     {
@@ -29,13 +26,7 @@ public class CompleteTheWordGame(CredifyConfiguration credifyConfig, Persistence
             Started = DateTimeOffset.UtcNow
         };
 
-        await GenerateQuestion();
-
-        if (string.IsNullOrEmpty(GameInfo.Answer))
-        {
-            GameState = GameState.Ended;
-            return;
-        }
+        GenerateQuestion();
 
         var message = credifyConfig.Translations.Passive.CompleteWordBroadcast.FormatExt(
             PluginConstants.PluginName, 
@@ -69,7 +60,7 @@ public class CompleteTheWordGame(CredifyConfiguration credifyConfig, Persistence
 
             // Calculate fair reaction time based on per-server timing
             var serverEndpoint = client.CurrentServer.EndPoint;
-            var reactionTimeSeconds = CalculateReactionTime(serverEndpoint, gameTime, eventTime);
+            var reactionTimeSeconds = CalculateReactionTime(serverEndpoint, gameTime, eventTime, chatUtils.GetServerTimeTracker());
 
             var player = new ClientAnswerInfo
             {
@@ -150,54 +141,27 @@ public class CompleteTheWordGame(CredifyConfiguration credifyConfig, Persistence
                 .FormatExt(player.Payout.ToString("N0"), balance.ToString("N0"));
             if (!player.Client.IsIngame) continue;
             player.Client.Tell(userMessage);
+            
+            // Tell non-winners their time offset
+            if (player != winner)
+            {
+                var timeOffset = player.ReactionTimeSeconds - winner.ReactionTimeSeconds;
+                var offsetMessage = credifyConfig.Translations.Passive.ReactionTimeOffset
+                    .FormatExt($"{timeOffset:F3}");
+                player.Client.Tell(offsetMessage);
+            }
         }
     }
 
-    private async Task GenerateQuestion()
+    private void GenerateQuestion()
     {
-        try
+        var wordList = credifyConfig.ChatGame.FillInBlankWords;
+        if (wordList.Count == 0)
         {
-            // Get a random word length between min and max
-            var targetLength = Random.Shared.Next(MinWordLength, MaxWordLength + 1);
-            
-            var http = new HttpClient();
-            var response = await http.GetAsync($"https://random-word-api.herokuapp.com/word?length={targetLength}");
-            
-            if (!response.IsSuccessStatusCode)
-            {
-                // Fallback to a simple word list if API fails
-                UseFallbackWord();
-                return;
-            }
-            
-            var words = await response.DeserializeHttpResponseContentAsync<string[]>();
-            if (words is null || words.Length == 0)
-            {
-                UseFallbackWord();
-                return;
-            }
-
-            var word = words[0].ToUpperInvariant();
-            GameInfo.Answer = word;
-            GameInfo.Question = CreateMaskedWord(word);
+            throw new InvalidOperationException("No words configured in ChatGameConfiguration.FillInBlankWords");
         }
-        catch (Exception)
-        {
-            UseFallbackWord();
-        }
-    }
 
-    private void UseFallbackWord()
-    {
-        // Fallback words if API is unavailable
-        string[] fallbackWords = 
-        [
-            "PLAYER", "SNIPER", "GRENADE", "STRIKER", "COMBAT",
-            "RELOAD", "TARGET", "WEAPON", "SOLDIER", "DEFEND",
-            "ATTACK", "STEALTH", "CAPTURE", "VICTORY", "BATTLE"
-        ];
-        
-        var word = fallbackWords[Random.Shared.Next(fallbackWords.Length)];
+        var word = wordList[Random.Shared.Next(wordList.Count)].ToUpperInvariant();
         GameInfo.Answer = word;
         GameInfo.Question = CreateMaskedWord(word);
     }
@@ -226,6 +190,7 @@ public class CompleteTheWordGame(CredifyConfiguration credifyConfig, Persistence
             chars[index] = '_';
         }
         
-        return new string(chars);
+        // Add spaces between each character so underscores don't blend together in-game chat
+        return string.Join(" ", chars);
     }
 }

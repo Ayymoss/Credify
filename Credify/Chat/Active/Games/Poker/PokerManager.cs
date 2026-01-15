@@ -34,7 +34,9 @@ public class PokerManager : IActiveGame
             config,
             translations,
             persistenceService,
+            communication,
             input,
+            input, // Pass concrete type for FormatAvailableActions
             output,
             deckService,
             handEvaluator,
@@ -81,13 +83,21 @@ public class PokerManager : IActiveGame
     /// </summary>
     public async Task HandleChatAsync(EFClient player, string message)
     {
+        // Handle cards/river view commands before routing to table
+        var trimmedMessage = message.Trim().ToLower();
+        if (trimmedMessage is "cards" or "river")
+        {
+            await _table.ShowCardsAsync(player, trimmedMessage == "river");
+            return;
+        }
+
         await _table.HandleChatAsync(player, message);
     }
 
     /// <summary>
     /// IActiveGame implementation - checks if a player is in the game.
     /// </summary>
-    public bool IsPlayerPlaying(EFClient player) => _table.IsPlayerInGame(player);
+    public bool IsPlayerPlaying(EFClient player) => _table.IsPlayerPlaying(player);
 
     /// <summary>
     /// IActiveGame implementation - gets the current number of players.

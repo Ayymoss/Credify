@@ -1,6 +1,6 @@
-﻿using Credify.Services;
+using Credify.Services;
 
-namespace Credify.Chat.Active.Games.Blackjack.Models;
+namespace Credify.Chat.Passive.ChatGames.Models;
 
 public class GameStateInfo
 {

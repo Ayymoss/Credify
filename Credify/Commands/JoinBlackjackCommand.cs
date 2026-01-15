@@ -1,5 +1,6 @@
-﻿using Credify.Chat.Active.Core;
+using Credify.Chat.Active.Core;
 using Credify.Chat.Active.Games.Blackjack;
+using Credify.Commands.Attributes;
 using Credify.Commands.Base;
 using Credify.Configuration;
 using Credify.Services;
@@ -9,6 +10,7 @@ using SharedLibraryCore.Interfaces;
 
 namespace Credify.Commands;
 
+[CommandCategory("Games")]
 public class JoinBlackjackCommand : Command
 {
     private readonly GameJoinCommandHelper<BlackjackManager> _helper;
@@ -25,7 +27,7 @@ public class JoinBlackjackCommand : Command
         _blackjackManager = blackjackManager;
         Name = "credifyblackjack";
         Alias = "crbj";
-        Description = credifyConfig.Translations.Core.CommandBlackjack;
+        Description = credifyConfig.Translations.Core.CommandBlackjackDescription;
         Permission = Data.Models.Client.EFClient.Permission.User;
         RequiresTarget = false;
     }

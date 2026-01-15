@@ -1,10 +1,12 @@
-﻿using Credify.Chat.Feature.Raffle;
+using Credify.Chat.Feature.Raffle;
+using Credify.Commands.Attributes;
 using SharedLibraryCore;
 using SharedLibraryCore.Configuration;
 using SharedLibraryCore.Interfaces;
 
 namespace Credify.Commands;
 
+[CommandCategory("Admin")]
 public class CallRaffleCommand : Command
 {
     private readonly RaffleManager _raffleManager;

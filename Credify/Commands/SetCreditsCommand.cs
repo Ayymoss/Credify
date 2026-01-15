@@ -1,3 +1,4 @@
+using Credify.Commands.Attributes;
 using Credify.Configuration;
 using Credify.Constants;
 using Credify.Services;
@@ -9,6 +10,7 @@ using EFClient = Data.Models.Client.EFClient;
 
 namespace Credify.Commands;
 
+[CommandCategory("Admin")]
 public class SetCreditsCommand : Command
 {
     private readonly PersistenceService _persistenceService;

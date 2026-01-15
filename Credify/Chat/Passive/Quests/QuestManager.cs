@@ -145,12 +145,7 @@ public class QuestManager(CredifyConfiguration config, PersistenceService persis
 
         var origin = killEvent.Origin;
         var target = killEvent.Target;
-#if DEBUG
-        Console.WriteLine($"{origin.CleanedName} (@{origin.ClientId}) -> " +
-                          $"{target.CleanedName} (@{target.ClientId}) | " +
-                          $"MOD: {meansOfDeath.ToString()} ({killEvent.MeansOfDeath}) - " +
-                          $"WEP: {weapon.ToString()} ({killEvent.WeaponName})");
-#endif
+
         try
         {
             await _semaphoreSlim.WaitAsync();

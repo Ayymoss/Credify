@@ -1,4 +1,5 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
+using Credify.Chat.Active.Core;
 using Credify.Chat.Active.Games.Roulette.Enums;
 using Credify.Chat.Active.Games.Roulette.Models;
 using Credify.Chat.Active.Games.Roulette.Models.BetTypes.Inside;
@@ -15,43 +16,44 @@ public class Table(
     CredifyConfiguration config,
     TranslationsRoot translations,
     PersistenceService persistenceService,
-    HandleInput input,
-    HandleOutput output)
+    GamePlayerCommunication communication,
+    RouletteHandleInput input,
+    IGameOutputHandler<Player> output)
+    : BaseContinuousGame<Player>(persistenceService, config, communication)
 {
-    private readonly ConcurrentDictionary<EFClient, Player> _waitingPlayers = [];
     private List<Player> _players = [];
-    private readonly ManualResetEventSlim _hasPlayers = new(false);
 
-    public async Task GameLoopAsync(CancellationToken token)
+    protected override int GetMinimumPlayers() => 1; // Roulette can run with any number of players
+
+    protected override TimeSpan GetDelayBetweenRounds() => TimeSpan.Zero; // No delay for roulette
+
+    protected override async Task ExecuteGameRoundAsync(CancellationToken token)
     {
-        while (!token.IsCancellationRequested)
+        _players = Players.Values.ToList();
+
+        var bets = await input.GetPlayerInputsAsync(_players, token);
+        await PopulateBets(bets);
+        RemoveEmptyBets();
+
+        await SpinWheelMessage(token);
+        await HandleResult(SpinWheel());
+
+        foreach (var player in _players)
         {
-            _hasPlayers.Wait(token);
-            _players = _waitingPlayers.Values.ToList();
-
-            var bets = await input.GetPlayerInputsAsync(_players, token);
-            await PopulateBets(bets);
-            RemoveEmptyBets();
-
-            await SpinWheelMessage(token);
-            await HandleResult(SpinWheel());
-
-            foreach (var player in _players)
-            {
-                player.ClearBet();
-                ICredifyEventService.RaiseEvent(ObjectiveType.Roulette, player.Client);
-            }
-
-            await RemoveBrokePlayers();
+            player.ClearBet();
+            ICredifyEventService.RaiseEvent(ObjectiveType.Roulette, player.Client);
         }
+
+        await RemoveBrokePlayers();
     }
+
 
     private async Task RemoveBrokePlayers()
     {
         List<Player> playersToRemove = [];
         foreach (var player in _players)
         {
-            var credits = await persistenceService.GetClientCreditsAsync(player.Client);
+            var credits = await PersistenceService.GetClientCreditsAsync(player.Client);
             if (credits >= 10) continue;
             output.Tell(player, translations.Roulette.Broke);
             playersToRemove.Add(player);
@@ -66,11 +68,11 @@ public class Table(
     private async Task SpinWheelMessage(CancellationToken token)
     {
         var message = translations.Roulette.Prefix(translations.Roulette.SpinningWheel);
-        await output.TellAsync(_players, [$"{message}..."]);
+        await output.TellPlayersAsync(_players, [$"{message}..."]);
         await Task.Delay(1_000, token);
-        await output.TellAsync(_players, [$"{message}.."]);
+        await output.TellPlayersAsync(_players, [$"{message}.."]);
         await Task.Delay(1_500, token);
-        await output.TellAsync(_players, [$"{message}."]);
+        await output.TellPlayersAsync(_players, [$"{message}."]);
         await Task.Delay(2_000, token);
     }
 
@@ -88,12 +90,12 @@ public class Table(
 
             ICredifyEventService.RaiseEvent(ObjectiveType.Baller, player.Client, player.Bet.Payout);
             output.Tell(player, translations.Roulette.Won.FormatExt((player.Bet.Payout - player.Bet.Stake).ToString("N0")));
-            await persistenceService.AddCreditsAsync(player.Client, player.Bet.Payout);
+            await PersistenceService.AddCreditsAsync(player.Client, player.Bet.Payout);
 
             if (!config.Roulette.AnnounceMaxPayoutWinners) continue;
             if (player.Bet is not StraightUpBet straightUpBet) continue;
 
-            await output.TellAllServersAsync(player,
+            await output.BroadcastToAllServersAsync(player,
             [
                 translations.Roulette.LongPrefix(translations.Roulette.HouseWin.FormatExt(player.Client.CleanedName,
                     (player.Bet.Payout - player.Bet.Stake).ToString("N0"), straightUpBet.Number))
@@ -110,7 +112,7 @@ public class Table(
 
         var ballColour = $"{colourString}{spinResult.Colour}(Color::White)";
 
-        await output.TellAsync(_players, [
+        await output.TellPlayersAsync(_players, [
             translations.Roulette.Prefix(translations.Roulette.BallStopped.FormatExt(spinResult.Number, ballColour))
         ]);
     }
@@ -126,13 +128,13 @@ public class Table(
         }
     }
 
-    private async Task PopulateBets(List<HandleInput.PlayerBetType> bets)
+    private async Task PopulateBets(List<RouletteHandleInput.PlayerBetType> bets)
     {
         foreach (var bet in bets)
         {
             if (bet.BaseBet is null) continue;
             bet.Player.CreateBet(bet.BaseBet);
-            await persistenceService.RemoveCreditsAsync(bet.Player.Client, bet.BaseBet.Stake);
+            await PersistenceService.RemoveCreditsAsync(bet.Player.Client, bet.BaseBet.Stake);
         }
     }
 
@@ -151,12 +153,12 @@ public class Table(
 
     public async Task<bool> PlayerJoinAsync(Player player)
     {
-        var added = _waitingPlayers.TryAdd(player.Client, player);
-        if (!_hasPlayers.IsSet)
+        var added = Players.TryAdd(player.Client, player);
+        if (!HasPlayers.IsSet)
         {
-            await output.TellAllServerAsync(player,
+            await output.BroadcastToServerAsync(player,
                 [translations.Roulette.LongPrefix(translations.Roulette.PlayerStartedRoulette.FormatExt(player.Client.CleanedName))]);
-            _hasPlayers.Set();
+            SignalPlayersAvailable();
             return added;
         }
 
@@ -164,20 +166,42 @@ public class Table(
         return added;
     }
 
-    public void PlayerLeave(EFClient client)
+    /// <summary>
+    /// IActiveGame implementation - allows a player to join the game.
+    /// </summary>
+    public override async Task JoinGameAsync(EFClient player)
     {
-        output.Tell(_waitingPlayers[client], translations.Roulette.LeaveMessage, true);
-        _waitingPlayers.TryRemove(client, out _);
-
-        lock (_players) _players.RemoveAll(player => Equals(player.Client, client));
-
-        if (_waitingPlayers.IsEmpty)
-        {
-            _hasPlayers.Reset();
-        }
+        await PlayerJoinAsync(new Player(player));
+        OnPlayerJoined();
     }
 
-    public bool IsPlayerInGame(EFClient client) => _waitingPlayers.ContainsKey(client);
+    public void PlayerLeave(EFClient client)
+    {
+        if (Players.TryGetValue(client, out var player))
+        {
+            output.Tell(player, translations.Roulette.LeaveMessage, true);
+        }
+        RemovePlayer(client);
 
-    public int GetPlayerCount() => _waitingPlayers.Count;
+        lock (_players) _players.RemoveAll(p => Equals(p.Client, client));
+
+        ResetPlayersSignal();
+    }
+
+    public bool IsPlayerInGame(EFClient client) => IsPlayerPlaying(client);
+
+    /// <summary>
+    /// IActiveGame implementation - removes a player from the game.
+    /// </summary>
+    public override Task LeaveGameAsync(EFClient player)
+    {
+        PlayerLeave(player);
+        OnPlayerLeft();
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// IActiveGame implementation - handles chat messages (roulette doesn't use chat input during gameplay).
+    /// </summary>
+    public override Task HandleChatAsync(EFClient player, string message) => Task.CompletedTask;
 }

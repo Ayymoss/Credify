@@ -1,5 +1,6 @@
 using Credify.Chat.Active.Core;
 using Credify.Chat.Active.Games.Poker;
+using Credify.Commands.Attributes;
 using Credify.Commands.Base;
 using Credify.Configuration;
 using Credify.Services;
@@ -10,6 +11,7 @@ using SharedLibraryCore.Database.Models;
 
 namespace Credify.Commands;
 
+[CommandCategory("Games")]
 public class JoinPokerCommand : Command
 {
     private readonly GameJoinCommandHelper<PokerManager> _helper;
@@ -26,7 +28,7 @@ public class JoinPokerCommand : Command
         _poker = poker;
         Name = "credifypoker";
         Alias = "crpk";
-        Description = "Join or leave the poker table (Texas Hold'em)";
+        Description = credifyConfig.Translations.Core.CommandPokerDescription;
         Permission = Data.Models.Client.EFClient.Permission.User;
         RequiresTarget = false;
     }

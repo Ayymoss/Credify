@@ -1,6 +1,7 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using Credify.Chat.Passive.Quests;
 using Credify.Chat.Passive.Quests.Models;
+using Credify.Commands.Attributes;
 using Credify.Configuration;
 using SharedLibraryCore;
 using SharedLibraryCore.Configuration;
@@ -9,6 +10,7 @@ using SharedLibraryCore.Interfaces;
 
 namespace Credify.Commands;
 
+[CommandCategory("Quests")]
 public class QuestCommand : Command
 {
     private readonly CredifyConfiguration _credifyConfig;

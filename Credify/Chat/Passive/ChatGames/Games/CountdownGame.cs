@@ -1,4 +1,4 @@
-using Credify.Chat.Active.Games.Blackjack.Models;
+using Credify.Chat.Passive.ChatGames.Models;
 using Credify.Chat.Passive.Quests.Enums;
 using Credify.Configuration;
 using Credify.Constants;
@@ -66,7 +66,7 @@ public class CountdownGame(CredifyConfiguration credifyConfig, PersistenceServic
 
             // Calculate fair reaction time based on per-server timing
             var serverEndpoint = client.CurrentServer.EndPoint;
-            var reactionTimeSeconds = CalculateReactionTime(serverEndpoint, gameTime, eventTime);
+            var reactionTimeSeconds = CalculateReactionTime(serverEndpoint, gameTime, eventTime, chatUtils.GetServerTimeTracker());
 
             var player = new ClientAnswerInfo
             {
@@ -155,6 +155,7 @@ public class CountdownGame(CredifyConfiguration credifyConfig, PersistenceServic
             winnerCount, totalPayout.ToString("N0"), string.Join(", ", uniqueAnswers));
         await chatUtils.BroadcastToAllServers([broadcastMessage]);
 
+        var fastestWinner = winners.OrderBy(w => w.ReactionTimeSeconds).First();
         foreach (var winner in winners)
         {
             var balance = await persistenceService.GetClientCreditsAsync(winner.Client);
@@ -162,6 +163,17 @@ public class CountdownGame(CredifyConfiguration credifyConfig, PersistenceServic
                 .FormatExt(winner.Payout.ToString("N0"), balance.ToString("N0"));
             if (!winner.Client.IsIngame) continue;
             winner.Client.Tell(userMessage);
+        }
+        
+        // Tell non-winners their time offset from fastest winner
+        var losers = GameInfo.Players.Where(p => !p.Winner).ToList();
+        foreach (var loser in losers)
+        {
+            if (!loser.Client.IsIngame) continue;
+            var timeOffset = loser.ReactionTimeSeconds - fastestWinner.ReactionTimeSeconds;
+            var offsetMessage = credifyConfig.Translations.Passive.ReactionTimeOffset
+                .FormatExt($"{timeOffset:F3}");
+            loser.Client.Tell(offsetMessage);
         }
     }
 

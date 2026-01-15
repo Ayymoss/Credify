@@ -1,4 +1,5 @@
 using Credify.Chat.Feature.Bounty;
+using Credify.Commands.Attributes;
 using Credify.Configuration;
 using Credify.Constants;
 using Credify.Services;
@@ -9,6 +10,7 @@ using SharedLibraryCore.Interfaces;
 
 namespace Credify.Commands;
 
+[CommandCategory("Bounties")]
 public class PlaceBountyCommand : Command
 {
     private readonly PersistenceService _persistenceService;

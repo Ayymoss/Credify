@@ -1,4 +1,5 @@
-﻿using Credify.Configuration;
+using Credify.Commands.Attributes;
+using Credify.Configuration;
 using Credify.Services;
 using SharedLibraryCore;
 using SharedLibraryCore.Commands;
@@ -7,6 +8,7 @@ using SharedLibraryCore.Interfaces;
 
 namespace Credify.Commands;
 
+[CommandCategory("Shop")]
 public class InventoryCommand : Command
 {
     private readonly CredifyConfiguration _credifyConfig;

@@ -59,4 +59,9 @@ public static class PluginConstants
     /// Metadata key for storing client quest data.
     /// </summary>
     public const string ClientQuestsKey = "Credits_ClientQuests";
+
+    /// <summary>
+    /// Metadata key for storing last wheel of fortune usage date.
+    /// </summary>
+    public const string WheelLastUsed = "Credits_WheelLastUsed";
 }
