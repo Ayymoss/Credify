@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using Credify.Chat.Active.Core;
+using Credify.Chat.Active.Core.Interfaces;
 using Credify.Chat.Active.Games.Roulette.Enums;
 using Credify.Chat.Active.Games.Roulette.Models;
 using Credify.Chat.Active.Games.Roulette.Models.BetTypes;
@@ -96,7 +97,7 @@ public class Table(
         try
         {
             using var linkedToken = CancellationTokenSource.CreateLinkedTokenSource(token, _bettingTimeoutToken.Token);
-            await Task.Delay(config.Roulette.TimeoutForPlayerAction * 3, linkedToken.Token); // 3x timeout for full bet flow
+            await Task.Delay(Config.Roulette.TimeoutForPlayerAction * 3, linkedToken.Token); // 3x timeout for full bet flow
         }
         catch (OperationCanceledException)
         {
@@ -154,7 +155,7 @@ public class Table(
     private async Task HandleStakeInputAsync(Player player, string message)
     {
         var credits = await PersistenceService.GetClientCreditsAsync(player.Client);
-        var parser = new RouletteStakeParser(_stakeValidator, credits, translations.Roulette, config);
+        var parser = new RouletteStakeParser(_stakeValidator, credits, translations.Roulette, Config);
         var result = parser.Parse(message);
 
         if (!result.IsValid)
@@ -321,7 +322,7 @@ public class Table(
             output.Tell(player, translations.Roulette.Won.FormatExt((player.Bet.Payout - player.Bet.Stake).ToString("N0")));
             await PersistenceService.AddCreditsAsync(player.Client, player.Bet.Payout);
 
-            if (!config.Roulette.AnnounceMaxPayoutWinners) continue;
+            if (!Config.Roulette.AnnounceMaxPayoutWinners) continue;
             if (player.Bet is not StraightUpBet straightUpBet) continue;
 
             await output.BroadcastToAllServersAsync(player,

@@ -1,4 +1,5 @@
 using Credify.Chat.Active.Core;
+using Credify.Chat.Active.Core.Interfaces;
 using Credify.Chat.Active.Games.Roulette.Models.BetTypes;
 using Credify.Chat.Active.Games.Roulette.Services;
 using Credify.Configuration.Translations;

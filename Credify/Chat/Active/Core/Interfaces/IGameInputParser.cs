@@ -1,4 +1,4 @@
-namespace Credify.Chat.Active.Core;
+namespace Credify.Chat.Active.Core.Interfaces;
 
 /// <summary>
 /// Interface for parsing chat messages into game-specific actions.

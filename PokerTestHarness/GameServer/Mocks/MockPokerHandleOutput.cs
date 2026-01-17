@@ -1,4 +1,5 @@
 using Credify.Chat.Active.Core;
+using Credify.Chat.Active.Core.Interfaces;
 using Credify.Chat.Active.Games.Poker.Models;
 using Credify.Configuration;
 using Credify.Configuration.Translations;

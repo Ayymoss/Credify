@@ -1,3 +1,4 @@
+using Credify.Chat.Active.Core.Interfaces;
 using SharedLibraryCore.Database.Models;
 
 namespace Credify.Chat.Active.Core;

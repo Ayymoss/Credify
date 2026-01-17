@@ -1,4 +1,5 @@
 using Credify.Chat.Active.Core;
+using Credify.Chat.Active.Core.Interfaces;
 using Credify.Configuration;
 using SharedLibraryCore.Database.Models;
 using Player = Credify.Chat.Active.Games.Roulette.Models.Player;

@@ -1,4 +1,5 @@
 using Credify.Chat.Active.Core;
+using Credify.Chat.Active.Core.Interfaces;
 using Credify.Chat.Active.Games.Roulette.Utilities;
 using Credify.Configuration;
 using Credify.Services;

@@ -1,6 +1,6 @@
 using SharedLibraryCore.Database.Models;
 
-namespace Credify.Chat.Active.Core;
+namespace Credify.Chat.Active.Core.Interfaces;
 
 /// <summary>
 /// Standard interface for all active games in the Credify plugin.

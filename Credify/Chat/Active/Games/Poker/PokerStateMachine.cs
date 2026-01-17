@@ -6,12 +6,8 @@ namespace Credify.Chat.Active.Games.Poker;
 /// <summary>
 /// State machine for Poker game with transition validation.
 /// </summary>
-internal class PokerStateMachine : GameStateMachine<PokerGameState>
+internal class PokerStateMachine() : GameStateMachine<PokerGameState>(PokerGameState.WaitingForPlayers)
 {
-    public PokerStateMachine() : base(PokerGameState.WaitingForPlayers)
-    {
-    }
-
     /// <summary>
     /// Validates state transitions to ensure game flow integrity.
     /// </summary>

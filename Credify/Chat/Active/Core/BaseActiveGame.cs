@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using Credify.Configuration;
 using Credify.Services;
 using Credify.Chat.Active.Core;
+using Credify.Chat.Active.Core.Interfaces;
 using SharedLibraryCore.Database.Models;
 
 namespace Credify.Chat.Active.Core;

@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using Credify.Chat.Active.Core;
+using Credify.Chat.Active.Core.Interfaces;
 using Credify.Chat.Active.Games.Poker.Enums;
 using Credify.Chat.Active.Games.Poker.Models;
 using Credify.Chat.Active.Games.Poker.Services;
@@ -68,7 +69,7 @@ public class PokerHandleInput(PokerActionValidator validator, PokerTranslations 
     /// Formats available actions for display to a player.
     /// </summary>
     /// <remarks>Convenience method for prompts; not part of IGameInputParser contract.</remarks>
-    public string FormatAvailableActions(PokerPlayer player, BettingRound round, PokerBettingService bettingService)
+    public string FormatAvailableActions(PokerPlayer player, BettingRound round)
     {
         var actions = validator.GetAvailableActions(player, round);
         var actionStrings = new List<string>();

@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Text;
 using Credify.Chat.Active.Core;
+using Credify.Chat.Active.Core.Interfaces;
 using Credify.Chat.Active.Games.Blackjack.Enums;
 using Credify.Chat.Active.Games.Blackjack.Models;
 using Credify.Chat.Active.Games.Blackjack.Services;

@@ -1,6 +1,6 @@
 using SharedLibraryCore.Database.Models;
 
-namespace Credify.Chat.Active.Core;
+namespace Credify.Chat.Active.Core.Interfaces;
 
 /// <summary>
 /// Generic interface for game output handling. Provides consistent API for player communication across all active games.

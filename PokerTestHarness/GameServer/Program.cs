@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
 using GameServer.Mocks;
 using Credify.Chat.Active.Core;
+using Credify.Chat.Active.Core.Interfaces;
 using Credify.Chat.Active.Games.Poker;
 using Credify.Chat.Active.Games.Poker.Models;
 using Credify.Chat.Active.Games.Poker.Services;
