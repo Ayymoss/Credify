@@ -7,6 +7,9 @@ using Credify.Chat.Active.Games.Poker;
 using Credify.Chat.Active.Games.Poker.Models;
 using Credify.Chat.Active.Games.Poker.Services;
 using Credify.Chat.Active.Games.Poker.Utilities;
+using Credify.Chat.Active.Games.Blackjack;
+using Credify.Chat.Active.Games.Blackjack.Utilities;
+using Credify.Chat.Active.Games.Roulette;
 using Credify.Configuration;
 using Credify.Configuration.Translations;
 using Credify.Services;
@@ -16,11 +19,21 @@ using Spectre.Console;
 
 namespace GameServer;
 
+enum GameType
+{
+    Poker,
+    Blackjack,
+    Roulette
+}
+
 class Program
 {
     private static readonly ConcurrentDictionary<string, EFClient> _players = new();
     private static readonly ConcurrentDictionary<string, StreamWriter> _playerPipes = new();
-    private static PokerTable? _pokerTable;
+    private static IActiveGame? _activeGame;
+    private static GameType _gameType;
+    private static PokerTable? _pokerTable; // Only for Poker-specific commands like ShowCardsAsync
+    private static Credify.Chat.Active.Games.Roulette.Table? _rouletteTable; // For Roulette game loop
     private static readonly object _consoleLock = new();
     private const long InitialCredits = 10000;
 
@@ -40,10 +53,14 @@ class Program
 
     static async Task Main(string[] args)
     {
-        Console.Title = "Poker Test Harness - Game Server";
+        // Parse game type from command line
+        _gameType = ParseGameType(args);
+        var gameTypeName = _gameType.ToString();
+        
+        Console.Title = $"{gameTypeName} Test Harness - Game Server";
         Console.ForegroundColor = ConsoleColor.Cyan;
         Console.WriteLine("╔══════════════════════════════════════════════╗");
-        Console.WriteLine("║       POKER TEST HARNESS - GAME SERVER       ║");
+        Console.WriteLine($"║    {gameTypeName.ToUpper()} TEST HARNESS - GAME SERVER    ║");
         Console.WriteLine("╚══════════════════════════════════════════════╝");
         Console.ResetColor();
         Console.WriteLine();
@@ -77,63 +94,74 @@ class Program
                 TimeoutForPlayerAction = TimeSpan.FromSeconds(60),
                 MinimumBuyIn = 1000,
                 MaximumBuyIn = 100000
+            },
+            Blackjack = new BlackjackConfiguration
+            {
+                IsEnabled = true,
+                TimeoutForPlayerAction = TimeSpan.FromSeconds(30)
+            },
+            Roulette = new RouletteConfiguration
+            {
+                IsEnabled = true,
+                TimeoutForPlayerAction = TimeSpan.FromSeconds(20)
             }
         };
         var translations = new TranslationsRoot();
-
-        // Create poker services
-        var deckService = new PokerDeckService();
-        var handEvaluator = new PokerHandEvaluator();
-        var bettingService = new PokerBettingService(config.Poker.SmallBlind, config.Poker.BigBlind);
-        var actionValidator = new PokerActionValidator(bettingService);
-        var handleInput = new PokerHandleInput(actionValidator, translations.Poker);
-
-        // Create mock output handler that bypasses EFClient.Tell() entirely
-        var handleOutput = new MockPokerHandleOutput(translations, OnPlayerMessage);
-        
-        // Communication is still needed for PokerTable constructor but won't be used for output
-        // (PokerTable uses the IGameOutputHandler for actual output)
         var communication = new GamePlayerCommunication();
 
-        // Create the REAL poker table with mock output
-        _pokerTable = new PokerTable(
-            config,
-            translations,
-            persistenceService,
-            communication,
-            handleInput,
-            handleInput,
-            handleOutput,
-            deckService,
-            handEvaluator,
-            bettingService,
-            actionValidator);
-
-        // Start game loop in background
+        // Initialize game based on type
+        Task? gameLoopTask = null;
         var cts = new CancellationTokenSource();
-        var gameLoopTask = Task.Run(async () =>
+        
+        switch (_gameType)
         {
-            try
-            {
-                await _pokerTable.GameLoopAsync(cts.Token);
-            }
-            catch (OperationCanceledException)
-            {
-                // Normal exit
-            }
-            catch (Exception ex)
-            {
-                LogServer($"Game loop error: {ex.Message}");
-            }
-        });
+            case GameType.Poker:
+                _activeGame = InitializePoker(config, translations, persistenceService, communication);
+                _pokerTable = (PokerTable)_activeGame; // Cast for Poker-specific methods
+                gameLoopTask = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _pokerTable.GameLoopAsync(cts.Token);
+                    }
+                    catch (OperationCanceledException) { }
+                    catch (Exception ex)
+                    {
+                        LogServer($"Game loop error: {ex.Message}");
+                    }
+                });
+                break;
+
+            case GameType.Blackjack:
+                _activeGame = InitializeBlackjack(config, persistenceService, communication);
+                // Blackjack doesn't need a continuous game loop - games start when players join
+                break;
+
+            case GameType.Roulette:
+                _rouletteTable = InitializeRoulette(config, translations, persistenceService, communication);
+                _activeGame = _rouletteTable; // Table implements IActiveGame
+                gameLoopTask = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _rouletteTable.GameLoopAsync(cts.Token);
+                    }
+                    catch (OperationCanceledException) { }
+                    catch (Exception ex)
+                    {
+                        LogServer($"Game loop error: {ex.Message}");
+                    }
+                });
+                break;
+        }
 
         // Start pipe servers for players
         var player1Task = StartPlayerPipeServer("Player1", 1, persistenceService, cts.Token);
         var player2Task = StartPlayerPipeServer("Player2", 2, persistenceService, cts.Token);
 
         LogServer("Waiting for players to connect...");
-        LogServer("Run: dotnet run --project PlayerClient -- --name Player1");
-        LogServer("Run: dotnet run --project PlayerClient -- --name Player2");
+        LogServer($"Run: dotnet run --project PlayerClient -- --name Player1 --game {_gameType.ToString().ToLower()}");
+        LogServer($"Run: dotnet run --project PlayerClient -- --name Player2 --game {_gameType.ToString().ToLower()}");
         Console.WriteLine();
 
         // Wait for exit command
@@ -152,30 +180,105 @@ class Program
         }
 
         cts.Cancel();
-        await Task.WhenAll(gameLoopTask, player1Task, player2Task);
+        var tasks = new List<Task> { player1Task, player2Task };
+        if (gameLoopTask != null) tasks.Add(gameLoopTask);
+        await Task.WhenAll(tasks);
+    }
+
+    private static GameType ParseGameType(string[] args)
+    {
+        for (int i = 0; i < args.Length - 1; i++)
+        {
+            if ((args[i] == "--game" || args[i] == "-g") && Enum.TryParse<GameType>(args[i + 1], ignoreCase: true, out var gameType))
+            {
+                return gameType;
+            }
+        }
+        return GameType.Poker; // Default to Poker for backward compatibility
+    }
+
+    private static IActiveGame InitializePoker(
+        CredifyConfiguration config,
+        TranslationsRoot translations,
+        PersistenceService persistenceService,
+        GamePlayerCommunication communication)
+    {
+        var deckService = new PokerDeckService();
+        var handEvaluator = new PokerHandEvaluator();
+        var bettingService = new PokerBettingService(config.Poker.SmallBlind, config.Poker.BigBlind);
+        var actionValidator = new PokerActionValidator(bettingService);
+        var handleInput = new PokerHandleInput(actionValidator, translations.Poker);
+        var handleOutput = new MockPokerHandleOutput(translations, OnPlayerMessage);
+
+        return new PokerTable(
+            config,
+            translations,
+            persistenceService,
+            communication,
+            handleInput,
+            handleInput,
+            handleOutput,
+            deckService,
+            handEvaluator,
+            bettingService,
+            actionValidator);
+    }
+
+    private static IActiveGame InitializeBlackjack(
+        CredifyConfiguration config,
+        PersistenceService persistenceService,
+        GamePlayerCommunication communication)
+    {
+        // Create BlackjackGame directly with mock output handler (like Poker)
+        var translations = new TranslationsRoot();
+        var inputHandler = new BlackjackHandleInput(translations.Blackjack);
+        var outputHandler = new MockBlackjackHandleOutput(translations, OnPlayerMessage);
+
+        return new BlackjackGame(
+            persistenceService,
+            config,
+            communication,
+            inputHandler,
+            outputHandler);
+    }
+
+    private static Credify.Chat.Active.Games.Roulette.Table InitializeRoulette(
+        CredifyConfiguration config,
+        TranslationsRoot translations,
+        PersistenceService persistenceService,
+        GamePlayerCommunication communication)
+    {
+        // Create Roulette Table directly with mock output handler
+        var output = new MockRouletteHandleOutput(translations, OnPlayerMessage);
+        
+        return new Credify.Chat.Active.Games.Roulette.Table(
+            config,
+            translations,
+            persistenceService,
+            communication,
+            output);
     }
 
     private static async Task StartPlayerPipeServer(string playerName, int clientId, PersistenceService persistenceService, CancellationToken token)
     {
         // Create EFClient ONCE per player slot, reuse across reconnections
-        // NetworkId is used for GetHashCode/Equals in EFClient, so we must set it
         var client = new EFClient
         {
             ClientId = clientId,
-            NetworkId = clientId, // Required for proper hash code
+            NetworkId = clientId,
             CurrentAlias = new EFAlias { Name = playerName }
         };
-        // Name comes from CurrentAlias.Name, CleanedName strips colors from Name
         
         // Give player initial credits once
         await persistenceService.AddCreditsAsync(client, InitialCredits);
         _players[playerName] = client;
         
+        var pipeName = $"{_gameType}Player{playerName}";
+        
         while (!token.IsCancellationRequested)
         {
             try
             {
-                var pipeName = $"PokerPlayer{playerName}";
                 await using var pipeServer = new NamedPipeServerStream(pipeName, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
 
                 LogServer($"Waiting for {playerName} to connect on pipe: {pipeName}");
@@ -189,9 +292,9 @@ class Program
 
                 // Send welcome message
                 var credits = await persistenceService.GetClientCreditsAsync(client);
-                await writer.WriteLineAsync($"Connected to Poker server as {playerName}");
+                await writer.WriteLineAsync($"Connected to {_gameType} server as {playerName}");
                 await writer.WriteLineAsync($"Current credits: {credits:N0}");
-                await writer.WriteLineAsync("Commands: /join, /leave, /quit, cards, river, c/f/r X/a");
+                await writer.WriteLineAsync(GetWelcomeCommands());
                 await writer.WriteLineAsync("");
 
                 // Handle messages
@@ -205,11 +308,11 @@ class Program
 
                 _playerPipes.TryRemove(playerName, out _);
                 
-                // CRITICAL: Notify the game that player left!
-                if (_pokerTable!.IsPlayerPlaying(client))
+                // Notify the game that player left
+                if (_activeGame!.IsPlayerPlaying(client))
                 {
                     LogServer($"{playerName} leaving game due to disconnect...");
-                    await _pokerTable.LeaveGameAsync(client);
+                    await _activeGame.LeaveGameAsync(client);
                 }
                 
                 LogServer($"{playerName} disconnected");
@@ -227,6 +330,17 @@ class Program
         }
     }
 
+    private static string GetWelcomeCommands()
+    {
+        return _gameType switch
+        {
+            GameType.Poker => "Commands: /join, /leave, /quit, cards, river, c/f/r X/a",
+            GameType.Blackjack => "Commands: /join, /leave, /quit, hit/stand/double/split/cards",
+            GameType.Roulette => "Commands: /join, /leave, /quit, bet commands (I/O for inside/outside)",
+            _ => "Commands: /join, /leave, /quit"
+        };
+    }
+
     private static async Task HandlePlayerInput(string playerName, EFClient client, string input, StreamWriter writer)
     {
         var trimmed = input.Trim().ToLower();
@@ -235,8 +349,7 @@ class Program
         switch (trimmed)
         {
             case "/join":
-                // Debug: log client identity
-                var isPlaying = _pokerTable!.IsPlayerPlaying(client);
+                var isPlaying = _activeGame!.IsPlayerPlaying(client);
                 LogServer($"[DEBUG] Client {client.ClientId} ({client.Name}), HashCode: {client.GetHashCode()}, IsPlaying: {isPlaying}");
                 
                 if (isPlaying)
@@ -245,16 +358,16 @@ class Program
                 }
                 else
                 {
-                    await _pokerTable.JoinGameAsync(client);
-                    await writer.WriteLineAsync("Joining poker game...");
+                    await _activeGame.JoinGameAsync(client);
+                    await writer.WriteLineAsync($"Joining {_gameType.ToString().ToLower()} game...");
                 }
                 break;
 
             case "/leave":
-                if (_pokerTable!.IsPlayerPlaying(client))
+                if (_activeGame!.IsPlayerPlaying(client))
                 {
-                    await _pokerTable.LeaveGameAsync(client);
-                    await writer.WriteLineAsync("Left the poker game");
+                    await _activeGame.LeaveGameAsync(client);
+                    await writer.WriteLineAsync($"Left the {_gameType.ToString().ToLower()} game");
                 }
                 else
                 {
@@ -266,8 +379,30 @@ class Program
                 await writer.WriteLineAsync("Goodbye!");
                 break;
 
+            default:
+                // Game-specific commands
+                if (_gameType == GameType.Poker && _pokerTable != null)
+                {
+                    await HandlePokerInput(client, trimmed, writer);
+                }
+                else if (_activeGame!.IsPlayerPlaying(client))
+                {
+                    // For Blackjack and Roulette, route through HandleChatAsync
+                    await _activeGame.HandleChatAsync(client, input);
+                }
+                else
+                {
+                    await writer.WriteLineAsync("Type /join to join the game first");
+                }
+                break;
+        }
+    }
+
+    private static async Task HandlePokerInput(EFClient client, string trimmed, StreamWriter writer)
+    {
+        switch (trimmed)
+        {
             case "cards":
-                // Show player's hole cards and community cards
                 if (_pokerTable!.IsPlayerPlaying(client))
                 {
                     await _pokerTable.ShowCardsAsync(client, showRiverOnly: false);
@@ -279,7 +414,6 @@ class Program
                 break;
 
             case "river":
-                // Show only community cards
                 if (_pokerTable!.IsPlayerPlaying(client))
                 {
                     await _pokerTable.ShowCardsAsync(client, showRiverOnly: true);
@@ -294,7 +428,7 @@ class Program
                 // Route to poker game
                 if (_pokerTable!.IsPlayerPlaying(client))
                 {
-                    await _pokerTable.HandleChatAsync(client, input);
+                    await _pokerTable.HandleChatAsync(client, trimmed);
                 }
                 else
                 {

@@ -55,6 +55,7 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
     private readonly StakeValidator _stakeValidator;
     private CancellationTokenSource? _playerStakesToken;
     private CancellationTokenSource? _dealerPlaysToken;
+    private CancellationTokenSource? _insuranceToken;
     private readonly SemaphoreSlim _chatLock = new(1, 1);
     private readonly SemaphoreSlim _startGameLock = new(1, 1);
 
@@ -196,6 +197,8 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
     {
         ForceTransitionToState(GameState.OfferingInsurance);
         
+        // Track which players can take insurance (have enough funds)
+        var eligibleCount = 0;
         foreach (var (client, player) in ActivePlayers)
         {
             var insuranceCost = player.Stake!.Value / 2;
@@ -203,16 +206,37 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
             
             if (playerFunds >= insuranceCost)
             {
+                eligibleCount++;
                 await _outputHandler.TellPlayerAsync(player,
                     [Config.Translations.Blackjack.InsuranceOffer.FormatExt(insuranceCost.ToString("N0"))]);
             }
+            else
+            {
+                // Player can't afford insurance, mark as declined
+                player.HasInsurance = false;
+            }
         }
         
-        // Give players a brief window to take insurance, then proceed
+        // If no one can afford insurance, skip directly to decisions
+        if (eligibleCount == 0)
+        {
+            await RequestPlayerDecisionsAsync();
+            return;
+        }
+        
+        // Use player action timeout for insurance window (not the tiny 2-second delay)
+        _insuranceToken?.Dispose();
+        _insuranceToken = new CancellationTokenSource();
         SharedLibraryCore.Utilities.ExecuteAfterDelay(
-            TimeSpan.FromSeconds(GameConstants.Timeouts.DefaultGameStartDelay),
-            async (token) => await RequestPlayerDecisionsAsync(),
-            CancellationToken.None);
+            Config.Blackjack.TimeoutForPlayerAction,
+            async (token) =>
+            {
+                if (!token.IsCancellationRequested && IsInState(GameState.OfferingInsurance))
+                {
+                    await RequestPlayerDecisionsAsync();
+                }
+            },
+            _insuranceToken.Token);
     }
 
     private async Task RequestPlayerDecisionsAsync()
@@ -277,9 +301,17 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
         if (!IsInState(GameState.RequestPlayerDecisions)) return;
         ForceTransitionToState(GameState.DealerPlays);
 
-        while (BlackjackPayoutCalculator.CalculateHandValue(_houseHand) < GameConstants.Blackjack.DealerStandValue)
+        // Skip dealer draw if all players (and their split hands) have busted
+        var allPlayersBusted = ActivePlayers.All(p =>
+            BlackjackPayoutCalculator.IsBusted(p.Value.Cards) &&
+            (!p.Value.HasSplit || BlackjackPayoutCalculator.IsBusted(p.Value.SplitCards)));
+
+        if (!allPlayersBusted)
         {
-            _houseHand.Add(_deckService.DrawCardOrReshuffle());
+            while (BlackjackPayoutCalculator.CalculateHandValue(_houseHand) < GameConstants.Blackjack.DealerStandValue)
+            {
+                _houseHand.Add(_deckService.DrawCardOrReshuffle());
+            }
         }
 
         foreach (var (client, player) in ActivePlayers)
@@ -433,6 +465,9 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
         _playerStakesToken?.Cancel();
         _playerStakesToken?.Dispose();
         _playerStakesToken = null;
+        _insuranceToken?.Cancel();
+        _insuranceToken?.Dispose();
+        _insuranceToken = null;
         ForceTransitionToState(GameState.WaitingForPlayers);
 
         foreach (var (client, player) in Players)
@@ -459,8 +494,32 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
 
     public override async Task JoinGameAsync(EFClient client)
     {
-        var player = new BlackjackPlayer { Client = client, Queued = true };
-        Players.TryAdd(client, player);
+        // Use GetOrAdd to handle both new joins and rejoins cleanly
+        var isRejoin = Players.ContainsKey(client);
+        var player = Players.GetOrAdd(client, _ => new BlackjackPlayer { Client = client, Queued = true });
+        
+        // If player was already in dict (rejoining), reset their state for a fresh start
+        if (isRejoin)
+        {
+            player.ResetForNewRound();
+            player.Queued = true;
+        }
+
+        // Defensive: If game is stuck in an intermediate state with no active players,
+        // force reset to WaitingForPlayers (handles edge cases from timeouts/disconnects)
+        if (!IsInState(GameState.WaitingForPlayers) && !ActivePlayers.Any())
+        {
+            _playerStakesToken?.Cancel();
+            _playerStakesToken?.Dispose();
+            _playerStakesToken = null;
+            _dealerPlaysToken?.Cancel();
+            _dealerPlaysToken?.Dispose();
+            _dealerPlaysToken = null;
+            _insuranceToken?.Cancel();
+            _insuranceToken?.Dispose();
+            _insuranceToken = null;
+            ForceTransitionToState(GameState.WaitingForPlayers);
+        }
 
         if (!IsInState(GameState.WaitingForPlayers))
         {
@@ -490,10 +549,16 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
         if (!Players.TryGetValue(client, out var player) || player.Queued) return;
         
         // During stake collection, allow input even without stake set
+        // During insurance offering, allow input regardless of player state (they haven't acted yet)
         // During gameplay, require stake and correct player state
         if (GameState == GameState.RequestPlayerStakes)
         {
             // Allow stake input
+        }
+        else if (GameState == GameState.OfferingInsurance)
+        {
+            // Allow insurance input - player has stake but hasn't made decisions yet
+            if (player.Stake is null) return;
         }
         else if (player.Stake is null)
         {
@@ -594,6 +659,18 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
         player.InsuranceBet = insuranceCost;
         await _outputHandler.TellPlayerAsync(player,
             [Config.Translations.Blackjack.InsuranceTaken.FormatExt(insuranceCost.ToString("N0"))]);
+        
+        // Check if all eligible players have responded - if so, proceed immediately
+        // (All players either have insurance, or couldn't afford it)
+        var allResponded = ActivePlayers.All(p => p.Value.HasInsurance || 
+            PersistenceService.GetClientCreditsAsync(p.Key).Result < (p.Value.Stake!.Value / 2));
+        if (allResponded)
+        {
+            _insuranceToken?.Cancel();
+            _insuranceToken?.Dispose();
+            _insuranceToken = null;
+            await RequestPlayerDecisionsAsync();
+        }
     }
 
     private async Task HandlePlayerDecisionAsync(EFClient client, BlackjackPlayer player, string message)
@@ -933,8 +1010,8 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
             };
     }
 
-    private List<EFClient> GetRequestStakesRemainders() => ActivePlayers
-        .Where(x => x.Value.Stake is null)
+    private List<EFClient> GetRequestStakesRemainders() => Players
+        .Where(x => x.Value is { Queued: false, Stake: null })
         .Select(x => x.Key)
         .ToList();
 

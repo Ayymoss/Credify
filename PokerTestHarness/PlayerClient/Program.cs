@@ -23,24 +23,28 @@ class Program
     static async Task Main(string[] args)
     {
         var playerName = "Player1";
+        var gameType = "Poker";
         
-        // Parse --name argument
+        // Parse arguments
         for (int i = 0; i < args.Length - 1; i++)
         {
             if (args[i] == "--name" || args[i] == "-n")
             {
                 playerName = args[i + 1];
-                break;
+            }
+            else if (args[i] == "--game" || args[i] == "-g")
+            {
+                gameType = args[i + 1];
             }
         }
 
-        Console.Title = $"Poker Player - {playerName}";
+        Console.Title = $"{gameType} Player - {playerName}";
         
         // Print header using Spectre
-        AnsiConsole.Write(new Rule($"[green]POKER PLAYER: {playerName}[/]").RuleStyle("green"));
+        AnsiConsole.Write(new Rule($"[green]{gameType.ToUpper()} PLAYER: {playerName}[/]").RuleStyle("green"));
         AnsiConsole.WriteLine();
 
-        var pipeName = $"PokerPlayer{playerName}";
+        var pipeName = $"{gameType}Player{playerName}";
         
         try
         {
@@ -76,9 +80,7 @@ class Program
                 }
             });
 
-            // Main input loop
-            AnsiConsole.MarkupLine("[yellow]Commands: /join, /leave, /quit, cards, river[/]");
-            AnsiConsole.MarkupLine("[yellow]Actions: c (check/call), f (fold), r X (raise), a (all-in)[/]");
+            // Main input loop - commands will be shown from server welcome message
             AnsiConsole.WriteLine();
 
             while (pipeClient.IsConnected)

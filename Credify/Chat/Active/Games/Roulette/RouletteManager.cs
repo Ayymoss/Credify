@@ -20,9 +20,8 @@ public class RouletteManager : IActiveGame
         PersistenceService persistenceService,
         GamePlayerCommunication communication)
     {
-        var input = new RouletteHandleInput(persistenceService, config);
         var output = new RouletteHandleOutput(translations, communication);
-        _table = new Table(config, translations, persistenceService, communication, input, output);
+        _table = new Table(config, translations, persistenceService, communication, output);
     }
 
     /// <summary>
@@ -45,9 +44,9 @@ public class RouletteManager : IActiveGame
     }
 
     /// <summary>
-    /// IActiveGame implementation - handles chat messages (roulette doesn't use chat input during gameplay).
+    /// IActiveGame implementation - handles chat messages for betting input.
     /// </summary>
-    public Task HandleChatAsync(EFClient player, string message) => Task.CompletedTask;
+    public Task HandleChatAsync(EFClient player, string message) => _table.HandleChatAsync(player, message);
 
     /// <summary>
     /// IActiveGame implementation - checks if a player is in the game.

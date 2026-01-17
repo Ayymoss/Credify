@@ -3,10 +3,10 @@ using SharedLibraryCore.Database.Models;
 
 namespace Credify.Chat.Active.Games.Poker.Models;
 
-public class PokerPlayer
+public class PokerPlayer(EFClient client, long chips)
 {
-    public EFClient Client { get; init; }
-    public long Chips { get; set; }
+    public EFClient Client { get; init; } = client;
+    public long Chips { get; set; } = chips;
     public List<PokerCard> HoleCards { get; set; } = [];
     public long CurrentBet { get; set; }
     public long TotalInvestedThisHand { get; set; }
@@ -18,12 +18,6 @@ public class PokerPlayer
     public bool IsSmallBlind { get; set; }
     public bool IsBigBlind { get; set; }
     public bool HasActedThisRound { get; set; }
-
-    public PokerPlayer(EFClient client, long chips)
-    {
-        Client = client;
-        Chips = chips;
-    }
 
     public void ResetForNewHand()
     {

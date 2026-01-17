@@ -14,7 +14,7 @@ public class RouletteHandleOutput(TranslationsRoot translations, GamePlayerCommu
     protected override EFClient GetClient(Player player) => player.Client;
 
     protected override string GetPrefix(bool longPrefix) =>
-        longPrefix ? translations.Roulette.LongPrefix("") : translations.Roulette.Prefix("");
+        longPrefix ? translations.Roulette.LongPrefix("").TrimEnd() : translations.Roulette.Prefix("").TrimEnd();
 
     /// <summary>
     /// Override Tell to use Roulette's prefix formatting which includes the message.

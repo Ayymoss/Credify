@@ -6,5 +6,6 @@ public enum InsideBet
     Split,
     Street,
     Corner,
-    SixLine
+    SixLine,
+    TopLine // American special: 0-00-1-2-3
 }

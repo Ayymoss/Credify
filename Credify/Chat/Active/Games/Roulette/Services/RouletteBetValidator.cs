@@ -7,6 +7,7 @@ namespace Credify.Chat.Active.Games.Roulette.Services;
 
 /// <summary>
 /// Service responsible for validating roulette bets.
+/// Supports American Roulette with 00.
 /// </summary>
 public class RouletteBetValidator
 {
@@ -22,24 +23,60 @@ public class RouletteBetValidator
         if (!TryParseNumbers(argsSplit, out var numbers, out var parseError))
             return (false, null, parseError);
 
-        if (numbers.Any(n => n is < 0 or > 36) || numbers.Distinct().Count() != numbers.Count)
+        // Validate range (0-36 + 00 which is 37)
+        if (numbers.Any(n => n < 0 || n > RouletteConstants.MaxNumber))
+            return (false, null, "Invalid range or duplicate numbers");
+        
+        if (numbers.Distinct().Count() != numbers.Count)
             return (false, null, "Invalid range or duplicate numbers");
 
         InsideBaseBet? bet = numbers.Count switch
         {
             1 => new StraightUpBet(betValue, numbers[0]),
-            2 => IsValidSplit(numbers) ? new SplitBet(betValue, numbers[0], numbers[1]) : null,
-            3 => IsValidStreet(numbers) ? new StreetBet(betValue, numbers[0], numbers[1], numbers[2]) : null,
-            4 => IsValidCorner(numbers) ? new CornerBet(betValue, numbers[0], numbers[1], numbers[2], numbers[3]) : null,
-            6 => IsValidSixLine(numbers)
-                ? new SixLineBet(betValue, numbers[0], numbers[1], numbers[2], numbers[3], numbers[4], numbers[5])
-                : null,
+            2 => CreateSplitBet(betValue, numbers),
+            3 => CreateStreetBet(betValue, numbers),
+            4 => CreateCornerBet(betValue, numbers),
+            5 => CreateTopLineBet(betValue, numbers),
+            6 => CreateSixLineBet(betValue, numbers),
             _ => null
         };
+
+        if (bet is null && numbers.Count >= 2)
+            return (false, null, "Invalid Board Placement: Numbers must be adjacent");
 
         return bet is not null 
             ? (true, bet, null) 
             : (false, null, "Invalid bet type for given numbers");
+    }
+
+    private static InsideBaseBet? CreateSplitBet(int betValue, List<int> numbers)
+    {
+        if (!IsValidSplit(numbers)) return null;
+        return new SplitBet(betValue, numbers[0], numbers[1]);
+    }
+
+    private static InsideBaseBet? CreateStreetBet(int betValue, List<int> numbers)
+    {
+        if (!IsValidStreet(numbers)) return null;
+        return new StreetBet(betValue, numbers[0], numbers[1], numbers[2]);
+    }
+
+    private static InsideBaseBet? CreateCornerBet(int betValue, List<int> numbers)
+    {
+        if (!IsValidCorner(numbers)) return null;
+        return new CornerBet(betValue, numbers[0], numbers[1], numbers[2], numbers[3]);
+    }
+
+    private static InsideBaseBet? CreateTopLineBet(int betValue, List<int> numbers)
+    {
+        if (!IsValidTopLine(numbers)) return null;
+        return new TopLineBet(betValue);
+    }
+
+    private static InsideBaseBet? CreateSixLineBet(int betValue, List<int> numbers)
+    {
+        if (!IsValidSixLine(numbers)) return null;
+        return new SixLineBet(betValue, numbers[0], numbers[1], numbers[2], numbers[3], numbers[4], numbers[5]);
     }
 
     /// <summary>
@@ -82,6 +119,13 @@ public class RouletteBetValidator
 
         foreach (var arg in args)
         {
+            // Handle "00" as special case mapping to 37
+            if (arg == "00")
+            {
+                numbers.Add(RouletteConstants.DoubleZero);
+                continue;
+            }
+            
             if (!int.TryParse(arg, out var number))
             {
                 errorMessage = "Invalid number format";
@@ -98,19 +142,39 @@ public class RouletteBetValidator
         if (numbers.Count is not 2) return false;
 
         numbers.Sort();
+        
+        // Special case: 0 and 00 are adjacent
+        if ((numbers[0] == 0 && numbers[1] == RouletteConstants.DoubleZero) ||
+            (numbers[0] == RouletteConstants.DoubleZero && numbers[1] == 0))
+            return true;
+        
+        // Special case: 00 (37) with 1, 2, or 3 (top row)
+        if (numbers.Contains(RouletteConstants.DoubleZero))
+        {
+            var other = numbers.First(n => n != RouletteConstants.DoubleZero);
+            if (other >= 1 && other <= 3) return true;
+        }
+        
+        // Special case: 0 with 1, 2, or 3 (top row)
+        if (numbers.Contains(0))
+        {
+            var other = numbers.First(n => n != 0);
+            if (other >= 1 && other <= 3) return true;
+        }
 
+        // Standard adjacency for non-zero numbers
+        if (numbers[0] < 1 || numbers[1] > 36) return false;
+        
         var diff = numbers[1] - numbers[0];
 
-        switch (diff)
+        return diff switch
         {
             // Horizontal adjacency (same row)
-            case 1 when numbers[0] % 3 != 0:
-            // Vertical adjacency (same column, except for 0/00)
-            case 3 when numbers[0] != 0 && numbers[1] != 36:
-                return true;
-            default:
-                return false;
-        }
+            1 when numbers[0] % 3 != 0 => true,
+            // Vertical adjacency (same column)
+            3 => true,
+            _ => false
+        };
     }
 
     private static bool IsValidStreet(List<int> numbers)
@@ -135,7 +199,22 @@ public class RouletteBetValidator
         return numbers[1] - numbers[0] == 1 && // First row horizontal adjacency
                numbers[3] - numbers[2] == 1 && // Second row horizontal adjacency
                numbers[2] - numbers[0] == 3 && // First column vertical adjacency
-               numbers[3] - numbers[1] == 3; // Second column vertical adjacency
+               numbers[3] - numbers[1] == 3;   // Second column vertical adjacency
+    }
+
+    private static bool IsValidTopLine(List<int> numbers)
+    {
+        if (numbers.Count is not 5) return false;
+
+        numbers.Sort();
+        
+        // Top Line must be exactly: 0, 00(37), 1, 2, 3
+        // When sorted: 0, 1, 2, 3, 37
+        return numbers[0] == 0 &&
+               numbers[1] == 1 &&
+               numbers[2] == 2 &&
+               numbers[3] == 3 &&
+               numbers[4] == RouletteConstants.DoubleZero;
     }
 
     private static bool IsValidSixLine(List<int> numbers)

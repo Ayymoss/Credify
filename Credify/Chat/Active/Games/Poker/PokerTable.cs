@@ -183,7 +183,7 @@ public class PokerTable(
         }
 
         // Pre-flop betting round
-        await ExecuteBettingRoundAsync(token);
+        await ExecuteBettingRoundAsync(token, false);
 
         // Flop
         if (GetActivePlayers().Count > 1)
@@ -226,16 +226,19 @@ public class PokerTable(
     /// <summary>
     /// Executes a betting round.
     /// </summary>
-    private async Task ExecuteBettingRoundAsync(CancellationToken token)
+    private async Task ExecuteBettingRoundAsync(CancellationToken token, bool resetPlayers = true)
     {
         // Don't reset the pot - it accumulates across betting rounds
         _currentRound.CurrentBet = _playersInHand.Max(p => p.CurrentBet); // Reset current bet for new round (respecting blinds)
         _currentRound.IsComplete = false;
         var activePlayers = GetActivePlayers();
         
-        foreach (var player in activePlayers)
+        if (resetPlayers)
         {
-            player.ResetForNewRound();
+            foreach (var player in activePlayers)
+            {
+                player.ResetForNewRound();
+            }
         }
 
         // Check if all active players are all-in - no betting needed

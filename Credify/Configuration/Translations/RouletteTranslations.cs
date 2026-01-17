@@ -14,8 +14,8 @@ public class RouletteTranslations
     public string LeaveMessage { get; set; } = "(Color::Yellow)You have left the game! (Color::White)(!crrl to join)";
     public string InputTimeout { get; set;} = "(Color::Red)You took too long to respond.";
     public string InsideBetSelected { get; set; } = "(Color::Blue)You've selected Inside Bet";
-    public string InsidePickNumbers { get; set; } = "(Color::Yellow)Pick your number(s) (0-36)";
-    public string InsideBetOptions { get; set; } = "(Color::Yellow)Select for (Color::White)Straight Up, Split, Street, Corner, Six Line"; 
+    public string InsidePickNumbers { get; set; } = "(Color::Yellow)Pick your number(s) (0-36, 00)";
+    public string InsideBetOptions { get; set; } = "(Color::Yellow)Select for (Color::White)Straight Up, Split, Street, Corner, Six Line, Top Line (0 00 1 2 3)"; 
     public string OutsideBetSelected { get; set; } = "(Color::Purple)You've selected Outside Bet";
     public string OutsideSelectBet { get; set; } = "(Color::Yellow)Select your bet";
     public string OutsideBetOptions { get; set; } = "(Color::Yellow)Acceptable Inputs: (Color::White)Red, Black, Odd, Even, Low, High, (Color::Cyan)D1, D2, D3, (Color::Pink)C1, C2, C3";
@@ -25,6 +25,7 @@ public class RouletteTranslations
     public string InvalidBetInput { get; set; } = "(Color::Red)Invalid bet input";
     public string InvalidBetCategory { get; set; } = "(Color::Red)Invalid bet category";
     public string InvalidBetType { get; set; } = "(Color::Red)Invalid bet type";
+    public string InvalidBoardPlacement { get; set; } = "(Color::Red)Invalid Board Placement: Numbers must be adjacent.";
     public string InnerOrOutsideBet { get; set; } = "(Color::Yellow)Inside or Outside bet?";
     public string InnerOrOutsideBetAcceptableInputs { get; set; } = "(Color::Yellow)Acceptable Inputs: (Color::White)(O)utside, (I)nside";
     public string Broke { get; set; } = "(Color::Red)You are broke! (Color::White)You have been removed from the game";

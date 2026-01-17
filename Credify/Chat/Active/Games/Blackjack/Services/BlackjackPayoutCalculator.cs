@@ -21,7 +21,7 @@ public class BlackjackPayoutCalculator(BlackjackConfiguration config)
         foreach (var card in hand)
         {
             var cardValue = card.GetValue();
-            if (cardValue == GameConstants.Blackjack.BlackjackValue)
+            if (cardValue == 11)
             {
                 aces++;
                 totalValue += 11;
