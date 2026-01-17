@@ -22,7 +22,7 @@ public class PokerTranslations
     public string DealerButton { get; set; } = "Dealer: (Color::Accent){{name}}";
     public string SmallBlindPosted { get; set; } = "SB: (Color::Accent){{name}} (Color::Green)${{amount}}";
     public string BigBlindPosted { get; set; } = "BB: (Color::Accent){{name}} (Color::Green)${{amount}}";
-    public string WaitingForPlayer { get; set; } = "(Color::Yellow)Waiting for (Color::Accent){{name}} (Color::Yellow)to act...";
+    public string WaitingForPlayer { get; set; } = "(Color::Yellow)Waiting for (Color::Accent){{name}} (Color::Yellow)to act... (Color::White)((Color::Accent){{seconds}}(Color::White)s timeout)";
     public string NotEnoughPlayers { get; set; } = "(Color::Yellow)Not enough players. Waiting for more to join...";
     
     // Cards

@@ -38,7 +38,6 @@ public class PokerPlayer
 
     public void ResetForNewRound()
     {
-        CurrentBet = 0;
         LastAction = null;
         HasActedThisRound = false;
     }

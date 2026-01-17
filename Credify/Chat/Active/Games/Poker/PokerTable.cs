@@ -79,13 +79,18 @@ public class PokerTable(
         ForceTransitionToState(PokerGameState.BetweenHands);
         _playersInHand = Players.Values.ToList();
         
-        // Remove players with insufficient chips
+        // Check players with insufficient chips and offer top-up
         var playersToRemove = new List<PokerPlayer>();
         foreach (var player in _playersInHand)
         {
-            // Check player's in-game chips, not their global credits
+            // Check player's in-game chips
             if (player.Chips < config.Poker.SmallBlind * 2)
             {
+                // No auto-topup - declare elimination immediately
+                await output.TellPlayerAsync(player, [
+                    _pokerTrans.PlayerEliminated.FormatExt(player.Client.CleanedName),
+                    "Type /join to join again."
+                ], false);
                 playersToRemove.Add(player);
             }
         }
@@ -125,8 +130,21 @@ public class PokerTable(
         }
 
         // Set blinds positions (relative to dealer button in player list)
-        var smallBlindIndex = (_dealerButtonPosition + 1) % _playersInHand.Count;
-        var bigBlindIndex = (_dealerButtonPosition + 2) % _playersInHand.Count;
+        // Set blinds positions (relative to dealer button in player list)
+        int smallBlindIndex, bigBlindIndex;
+
+        if (_playersInHand.Count == 2)
+        {
+            // Heads-Up: Dealer is Small Blind, Other is Big Blind
+            smallBlindIndex = _dealerButtonPosition; 
+            bigBlindIndex = (_dealerButtonPosition + 1) % _playersInHand.Count;
+        }
+        else
+        {
+            // Standard Ring Game
+            smallBlindIndex = (_dealerButtonPosition + 1) % _playersInHand.Count;
+            bigBlindIndex = (_dealerButtonPosition + 2) % _playersInHand.Count;
+        }
         
         _playersInHand[smallBlindIndex].IsSmallBlind = true;
         _playersInHand[bigBlindIndex].IsBigBlind = true;
@@ -139,7 +157,7 @@ public class PokerTable(
         // Post blinds
         var smallBlindAmount = bettingService.PostSmallBlind(_playersInHand[smallBlindIndex], _currentRound);
         var bigBlindAmount = bettingService.PostBigBlind(_playersInHand[bigBlindIndex], _currentRound);
-        _totalPot = smallBlindAmount + bigBlindAmount; // Initialize total pot with blinds
+        // Total pot will be updated when betting round completes to avoid double counting
 
         // Split the long message into two lines for readability
         await output.TellPlayersAsync(_playersInHand, [
@@ -211,7 +229,7 @@ public class PokerTable(
     private async Task ExecuteBettingRoundAsync(CancellationToken token)
     {
         // Don't reset the pot - it accumulates across betting rounds
-        _currentRound.CurrentBet = 0; // Reset current bet for new round
+        _currentRound.CurrentBet = _playersInHand.Max(p => p.CurrentBet); // Reset current bet for new round (respecting blinds)
         _currentRound.IsComplete = false;
         var activePlayers = GetActivePlayers();
         
@@ -220,12 +238,39 @@ public class PokerTable(
             player.ResetForNewRound();
         }
 
+        // Check if all active players are all-in - no betting needed
+        var playersWhoCanAct = activePlayers.Where(p => !p.IsAllIn && p.Chips > 0).ToList();
+        if (playersWhoCanAct.Count <= 1)
+        {
+            // All players are all-in or only one can act - skip betting
+            return;
+        }
+
         // First action is after big blind (pre-flop) or small blind (post-flop)
         // Convert dealer position to active player index
+        // Calculate starting player
         var dealerActiveIndex = activePlayers.FindIndex(p => p.Position == _dealerButtonPosition);
-        var startIndex = IsInState(PokerGameState.PreFlop) 
-            ? (dealerActiveIndex + 3) % activePlayers.Count 
-            : (dealerActiveIndex + 1) % activePlayers.Count;
+        int startIndex;
+        
+        if (IsInState(PokerGameState.PreFlop))
+        {
+            // Pre-Flop
+            if (activePlayers.Count == 2)
+            {
+                // Heads-Up: Dealer (SB) acts first
+                startIndex = dealerActiveIndex;
+            }
+            else
+            {
+                // Ring: Player after BB acts first (Dealer + 3)
+                startIndex = (dealerActiveIndex + 3) % activePlayers.Count;
+            }
+        }
+        else
+        {
+            // Post-Flop: Player after Dealer acts first (SB in Ring, BB in Heads-Up)
+            startIndex = (dealerActiveIndex + 1) % activePlayers.Count;
+        }
         
         if (startIndex < 0) startIndex = 0; // Fallback
 
@@ -236,7 +281,12 @@ public class PokerTable(
         {
             var player = activePlayers[actionIndex];
             
-            if (!player.HasActedThisRound || (player.CurrentBet < _currentRound.CurrentBet && player.Chips > 0 && !player.IsAllIn))
+            // Only ask for action if player can actually act (not all-in, has chips)
+            var canAct = !player.IsAllIn && player.Chips > 0;
+            var needsToAct = !player.HasActedThisRound || 
+                (player.CurrentBet < _currentRound.CurrentBet && player.Chips > 0 && !player.IsAllIn);
+            
+            if (canAct && needsToAct)
             {
                 await ProcessPlayerActionAsync(player, token);
                 player.HasActedThisRound = true;
@@ -250,12 +300,30 @@ public class PokerTable(
                 roundComplete = bettingService.IsBettingRoundComplete(activePlayers, _currentRound);
                 if (!roundComplete)
                 {
-                    startIndex = actionIndex; // Reset for new round
+                    // Check if there are still players who can act
+                    playersWhoCanAct = activePlayers.Where(p => !p.IsAllIn && p.Chips > 0).ToList();
+                    if (playersWhoCanAct.Count <= 1)
+                    {
+                        roundComplete = true; // No more betting possible
+                    }
+                    else
+                    {
+                        startIndex = actionIndex; // Reset for new round
+                    }
                 }
             }
 
             activePlayers = GetActivePlayers();
             if (activePlayers.Count <= 1) break;
+        }
+
+        // Return uncalled bets if any (e.g. All-In overshoot)
+        var refunds = bettingService.ReturnUncalledBets(_playersInHand);
+        foreach (var (player, amount) in refunds)
+        {
+            await output.TellPlayersAsync(_playersInHand, [
+                _pokerTrans.Prefix($"{player.Client.CleanedName} was refunded {amount:N0} (uncalled bet)")
+            ]);
         }
 
         // Collect bets into pot
@@ -277,18 +345,19 @@ public class PokerTable(
     {
         var actionPrompt = inputConcrete.FormatAvailableActions(player, _currentRound, bettingService);
 
-        // Tell OTHER players who we're waiting for
+        // Tell OTHER players who we're waiting for (with prefix)
         var otherPlayers = _playersInHand.Where(p => p != player).ToList();
-        if (otherPlayers.Count > 0)
+        foreach (var other in otherPlayers)
         {
-            await output.TellPlayersAsync(otherPlayers, [
-                _pokerTrans.WaitingForPlayer.FormatExt(player.Client.CleanedName)
-            ]);
+            await output.TellPlayerAsync(other, [
+                _pokerTrans.WaitingForPlayer.FormatExt(player.Client.CleanedName, config.Poker.TimeoutForPlayerAction.TotalSeconds)
+            ], false);
         }
 
-        // Tell the active player it's their turn with bright prompt
+        // Tell the active player it's their turn - split into separate lines for clarity
         await output.TellPlayerAsync(player, [
-            _pokerTrans.ActionPrompt.FormatExt(actionPrompt),
+            "(Color::Red)>>> YOUR TURN <<<",
+            actionPrompt,
             $"{_pokerTrans.CurrentBet.FormatExt(_currentRound.CurrentBet.ToString("N0"))} | {_pokerTrans.PotSize.FormatExt(_totalPot.ToString("N0"))}",
             _pokerTrans.YourChips.FormatExt(player.Chips.ToString("N0"))
         ], false);
@@ -354,6 +423,17 @@ public class PokerTable(
         switch (action)
         {
             case PlayerAction.Fold:
+                // UX Guard: Prevent accidental fold if player can check for free
+                if (amountToCall <= 0)
+                {
+                    // Auto-convert to Check for better UX, or just warn. 
+                    // Auto-converting is safer/friendlier for accidentally typing 'f'
+                    await output.TellPlayerAsync(player, [
+                        _pokerTrans.Prefix("You can Check for free! Action converted to Check.")
+                    ], false);
+                    goto case PlayerAction.Check;
+                }
+
                 player.IsFolded = true;
                 await output.TellPlayersAsync(_playersInHand, [
                     _pokerTrans.PlayerFolded.FormatExt(player.Client.CleanedName)
@@ -478,7 +558,6 @@ public class PokerTable(
             ]);
             
             ICredifyEventService.RaiseEvent(ObjectiveType.Baller, winner.Client, _totalPot);
-            // Don't cash out - chips persist at table until player leaves
             return;
         }
 
@@ -497,27 +576,33 @@ public class PokerTable(
             playerHands[player] = hand;
         }
 
-        // Calculate side pots - need to include total pot
+        // Calculate side pots
         var sidePots = bettingService.CalculateSidePots(_playersInHand, _totalPot);
         
-        // Show hands
-        await output.TellPlayersAsync(_playersInHand, [_pokerTrans.Showdown]);
+        // Prepare consolidated output messages
+        var outputMessages = new List<string>();
+        
+        // 1. Header & Community Cards
+        outputMessages.Add(_pokerTrans.Showdown);
+        outputMessages.Add(_pokerTrans.CommunityCards.FormatExt(string.Join(", ", _communityCards.Select(c => c.ToString()))));
+
+        // 2. Player Hands
         foreach (var player in activePlayers)
         {
             var hand = playerHands[player];
-            var handName = GetHandRankName(hand.Rank);
-            await output.TellPlayersAsync(_playersInHand, [
-                _pokerTrans.PlayerShowsHand.FormatExt(
-                    player.Client.CleanedName,
-                    string.Join(", ", player.HoleCards.Select(c => c.ToString())),
-                    handName)
-            ]);
+            var handName = GetDescriptiveHandName(hand);
+            outputMessages.Add(_pokerTrans.PlayerShowsHand.FormatExt(
+                player.Client.CleanedName,
+                string.Join(", ", player.HoleCards.Select(c => c.ToString())),
+                handName));
         }
 
-        // Distribute pots
+        // 3. Logic: Distribute pots
         bettingService.DistributePot(sidePots, playerHands);
 
-        // Announce winners
+        // 4. Winners
+        var eventWinners = new List<(EFClient Client, long Amount)>();
+        
         foreach (var sidePot in sidePots)
         {
             var eligibleHands = sidePot.EligiblePlayers
@@ -539,32 +624,37 @@ public class PokerTable(
                 .Select(kvp => kvp.Key)
                 .ToList();
 
-            var handName = GetHandRankName(bestHand!.Rank);
+            var handName = GetDescriptiveHandName(bestHand!);
             var amountPerWinner = sidePot.Amount / winners.Count;
 
             if (winners.Count == 1)
             {
-                await output.TellPlayersAsync(_playersInHand, [
-                    _pokerTrans.PlayerWins.FormatExt(
-                        winners[0].Client.CleanedName,
-                        amountPerWinner.ToString("N0"),
-                        handName)
-                ]);
-                ICredifyEventService.RaiseEvent(ObjectiveType.Baller, winners[0].Client, amountPerWinner);
+                outputMessages.Add(_pokerTrans.PlayerWins.FormatExt(
+                    winners[0].Client.CleanedName,
+                    amountPerWinner.ToString("N0"),
+                    handName));
+                eventWinners.Add((winners[0].Client, amountPerWinner));
             }
             else
             {
                 var winnerNames = string.Join(", ", winners.Select(w => w.Client.CleanedName));
-                await output.TellPlayersAsync(_playersInHand, [
-                    _pokerTrans.SplitPot.FormatExt(winnerNames, amountPerWinner.ToString("N0"))
-                ]);
+                outputMessages.Add(_pokerTrans.SplitPot.FormatExt(winnerNames, amountPerWinner.ToString("N0")));
                 foreach (var winner in winners)
                 {
-                    ICredifyEventService.RaiseEvent(ObjectiveType.Baller, winner.Client, amountPerWinner);
+                    eventWinners.Add((winner.Client, amountPerWinner));
                 }
             }
         }
 
+        // Send all messages in one batch
+        await output.TellPlayersAsync(_playersInHand, outputMessages);
+        
+        // Raise events (silent)
+        foreach (var (client, amount) in eventWinners)
+        {
+            ICredifyEventService.RaiseEvent(ObjectiveType.Baller, client, amount);
+        }
+        
         // Chips stay at the table - only cashed out when player leaves
     }
 
@@ -574,6 +664,49 @@ public class PokerTable(
     private List<PokerPlayer> GetActivePlayers()
     {
         return _playersInHand.Where(p => !p.IsFolded && (p.Chips > 0 || p.IsAllIn)).ToList();
+    }
+
+    /// <summary>
+    /// Gets the name of a hand rank for display.
+    /// </summary>
+    private string GetDescriptiveHandName(PokerHand hand)
+    {
+        var rankName = GetHandRankName(hand.Rank);
+        if (hand.Kickers.Count == 0) return rankName;
+
+        string GetRankName(int value)
+        {
+            return value switch
+            {
+                14 => "Ace",
+                13 => "King",
+                12 => "Queen",
+                11 => "Jack",
+                _ => value.ToString()
+            };
+        }
+
+        switch (hand.Rank)
+        {
+            case HandRank.HighCard:
+                return $"{rankName} {GetRankName(hand.Kickers[0])}";
+            case HandRank.Pair:
+                return $"{rankName} of {GetRankName(hand.Kickers[0])}s";
+            case HandRank.TwoPair:
+                return $"{rankName} - {GetRankName(hand.Kickers[0])}s and {GetRankName(hand.Kickers[1])}s";
+            case HandRank.ThreeOfAKind:
+                return $"{rankName} - {GetRankName(hand.Kickers[0])}s";
+            case HandRank.Straight:
+            case HandRank.Flush:
+            case HandRank.StraightFlush:
+                return $"{rankName} ({GetRankName(hand.Kickers[0])} High)";
+            case HandRank.FullHouse:
+                return $"{rankName} - {GetRankName(hand.Kickers[0])}s full of {GetRankName(hand.Kickers[1])}s";
+            case HandRank.FourOfAKind:
+                return $"{rankName} - {GetRankName(hand.Kickers[0])}s";
+            default:
+                return rankName;
+        }
     }
 
     /// <summary>
@@ -721,6 +854,26 @@ public class PokerTable(
 
             _playersInHand.RemoveAll(p => p.Client.Equals(client));
             _pendingActionPlayers.TryRemove(client, out _);
+            
+            // CRITICAL: Cancel any pending action so the game doesn't wait forever
+            if (_pendingActionCompletions.TryRemove(client, out var completion))
+            {
+                completion.TrySetResult(false); // Signal action not taken (will trigger fold)
+            }
+
+            // If we dropped below minimum players, notify remaining players and transition state
+            if (Players.Count > 0 && Players.Count < config.Poker.MinPlayers)
+            {
+                ForceTransitionToState(PokerGameState.WaitingForPlayers);
+                
+                // Notify remaining players that we're waiting for more
+                Task.Run(async () =>
+                {
+                    await output.TellPlayersAsync(Players.Values.ToList(), [
+                        _pokerTrans.NotEnoughPlayers
+                    ]);
+                });
+            }
 
             ResetPlayersSignal();
         }

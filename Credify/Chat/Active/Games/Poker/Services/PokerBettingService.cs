@@ -56,23 +56,29 @@ public class PokerBettingService
     /// </summary>
     public bool IsBettingRoundComplete(List<PokerPlayer> players, BettingRound round)
     {
-        var activePlayers = players.Where(p => p.IsActive()).ToList();
-        if (activePlayers.Count <= 1) return true;
+        var playersInHand = players.Where(p => !p.IsFolded).ToList();
+        
+        // If everyone folded but one (or zero), round is complete
+        if (playersInHand.Count <= 1) return true;
 
-        // Check if all active players have acted
-        var playersNeedingToAct = activePlayers.Where(p => !p.HasActedThisRound || 
-            (round.CurrentBet > 0 && p.CurrentBet < round.CurrentBet && p.Chips > 0)).ToList();
+        // Calculate the maximum bet currently on the table
+        var maxBet = playersInHand.Max(p => p.CurrentBet);
 
+        // Check if anyone still needs to act
+        // A player needs to act if:
+        // 1. They are NOT All-In
+        // 2. They have Chips > 0
+        // 3. They haven't acted OR their bet is less than the max bet
+        var playersNeedingToAct = playersInHand.Where(p => 
+            !p.IsAllIn && 
+            p.Chips > 0 && 
+            (!p.HasActedThisRound || p.CurrentBet < maxBet)
+        ).ToList();
+
+        // If anyone needs to act, round is NOT complete
         if (playersNeedingToAct.Any()) return false;
 
-        // If only one distinct bet amount (excluding all-in players who may have lower amounts), round is complete
-        var nonAllInBets = activePlayers
-            .Where(p => !p.IsAllIn && p.Chips > 0)
-            .Select(p => p.CurrentBet)
-            .Distinct()
-            .ToList();
-
-        return nonAllInBets.Count <= 1;
+        return true;
     }
 
     /// <summary>
@@ -173,6 +179,49 @@ public class PokerBettingService
                 winners[0].Chips += remainder;
             }
         }
+    }
+
+    /// <summary>
+    /// Returns uncalled bets to players (e.g., when a player goes all-in for more than others can match).
+    /// </summary>
+    public List<(PokerPlayer Player, long Amount)> ReturnUncalledBets(List<PokerPlayer> players)
+    {
+        var refunds = new List<(PokerPlayer, long)>();
+        var activePlayers = players.Where(p => !p.IsFolded).ToList();
+        
+        if (activePlayers.Count <= 1) return refunds;
+
+        // Group players by their current bet amount
+        var bets = activePlayers
+            .Select(p => p.CurrentBet)
+            .OrderByDescending(b => b)
+            .Distinct()
+            .ToList();
+
+        if (bets.Count <= 1) return refunds; // All bets equal
+
+        // Highest bet
+        var maxBet = bets[0];
+        // Second highest bet (the cap for the highest bettor)
+        var cap = bets[1];
+
+        var maxBettors = activePlayers.Where(p => p.CurrentBet == maxBet).ToList();
+        
+        if (maxBettors.Count == 1)
+        {
+            var player = maxBettors[0];
+            var refund = maxBet - cap;
+            
+            if (refund > 0)
+            {
+                player.CurrentBet -= refund;
+                player.Chips += refund;
+                player.TotalInvestedThisHand -= refund;
+                refunds.Add((player, refund));
+            }
+        }
+
+        return refunds;
     }
 }
 

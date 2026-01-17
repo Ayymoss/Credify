@@ -204,7 +204,7 @@ public class PokerHandEvaluator
     {
         return values.GroupBy(v => v)
             .Where(g => g.Count() == 4)
-            .Select(g => g.Key)
+            .Select(g => (int?)g.Key)
             .FirstOrDefault();
     }
 
@@ -212,7 +212,7 @@ public class PokerHandEvaluator
     {
         return values.GroupBy(v => v)
             .Where(g => g.Count() == 3)
-            .Select(g => g.Key)
+            .Select(g => (int?)g.Key)
             .FirstOrDefault();
     }
 
@@ -220,7 +220,7 @@ public class PokerHandEvaluator
     {
         return values.GroupBy(v => v)
             .Where(g => g.Count() == 2 && (excludeValue == null || g.Key != excludeValue))
-            .Select(g => g.Key)
+            .Select(g => (int?)g.Key)
             .FirstOrDefault();
     }
 
