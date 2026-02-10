@@ -1,4 +1,6 @@
-﻿using Credify.Configuration;
+using Credify.Commands.Attributes;
+using Credify.Configuration;
+using Credify.Constants;
 using Credify.Services;
 using Data.Abstractions;
 using Data.Context;
@@ -11,6 +13,7 @@ using EFClient = Data.Models.Client.EFClient;
 
 namespace Credify.Commands;
 
+[CommandCategory("Admin")]
 public class ResetCreditsCommand : Command
 {
     private readonly IDatabaseContextFactory _context;
@@ -50,10 +53,10 @@ public class ResetCreditsCommand : Command
 
         gameEvent.Origin.Tell(_credifyConfig.Translations.Core.ResettingCreditsInit);
         await using var context = _context.CreateContext();
-        await ResetMetaItems(context, Plugin.CreditsAmount, _credifyConfig.Translations.Core.ResettingCredits, gameEvent);
-        await ResetMetaItems(context, Plugin.RaffleKey, _credifyConfig.Translations.Core.ResettingRaffleTickets,
+        await ResetMetaItems(context, PluginConstants.CreditsAmount, _credifyConfig.Translations.Core.ResettingCredits, gameEvent);
+        await ResetMetaItems(context, PluginConstants.RaffleKey, _credifyConfig.Translations.Core.ResettingRaffleTickets,
             gameEvent);
-        await ResetMetaItems(context, Plugin.ShopKey, _credifyConfig.Translations.Core.ResettingShopItems, gameEvent);
+        await ResetMetaItems(context, PluginConstants.ShopKey, _credifyConfig.Translations.Core.ResettingShopItems, gameEvent);
         await context.SaveChangesAsync();
 
         ResetOnlinePlayersAdditional(gameEvent.Origin.CurrentServer.Manager);
@@ -66,7 +69,7 @@ public class ResetCreditsCommand : Command
         var clients = manager.GetActiveClients();
         foreach (var client in clients)
         {
-            client.SetAdditionalProperty(Plugin.CreditsAmount, 0L);
+            client.SetAdditionalProperty(PluginConstants.CreditsAmount, 0L);
         }
     }
 

@@ -6,4 +6,6 @@ public class PassiveToggle
     public bool IsCountdownEnabled { get; set; } = true;
     public bool IsMathTestEnabled { get; set; } = true;
     public bool IsTypingTestEnabled { get; set; } = true;
+    public bool IsCompleteTheWordEnabled { get; set; } = true;
+    public bool IsAcronymEnabled { get; set; } = true;
 }

@@ -1,4 +1,5 @@
-﻿using Credify.Configuration;
+using Credify.Commands.Attributes;
+using Credify.Configuration;
 using Credify.Services;
 using Data.Models.Client;
 using SharedLibraryCore;
@@ -9,6 +10,7 @@ using SharedLibraryCore.Services;
 
 namespace Credify.Commands;
 
+[CommandCategory("Credits")]
 public class CreditCommand : Command
 {
     private readonly CredifyConfiguration _credifyConfig;

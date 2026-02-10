@@ -1,4 +1,5 @@
-﻿using Credify.Chat.Active.Raffle;
+using Credify.Chat.Feature.Raffle;
+using Credify.Commands.Attributes;
 using Credify.Configuration;
 using Credify.Services;
 using Humanizer;
@@ -8,6 +9,7 @@ using SharedLibraryCore.Interfaces;
 
 namespace Credify.Commands;
 
+[CommandCategory("Raffle")]
 public class ShowRaffleCommand : Command
 {
     private readonly CredifyConfiguration _credifyConfig;

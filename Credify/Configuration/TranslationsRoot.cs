@@ -10,4 +10,5 @@ public class TranslationsRoot
     public BlackjackTranslations Blackjack { get; set; } = new();
     public RouletteTranslations Roulette { get; set; } = new();
     public QuestsTranslations Quests { get; set; } = new();
+    public PokerTranslations Poker { get; set; } = new();
 }

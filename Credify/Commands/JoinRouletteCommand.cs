@@ -1,4 +1,7 @@
-﻿using Credify.Chat.Active.Roulette;
+using Credify.Chat.Active.Core;
+using Credify.Chat.Active.Games.Roulette;
+using Credify.Commands.Attributes;
+using Credify.Commands.Base;
 using Credify.Configuration;
 using Credify.Services;
 using SharedLibraryCore;
@@ -7,46 +10,33 @@ using SharedLibraryCore.Interfaces;
 
 namespace Credify.Commands;
 
+[CommandCategory("Games")]
 public class JoinRouletteCommand : Command
 {
+    private readonly GameJoinCommandHelper<RouletteManager> _helper;
     private readonly CredifyConfiguration _credifyConfig;
-    private readonly PersistenceService _persistenceService;
-    private readonly RouletteManager _roulette;
 
-    public JoinRouletteCommand(CommandConfiguration config, ITranslationLookup translationLookup, CredifyConfiguration credifyConfig,
-        PersistenceService persistenceService, RouletteManager roulette) : base(config, translationLookup)
+    public JoinRouletteCommand(CommandConfiguration config, ITranslationLookup translationLookup, 
+        CredifyConfiguration credifyConfig, PersistenceService persistenceService, RouletteManager roulette,
+        ActiveGameTracker gameTracker) 
+        : base(config, translationLookup)
     {
+        _helper = new GameJoinCommandHelper<RouletteManager>(roulette, credifyConfig, persistenceService, gameTracker);
         _credifyConfig = credifyConfig;
-        _persistenceService = persistenceService;
-        _roulette = roulette;
         Name = "credifyroulette";
         Alias = "crrl";
-        Description = credifyConfig.Translations.Core.CommandRoulette;
+        Description = credifyConfig.Translations.Core.CommandRouletteDescription;
         Permission = Data.Models.Client.EFClient.Permission.User;
         RequiresTarget = false;
     }
 
     public override async Task ExecuteAsync(GameEvent gameEvent)
     {
-        if (!_credifyConfig.Roulette.IsEnabled)
-        {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.Roulette.Disabled);
-            return;
-        }
-
-        var funds = await _persistenceService.GetClientCreditsAsync(gameEvent.Origin);
-        if (funds < 10)
-        {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.Core.InsufficientCredits);
-            return;
-        }
-
-        if (!_roulette.IsPlayerInGame(gameEvent.Origin))
-        {
-            await _roulette.AddPlayerAsync(gameEvent.Origin);
-            return;
-        }
-
-        _roulette.RemovePlayer(gameEvent.Origin);
+        await _helper.ExecuteAsync(
+            gameEvent,
+            isGameEnabled: _credifyConfig.Roulette.IsEnabled,
+            minimumCredits: GameConstants.MinimumCredits,
+            disabledMessage: _credifyConfig.Translations.Roulette.Disabled,
+            insufficientCreditsMessage: _credifyConfig.Translations.Core.InsufficientCredits);
     }
 }

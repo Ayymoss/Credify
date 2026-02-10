@@ -1,4 +1,6 @@
-﻿using Credify.Configuration;
+using Credify.Commands.Attributes;
+using Credify.Configuration;
+using Credify.Constants;
 using Credify.Services;
 using SharedLibraryCore;
 using SharedLibraryCore.Commands;
@@ -8,6 +10,7 @@ using EFClient = Data.Models.Client.EFClient;
 
 namespace Credify.Commands;
 
+[CommandCategory("Admin")]
 public class SetCreditsCommand : Command
 {
     private readonly PersistenceService _persistenceService;
@@ -48,7 +51,7 @@ public class SetCreditsCommand : Command
             return;
         }
 
-        gameEvent.Target.SetAdditionalProperty(Plugin.CreditsAmount, Math.Abs(argAmount));
+        gameEvent.Target.SetAdditionalProperty(PluginConstants.CreditsAmount, Math.Abs(argAmount));
         gameEvent.Origin.Tell(_credifyConfig.Translations.Core.SetCreditsForTarget
             .FormatExt(gameEvent.Target.Name, Math.Abs(argAmount).ToString("N0")));
         if (gameEvent.Origin.ClientId != gameEvent.Target.ClientId)

@@ -1,4 +1,5 @@
-﻿using Credify.Configuration;
+using Credify.Commands.Attributes;
+using Credify.Configuration;
 using Credify.Services;
 using Data.Abstractions;
 using Data.Models.Client;
@@ -9,6 +10,7 @@ using SharedLibraryCore.Interfaces;
 
 namespace Credify.Commands;
 
+[CommandCategory("Credits")]
 public class TopCreditsCommand : Command
 {
     private readonly IDatabaseContextFactory _contextFactory;

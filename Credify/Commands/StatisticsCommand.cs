@@ -1,4 +1,5 @@
-﻿using Credify.Configuration;
+using Credify.Commands.Attributes;
+using Credify.Configuration;
 using Credify.Services;
 using Data.Models.Client;
 using SharedLibraryCore;
@@ -7,6 +8,7 @@ using SharedLibraryCore.Interfaces;
 
 namespace Credify.Commands;
 
+[CommandCategory("Credits")]
 public class StatisticsCommand : Command
 {
     private readonly CredifyCache _cache;

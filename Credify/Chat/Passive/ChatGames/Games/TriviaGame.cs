@@ -1,6 +1,7 @@
-﻿using Credify.Chat.Active.Blackjack.Models;
+using Credify.Chat.Passive.ChatGames.Models;
 using Credify.Chat.Passive.Quests.Enums;
 using Credify.Configuration;
+using Credify.Constants;
 using Credify.Helpers;
 using Credify.Models.ApiModels;
 using Credify.Services;
@@ -39,17 +40,22 @@ public class TriviaGame(CredifyConfiguration credifyConfig, PersistenceService p
         var formattedAnswers = answers.Select((answer, index) => $"(Color::Accent){index + 1}. (Color::White){answer}").ToArray();
         var message = new[]
         {
-            credifyConfig.Translations.Passive.TriviaBroadcast.FormatExt(Plugin.PluginName, GameInfo.GameName, GameInfo.Question)
+            credifyConfig.Translations.Passive.TriviaBroadcast.FormatExt(PluginConstants.PluginName, GameInfo.GameName, GameInfo.Question)
         };
 
         var combined = message.Concat(formattedAnswers).ToArray();
-        await chatUtils.BroadcastToAllServers(combined);
+        
+        // Store per-server broadcast times for fair timing calculation
+        GameInfo.ServerBroadcastTimes = await chatUtils.BroadcastToAllServers(combined);
 
-        Utilities.ExecuteAfterDelay(credifyConfig.ChatGame.TriviaTimeout, End, CancellationToken.None);
+        // Schedule timeout, which will trigger grace period before final calculation
+        Utilities.ExecuteAfterDelay(credifyConfig.ChatGame.TriviaTimeout, TimeoutReached, CancellationToken.None);
     }
 
-    public override async Task HandleChatMessageAsync(EFClient client, string message)
+    public override async Task HandleChatMessageAsync(EFClient client, string message, long? gameTime, DateTime eventTime)
     {
+        // Accept answers during Started or Closing (grace period) states
+        if (GameState is not (GameState.Started or GameState.Closing)) return;
         if (GameInfo.AllAnswers.Count is 0) return;
 
         var success = int.TryParse(message, out var answerIndex);
@@ -71,25 +77,19 @@ public class TriviaGame(CredifyConfiguration credifyConfig, PersistenceService p
         {
             await MessageReceivedLock.WaitAsync();
 
-            var reactionTime = DateTimeOffset.UtcNow - GameInfo.Started;
-            var remainingAsPercentage = (credifyConfig.ChatGame.TriviaTimeout - reactionTime).TotalSeconds /
-                                        credifyConfig.ChatGame.TriviaTimeout.TotalSeconds;
-            var payout = Convert.ToInt64(Math.Round(credifyConfig.ChatGame.MaxPayout * remainingAsPercentage));
-            if (payout < 10) payout = 10;
-            var winner = false;
-            if (message.Equals(GameInfo.Answer, StringComparison.OrdinalIgnoreCase))
-            {
-                await persistenceService.AddCreditsAsync(client, payout);
-                winner = true;
-            }
+            // Calculate fair reaction time based on per-server timing
+            var serverEndpoint = client.CurrentServer.EndPoint;
+            var reactionTimeSeconds = CalculateReactionTime(serverEndpoint, gameTime, eventTime, chatUtils.GetServerTimeTracker());
+            var isCorrect = message.Equals(GameInfo.Answer, StringComparison.OrdinalIgnoreCase);
 
             var player = new ClientAnswerInfo
             {
-                Winner = winner,
+                Winner = isCorrect,
                 Client = client,
                 Answer = message,
                 Answered = DateTimeOffset.UtcNow,
-                Payout = payout,
+                ReactionTimeSeconds = reactionTimeSeconds,
+                ServerEndpoint = serverEndpoint
             };
 
             GameInfo.Players.Add(player);
@@ -101,44 +101,87 @@ public class TriviaGame(CredifyConfiguration credifyConfig, PersistenceService p
         }
     }
 
-    private async Task End(CancellationToken token)
+    /// <summary>
+    /// Called when timeout is reached. Enters grace period to allow late RCON messages.
+    /// </summary>
+    private async Task TimeoutReached(CancellationToken token)
     {
         if (GameState is not GameState.Started) return;
+        
+        GameState = GameState.Closing;
+        Utilities.ExecuteAfterDelay(credifyConfig.ChatGame.EndGracePeriod, FinalizeResults, CancellationToken.None);
+    }
+
+    /// <summary>
+    /// Called after grace period. Calculates winners and announces results.
+    /// </summary>
+    private async Task FinalizeResults(CancellationToken token)
+    {
+        if (GameState is not GameState.Closing) return;
 
         GameState = GameState.Ended;
+        
         if (GameInfo.Players.Count is 0)
         {
-            var message = credifyConfig.Translations.Passive.GenericNoAnswer.FormatExt(Plugin.PluginName, GameInfo.Answer);
+            var message = credifyConfig.Translations.Passive.GenericNoAnswer.FormatExt(PluginConstants.PluginName, GameInfo.Answer);
             await chatUtils.BroadcastToAllServers([message]);
             return;
         }
 
+        // Raise events for all participants
         foreach (var player in GameInfo.Players)
         {
             ICredifyEventService.RaiseEvent(ObjectiveType.Trivia, player.Client);
         }
 
-        var players = GameInfo.Players.Where(x => x.Winner).ToList();
-        if (players.Count is 0)
+        // Get winners sorted by fair reaction time
+        var winners = GameInfo.Players.Where(x => x.Winner).OrderBy(x => x.ReactionTimeSeconds).ToList();
+        
+        if (winners.Count is 0)
         {
-            var message = credifyConfig.Translations.Passive.TriviaNoWinner.FormatExt(Plugin.PluginName, GameInfo.Answer);
+            var message = credifyConfig.Translations.Passive.TriviaNoWinner.FormatExt(PluginConstants.PluginName, GameInfo.Answer);
             await chatUtils.BroadcastToAllServers([message]);
             return;
         }
 
-        var winnerCount = players.Count;
-        var totalPayout = players.Sum(x => x.Payout);
-        var broadcastMessage = credifyConfig.Translations.Passive.TriviaWinBroadcast.FormatExt(Plugin.PluginName,
+        // Calculate and apply payouts based on fair reaction time
+        var timeoutSeconds = credifyConfig.ChatGame.TriviaTimeout.TotalSeconds;
+        foreach (var winner in winners)
+        {
+            winner.Payout = CalculatePayout(
+                winner.ReactionTimeSeconds,
+                timeoutSeconds,
+                credifyConfig.ChatGame.MaxPayout,
+                credifyConfig.ChatGame.PayoutDecayExponent);
+            
+            await persistenceService.AddCreditsAsync(winner.Client, winner.Payout);
+        }
+
+        var winnerCount = winners.Count;
+        var totalPayout = winners.Sum(x => x.Payout);
+        var broadcastMessage = credifyConfig.Translations.Passive.TriviaWinBroadcast.FormatExt(PluginConstants.PluginName,
             winnerCount, totalPayout.ToString("N0"), GameInfo.Answer);
         await chatUtils.BroadcastToAllServers([broadcastMessage]);
 
-        foreach (var winner in players)
+        var fastestWinner = winners.First();
+        foreach (var winner in winners)
         {
             var balance = await persistenceService.GetClientCreditsAsync(winner.Client);
             var userMessage = credifyConfig.Translations.Passive.ReactionTell
                 .FormatExt(winner.Payout.ToString("N0"), balance.ToString("N0"));
             if (!winner.Client.IsIngame) continue;
             winner.Client.Tell(userMessage);
+        }
+        
+        // Tell non-winners their time offset from fastest winner
+        var losers = GameInfo.Players.Where(p => !p.Winner).ToList();
+        foreach (var loser in losers)
+        {
+            if (!loser.Client.IsIngame) continue;
+            var timeOffset = loser.ReactionTimeSeconds - fastestWinner.ReactionTimeSeconds;
+            var offsetMessage = credifyConfig.Translations.Passive.ReactionTimeOffset
+                .FormatExt($"{timeOffset:F3}");
+            loser.Client.Tell(offsetMessage);
         }
     }
 

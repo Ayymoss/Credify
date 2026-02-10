@@ -1,10 +1,12 @@
-﻿using Credify.Configuration;
+using Credify.Commands.Attributes;
+using Credify.Configuration;
 using SharedLibraryCore;
 using SharedLibraryCore.Configuration;
 using SharedLibraryCore.Interfaces;
 
 namespace Credify.Commands;
 
+[CommandCategory("Shop")]
 public class ShopCommand : Command
 {
     private readonly CredifyConfiguration _credifyConfig;

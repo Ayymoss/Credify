@@ -1,4 +1,4 @@
-﻿using Credify.Chat.Active.Blackjack.Models;
+﻿using Credify.Chat.Passive.ChatGames.Models;
 using Credify.Chat.Passive.ChatGames.Games;
 using Credify.Configuration;
 using Credify.Services;
@@ -25,6 +25,8 @@ public class PassiveManager(
             if (credifyConfig.ChatGame.EnabledPassiveGames.IsCountdownEnabled) gameTypes.Add(typeof(CountdownGame));
             if (credifyConfig.ChatGame.EnabledPassiveGames.IsMathTestEnabled) gameTypes.Add(typeof(MathTestGame));
             if (credifyConfig.ChatGame.EnabledPassiveGames.IsTypingTestEnabled) gameTypes.Add(typeof(TypingTestGame));
+            if (credifyConfig.ChatGame.EnabledPassiveGames.IsCompleteTheWordEnabled) gameTypes.Add(typeof(CompleteTheWordGame));
+            if (credifyConfig.ChatGame.EnabledPassiveGames.IsAcronymEnabled) gameTypes.Add(typeof(AcronymGame));
 
             if (gameTypes.Count is 0) return;
 
@@ -44,9 +46,10 @@ public class PassiveManager(
         }
     }
 
-    public async Task HandleChatAsync(EFClient client, string message)
+    public async Task HandleChatAsync(EFClient client, string message, long? gameTime, DateTime eventTime)
     {
-        if (_currentGame?.GameState is not GameState.Started) return;
-        await _currentGame.HandleChatMessageAsync(client, message);
+        // Accept answers during Started or Closing (grace period) states
+        if (_currentGame?.GameState is not (GameState.Started or GameState.Closing)) return;
+        await _currentGame.HandleChatMessageAsync(client, message, gameTime, eventTime);
     }
 }

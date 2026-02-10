@@ -1,4 +1,5 @@
-﻿using Credify.Chat.Passive.Quests.Enums;
+using Credify.Chat.Passive.Quests.Enums;
+using Credify.Commands.Attributes;
 using Credify.Configuration;
 using Credify.Services;
 using SharedLibraryCore;
@@ -8,6 +9,7 @@ using SharedLibraryCore.Interfaces;
 
 namespace Credify.Commands;
 
+[CommandCategory("Games")]
 public class CoinFlipCommand : Command
 {
     private readonly PersistenceService _persistenceService;

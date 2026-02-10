@@ -1,4 +1,5 @@
-﻿using Credify.Configuration;
+using Credify.Commands.Attributes;
+using Credify.Configuration;
 using Credify.Models;
 using Credify.Services;
 using SharedLibraryCore;
@@ -8,6 +9,7 @@ using SharedLibraryCore.Interfaces;
 
 namespace Credify.Commands;
 
+[CommandCategory("Shop")]
 public class BuyCommand : Command
 {
     private readonly PersistenceService _persistenceService;

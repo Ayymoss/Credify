@@ -1,6 +1,7 @@
-﻿using Credify.Chat.Active.Blackjack.Models;
+using Credify.Chat.Passive.ChatGames.Models;
 using Credify.Chat.Passive.Quests.Enums;
 using Credify.Configuration;
+using Credify.Constants;
 using Credify.Services;
 using SharedLibraryCore;
 using SharedLibraryCore.Database.Models;
@@ -21,14 +22,20 @@ public class MathTestGame(CredifyConfiguration credifyConfig, PersistenceService
         };
 
         GenerateQuestion();
-        var message = credifyConfig.Translations.Passive.ReactionBroadcast.FormatExt(Plugin.PluginName, GameInfo.GameName,
+        var message = credifyConfig.Translations.Passive.ReactionBroadcast.FormatExt(PluginConstants.PluginName, GameInfo.GameName,
             GameInfo.Question);
-        await chatUtils.BroadcastToAllServers([message]);
-        Utilities.ExecuteAfterDelay(credifyConfig.ChatGame.MathTestTimeout, End, CancellationToken.None);
+        
+        // Store per-server broadcast times for fair timing calculation
+        GameInfo.ServerBroadcastTimes = await chatUtils.BroadcastToAllServers([message]);
+        
+        // Schedule timeout, which will trigger grace period before final calculation
+        Utilities.ExecuteAfterDelay(credifyConfig.ChatGame.MathTestTimeout, TimeoutReached, CancellationToken.None);
     }
 
-    public override async Task HandleChatMessageAsync(EFClient client, string message)
+    public override async Task HandleChatMessageAsync(EFClient client, string message, long? gameTime, DateTime eventTime)
     {
+        // Accept answers during Started or Closing (grace period) states
+        if (GameState is not (GameState.Started or GameState.Closing)) return;
         if (GameInfo.Players.Any(x => x.Client.ClientId == client.ClientId)) return;
         if (!message.Equals(GameInfo.Answer)) return;
 
@@ -36,23 +43,25 @@ public class MathTestGame(CredifyConfiguration credifyConfig, PersistenceService
         {
             await MessageReceivedLock.WaitAsync();
 
-            var reactionTime = DateTimeOffset.UtcNow - GameInfo.Started;
-            var remainingAsPercentage = (credifyConfig.ChatGame.MathTestTimeout - reactionTime).TotalSeconds /
-                                        credifyConfig.ChatGame.MathTestTimeout.TotalSeconds;
-            var payout = Convert.ToInt64(Math.Round(credifyConfig.ChatGame.MaxPayout * remainingAsPercentage));
-            if (payout < 10) payout = 10;
-            await persistenceService.AddCreditsAsync(client, payout);
-
-            var winner = new ClientAnswerInfo
+            // Calculate fair reaction time based on per-server timing
+            var serverEndpoint = client.CurrentServer.EndPoint;
+            var reactionTimeSeconds = CalculateReactionTime(serverEndpoint, gameTime, eventTime, chatUtils.GetServerTimeTracker());
+            
+            // Record the answer - payout calculated and applied at end
+            var player = new ClientAnswerInfo
             {
+                Winner = true,
                 Client = client,
                 Answer = message,
                 Answered = DateTimeOffset.UtcNow,
-                Payout = payout,
+                ReactionTimeSeconds = reactionTimeSeconds,
+                ServerEndpoint = serverEndpoint
             };
 
-            GameInfo.Players.Add(winner);
-            await End(CancellationToken.None);
+            GameInfo.Players.Add(player);
+            
+            // Confirm answer was recorded (don't reveal if they won yet)
+            client.Tell(credifyConfig.Translations.Passive.AnswerRecorded);
         }
         finally
         {
@@ -60,34 +69,80 @@ public class MathTestGame(CredifyConfiguration credifyConfig, PersistenceService
         }
     }
 
-    private async Task End(CancellationToken token)
+    /// <summary>
+    /// Called when timeout is reached. Enters grace period to allow late RCON messages.
+    /// </summary>
+    private async Task TimeoutReached(CancellationToken token)
     {
         if (GameState is not GameState.Started) return;
+        
+        // Enter grace period - still accept answers but schedule final calculation
+        GameState = GameState.Closing;
+        
+        // Wait for grace period to allow late RCON messages to arrive
+        Utilities.ExecuteAfterDelay(credifyConfig.ChatGame.EndGracePeriod, FinalizeResults, CancellationToken.None);
+    }
+
+    /// <summary>
+    /// Called after grace period. Calculates winners and announces results.
+    /// </summary>
+    private async Task FinalizeResults(CancellationToken token)
+    {
+        if (GameState is not GameState.Closing) return;
 
         GameState = GameState.Ended;
+        
         if (GameInfo.Players.Count is 0)
         {
-            var message = credifyConfig.Translations.Passive.GenericNoAnswer.FormatExt(Plugin.PluginName, GameInfo.Answer);
+            var message = credifyConfig.Translations.Passive.GenericNoAnswer.FormatExt(PluginConstants.PluginName, GameInfo.Answer);
             await chatUtils.BroadcastToAllServers([message]);
-
             return;
         }
 
-        var winnerClient = GameInfo.Players.First();
-        var broadcastMessage = credifyConfig.Translations.Passive.MathTestWinnerBroadcast.FormatExt(Plugin.PluginName,
-            winnerClient.Client.CleanedName, winnerClient.Payout.ToString("N0"),
-            $"{(winnerClient.Answered - GameInfo.Started).TotalSeconds:N2}",
+        // Sort by fair reaction time to determine winner
+        var sortedPlayers = GameInfo.Players.OrderBy(p => p.ReactionTimeSeconds).ToList();
+        var winner = sortedPlayers.First();
+        
+        // Calculate and apply payouts based on fair reaction time
+        var timeoutSeconds = credifyConfig.ChatGame.MathTestTimeout.TotalSeconds;
+        foreach (var player in sortedPlayers)
+        {
+            player.Payout = CalculatePayout(
+                player.ReactionTimeSeconds,
+                timeoutSeconds,
+                credifyConfig.ChatGame.MaxPayout,
+                credifyConfig.ChatGame.PayoutDecayExponent);
+            
+            await persistenceService.AddCreditsAsync(player.Client, player.Payout);
+            ICredifyEventService.RaiseEvent(ObjectiveType.Trivia, player.Client);
+        }
+
+        // Announce winner
+        var broadcastMessage = credifyConfig.Translations.Passive.MathTestWinnerBroadcast.FormatExt(
+            PluginConstants.PluginName,
+            winner.Client.CleanedName, 
+            winner.Payout.ToString("N0"),
+            $"{winner.ReactionTimeSeconds:N2}",
             GameInfo.Answer);
         await chatUtils.BroadcastToAllServers([broadcastMessage]);
 
-        foreach (var winner in GameInfo.Players)
+        // Tell each player their result
+        foreach (var player in sortedPlayers)
         {
-            ICredifyEventService.RaiseEvent(ObjectiveType.Trivia, winner.Client);
-            var balance = await persistenceService.GetClientCreditsAsync(winner.Client);
+            var balance = await persistenceService.GetClientCreditsAsync(player.Client);
             var userMessage = credifyConfig.Translations.Passive.ReactionTell
-                .FormatExt(winnerClient.Payout.ToString("N0"), balance.ToString("N0"));
-            if (!winner.Client.IsIngame) continue;
-            winner.Client.Tell(userMessage);
+                .FormatExt(player.Payout.ToString("N0"), balance.ToString("N0"));
+            if (!player.Client.IsIngame) continue;
+            player.Client.Tell(userMessage);
+            
+            // Tell non-winners their time offset
+            if (player != winner)
+            {
+                var timeOffset = player.ReactionTimeSeconds - winner.ReactionTimeSeconds;
+                var offsetMessage = credifyConfig.Translations.Passive.ReactionTimeOffset
+                    .FormatExt($"{timeOffset:F3}");
+                player.Client.Tell(offsetMessage);
+            }
         }
     }
 

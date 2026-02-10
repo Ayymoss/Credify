@@ -1,4 +1,7 @@
-﻿using Credify.Chat.Active.Blackjack;
+using Credify.Chat.Active.Core;
+using Credify.Chat.Active.Games.Blackjack;
+using Credify.Commands.Attributes;
+using Credify.Commands.Base;
 using Credify.Configuration;
 using Credify.Services;
 using SharedLibraryCore;
@@ -7,65 +10,56 @@ using SharedLibraryCore.Interfaces;
 
 namespace Credify.Commands;
 
+[CommandCategory("Games")]
 public class JoinBlackjackCommand : Command
 {
-    private readonly BlackjackManager _blackjackManager;
+    private readonly GameJoinCommandHelper<BlackjackManager> _helper;
     private readonly CredifyConfiguration _credifyConfig;
-    private readonly PersistenceService _persistenceService;
+    private readonly BlackjackManager _blackjackManager;
 
     public JoinBlackjackCommand(CommandConfiguration config, ITranslationLookup translationLookup,
         BlackjackManager blackjackManager, CredifyConfiguration credifyConfig,
-        PersistenceService persistenceService) : base(config, translationLookup)
+        PersistenceService persistenceService, ActiveGameTracker gameTracker) 
+        : base(config, translationLookup)
     {
-        _blackjackManager = blackjackManager;
+        _helper = new GameJoinCommandHelper<BlackjackManager>(blackjackManager, credifyConfig, persistenceService, gameTracker);
         _credifyConfig = credifyConfig;
-        _persistenceService = persistenceService;
+        _blackjackManager = blackjackManager;
         Name = "credifyblackjack";
         Alias = "crbj";
-        Description = credifyConfig.Translations.Core.CommandBlackjack;
+        Description = credifyConfig.Translations.Core.CommandBlackjackDescription;
         Permission = Data.Models.Client.EFClient.Permission.User;
         RequiresTarget = false;
     }
 
     public override async Task ExecuteAsync(GameEvent gameEvent)
     {
-        if (!_credifyConfig.Blackjack.IsEnabled)
-        {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.Blackjack.Disabled);
-            return;
-        }
-
-        var funds = await _persistenceService.GetClientCreditsAsync(gameEvent.Origin);
-        if (funds < 10)
-        {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.Core.InsufficientCredits);
-            return;
-        }
-
-        var player = gameEvent.Origin;
-        if (!_blackjackManager.IsPlayerPlaying(player))
-        {
-            await _blackjackManager.JoinGameAsync(gameEvent.Origin);
-
-            if (_credifyConfig.Blackjack.JoinAnnouncements)
+        await _helper.ExecuteAsync(
+            gameEvent,
+            isGameEnabled: _credifyConfig.Blackjack.IsEnabled,
+            minimumCredits: GameConstants.MinimumCredits,
+            disabledMessage: _credifyConfig.Translations.Blackjack.Disabled,
+            insufficientCreditsMessage: _credifyConfig.Translations.Core.InsufficientCredits,
+            handleJoinSuccessAsync: async (ge) =>
             {
-                foreach (var server in gameEvent.Origin.CurrentServer.Manager.GetServers())
+                if (_credifyConfig.Blackjack.JoinAnnouncements)
                 {
-                    if (server.ConnectedClients.Count is 0) continue;
-                    server.Broadcast($"{_credifyConfig.Translations.Blackjack.Title} " +
-                                     $"{_credifyConfig.Translations.Blackjack.JoinAnnouncement.FormatExt(gameEvent.Origin.CleanedName, _blackjackManager.GetPlayerCount() - 1)}");
+                    foreach (var server in ge.Origin.CurrentServer.Manager.GetServers())
+                    {
+                        if (server.ConnectedClients.Count is 0) continue;
+                        server.Broadcast($"{_credifyConfig.Translations.Blackjack.Title} " +
+                                         $"{_credifyConfig.Translations.Blackjack.JoinAnnouncement.FormatExt(ge.Origin.CleanedName, _blackjackManager.GetPlayerCount() - 1)}");
+                    }
                 }
-            }
-            else
+                else
+                {
+                    ge.Origin.Tell($"{_credifyConfig.Translations.Blackjack.Title} " +
+                                  $"{_credifyConfig.Translations.Blackjack.Join}");
+                }
+            },
+            handleLeaveSuccessAsync: async (ge) =>
             {
-                gameEvent.Origin.Tell($"{_credifyConfig.Translations.Blackjack.Title} " +
-                                      $"{_credifyConfig.Translations.Blackjack.Join}");
-            }
-
-            return;
-        }
-
-        await _blackjackManager.LeaveGameAsync(gameEvent.Origin);
-        gameEvent.Origin.Tell(_credifyConfig.Translations.Blackjack.Leave);
+                ge.Origin.Tell(_credifyConfig.Translations.Blackjack.Leave);
+            });
     }
 }
