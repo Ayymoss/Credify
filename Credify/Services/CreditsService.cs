@@ -1,9 +1,8 @@
 using Credify.Chat.Passive.Quests.Enums;
 using Credify.Constants;
-using Credify.Models;
-using Credify.Services;
 using SharedLibraryCore.Database.Models;
 using SharedLibraryCore.Interfaces;
+using System.Collections.Concurrent;
 
 namespace Credify.Services;
 
@@ -14,6 +13,10 @@ public class CreditsService(
     IMetaServiceV2 metaService,
     StatisticsService statisticsService)
 {
+    private readonly ConcurrentDictionary<int, SemaphoreSlim> _clientLocks = new();
+
+    private SemaphoreSlim GetClientLock(int clientId) => _clientLocks.GetOrAdd(clientId, _ => new SemaphoreSlim(1, 1));
+
     /// <summary>
     /// Checks if a client has sufficient funds for a transaction.
     /// </summary>
@@ -64,9 +67,9 @@ public class CreditsService(
     /// </summary>
     public async Task<long> RemoveCreditsAsync(EFClient client, long credits)
     {
+        var balance = await AlterClientCreditsAsync(client, -credits);
         statisticsService.AddCreditsSpent((ulong)credits);
         ICredifyEventService.RaiseEvent(ObjectiveType.CreditsSpent, client, credits);
-        var balance = await AlterClientCreditsAsync(client, -credits);
         return balance;
     }
 
@@ -75,26 +78,35 @@ public class CreditsService(
     /// </summary>
     private async Task<long> AlterClientCreditsAsync(EFClient client, long amount)
     {
-        long credits, newCredits;
-        if (client.IsIngame)
+        var clientLock = GetClientLock(client.ClientId);
+        await clientLock.WaitAsync();
+        try
         {
-            if (client.GetAdditionalProperty<long?>(PluginConstants.CreditsAmount) is null)
+            long credits, newCredits;
+            if (client.IsIngame)
             {
-                await LoadUserCreditsAsync(client);
+                if (client.GetAdditionalProperty<long?>(PluginConstants.CreditsAmount) is null)
+                {
+                    await LoadUserCreditsAsync(client);
+                }
+                credits = client.GetAdditionalProperty<long>(PluginConstants.CreditsAmount);
+                newCredits = credits + amount;
+                client.SetAdditionalProperty(PluginConstants.CreditsAmount, newCredits);
             }
-            credits = client.GetAdditionalProperty<long>(PluginConstants.CreditsAmount);
-            newCredits = credits + amount;
-            client.SetAdditionalProperty(PluginConstants.CreditsAmount, newCredits);
-        }
-        else
-        {
-            credits = await LoadUserCreditsAsync(client);
-            newCredits = credits + amount;
-            await WriteClientCreditsAsync(client, newCredits);
-        }
+            else
+            {
+                credits = await LoadUserCreditsAsync(client);
+                newCredits = credits + amount;
+                await WriteClientCreditsAsync(client, newCredits);
+            }
 
-        statisticsService.OrderTop(client, newCredits);
-        return newCredits;
+            statisticsService.OrderTop(client, newCredits);
+            return newCredits;
+        }
+        finally
+        {
+            clientLock.Release();
+        }
     }
 
     /// <summary>

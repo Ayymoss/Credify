@@ -5,14 +5,11 @@ using GameServer.Mocks;
 using Credify.Chat.Active.Core;
 using Credify.Chat.Active.Core.Interfaces;
 using Credify.Chat.Active.Games.Poker;
-using Credify.Chat.Active.Games.Poker.Models;
 using Credify.Chat.Active.Games.Poker.Services;
 using Credify.Chat.Active.Games.Poker.Utilities;
 using Credify.Chat.Active.Games.Blackjack;
 using Credify.Chat.Active.Games.Blackjack.Utilities;
-using Credify.Chat.Active.Games.Roulette;
 using Credify.Configuration;
-using Credify.Configuration.Translations;
 using Credify.Services;
 using Data.Models;
 using SharedLibraryCore.Database.Models;
@@ -35,7 +32,7 @@ class Program
     private static GameType _gameType;
     private static PokerTable? _pokerTable; // Only for Poker-specific commands like ShowCardsAsync
     private static Credify.Chat.Active.Games.Roulette.Table? _rouletteTable; // For Roulette game loop
-    private static readonly object _consoleLock = new();
+    private static readonly Lock _consoleLock = new();
     private const long InitialCredits = 10000;
 
     // Map IW4MAdmin color codes to Spectre.Console colors
