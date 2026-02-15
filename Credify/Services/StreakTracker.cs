@@ -32,7 +32,10 @@ public class StreakTracker(
     /// <summary>
     /// Called when a player gets a kill. Increments their streak and checks for rewards/bounties.
     /// </summary>
-    public async Task<StreakResult> OnKillAsync(EFClient killer, EFClient? victim)
+    /// <param name="killer">The player who got the kill</param>
+    /// <param name="victim">The player who died, or null if not applicable</param>
+    /// <param name="serverPlayerCount">Current number of players on the server (0 = use minimum bounty). Used to scale auto-bounty.</param>
+    public async Task<StreakResult> OnKillAsync(EFClient killer, EFClient? victim, int serverPlayerCount = 0)
     {
         var result = new StreakResult();
         
@@ -66,26 +69,28 @@ public class StreakTracker(
                                               newStreak >= config.Streak.MinimumStreakToAnnounce;
             }
             
+            // Scaled amounts: config values are minimums; scale up with player count (sub-linear to avoid inflation)
+            var (scaledInitialBounty, scaledPerKill) = GetScaledAutoBountyAmounts(serverPlayerCount);
+            
             // Check for auto-bounty trigger
             if (config.Bounty.AutoBountyEnabled && newStreak == config.Bounty.AutoBountyThreshold)
             {
                 // Verify unique victims requirement
                 if (!config.Bounty.AntiBoostEnabled || HasEnoughUniqueVictims(killer.ClientId))
                 {
-                    var bountyAmount = config.Bounty.AutoBountyAmount;
-                    _activeBounties[killer.ClientId] = bountyAmount;
-                    result.BountyPlaced = bountyAmount;
+                    _activeBounties[killer.ClientId] = scaledInitialBounty;
+                    result.BountyPlaced = scaledInitialBounty;
                     result.ShouldAnnounceBounty = config.Bounty.AnnounceBountyPlaced;
                 }
             }
-            // Update existing bounty for additional kills
+            // Update existing bounty for additional kills (skip when already at cap so we never "increase by $0")
             else if (config.Bounty.AutoBountyEnabled && 
                      newStreak > config.Bounty.AutoBountyThreshold && 
-                     _activeBounties.ContainsKey(killer.ClientId))
+                     _activeBounties.TryGetValue(killer.ClientId, out var currentBounty) &&
+                     currentBounty < config.Bounty.MaxAutoBounty)
             {
-                var currentBounty = _activeBounties[killer.ClientId];
                 var newBounty = Math.Min(
-                    currentBounty + config.Bounty.BountyPerAdditionalKill,
+                    currentBounty + scaledPerKill,
                     config.Bounty.MaxAutoBounty);
                 _activeBounties[killer.ClientId] = newBounty;
             }
@@ -145,6 +150,19 @@ public class StreakTracker(
     public int GetStreak(EFClient player)
     {
         return _killStreaks.TryGetValue(player.ClientId, out var streak) ? streak : 0;
+    }
+    
+    /// <summary>
+    /// Auto-bounty from player count: linear (4, 250) → (64, MaxAutoBounty), capped at MaxAutoBounty.
+    /// </summary>
+    private (int scaledInitialBounty, int scaledPerKill) GetScaledAutoBountyAmounts(int serverPlayerCount)
+    {
+        const int minPlayers = 4, maxPlayers = 64, minBounty = 250;
+        int maxBounty = config.Bounty.MaxAutoBounty;
+        double slope = (maxBounty - minBounty) / (double)(maxPlayers - minPlayers);
+        int initial = (int)Math.Round(minBounty + (serverPlayerCount - minPlayers) * slope);
+        int perKill = (int)Math.Round((minBounty + (serverPlayerCount - minPlayers) * slope) / 10);
+        return (Math.Min(initial, maxBounty), Math.Min(perKill, maxBounty / 10));
     }
     
     /// <summary>

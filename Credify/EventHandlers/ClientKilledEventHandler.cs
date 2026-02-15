@@ -34,8 +34,9 @@ public class ClientKilledEventHandler(
         await persistenceService.OnKill(clientEvent.Client);
         await questManager.HandleKillAsync(clientEvent);
         
-        // Handle streak tracking and bounties
-        var streakResult = await streakTracker.OnKillAsync(clientEvent.Client, clientEvent.Victim);
+        // Handle streak tracking and bounties (scale auto-bounty by server player count)
+        var serverPlayerCount = clientEvent.Owner?.ConnectedClients.Count ?? 2;
+        var streakResult = await streakTracker.OnKillAsync(clientEvent.Client, clientEvent.Victim, serverPlayerCount);
         
         // Announce streak reward to killer
         if (streakResult.HasStreakReward)

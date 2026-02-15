@@ -22,7 +22,7 @@ public class BountyConfiguration
     /// <summary>
     /// Maximum auto-bounty amount
     /// </summary>
-    public int MaxAutoBounty { get; set; } = 1000;
+    public int MaxAutoBounty { get; set; } = 10000;
     
     /// <summary>
     /// Whether to announce when a bounty is placed
