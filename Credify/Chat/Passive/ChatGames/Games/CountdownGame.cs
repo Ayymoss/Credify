@@ -36,6 +36,8 @@ public class CountdownGame(CredifyConfiguration credifyConfig, PersistenceServic
         Utilities.ExecuteAfterDelay(credifyConfig.ChatGame.CountdownTimeout, TimeoutReached, CancellationToken.None);
     }
 
+    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(10) };
+
     public override async Task HandleChatMessageAsync(EFClient client, string message, long? gameTime, DateTime eventTime)
     {
         // Accept answers during Started or Closing (grace period) states
@@ -49,19 +51,18 @@ public class CountdownGame(CredifyConfiguration credifyConfig, PersistenceServic
             return;
         }
 
-        var http = new HttpClient();
-        var response = await http.GetAsync($"https://api.dictionaryapi.dev/api/v2/entries/en/{message}");
-        if (!response.IsSuccessStatusCode)
-        {
-            client.Tell(credifyConfig.Translations.Passive.CountdownWordNotFound.FormatExt(message.ToUpper()));
-            return;
-        }
-
-        var result = await response.DeserializeHttpResponseContentAsync<List<DictionaryApi>>();
-        if (result is null or { Count: 0 }) return;
-
         try
         {
+            var response = await Http.GetAsync($"https://api.dictionaryapi.dev/api/v2/entries/en/{message}");
+            if (!response.IsSuccessStatusCode)
+            {
+                client.Tell(credifyConfig.Translations.Passive.CountdownWordNotFound.FormatExt(message.ToUpper()));
+                return;
+            }
+
+            var result = await response.DeserializeHttpResponseContentAsync<List<DictionaryApi>>();
+            if (result is null or { Count: 0 }) return;
+
             await MessageReceivedLock.WaitAsync();
 
             // Calculate fair reaction time based on per-server timing
@@ -87,6 +88,14 @@ public class CountdownGame(CredifyConfiguration credifyConfig, PersistenceServic
                 credifyConfig.Translations.Passive.AnswerAcceptedDefinition.FormatExt(message.ToLower().Titleize(), definition)
             };
             await client.TellAsync(messages);
+        }
+        catch (TaskCanceledException)
+        {
+            // Timeout reached
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
         }
         finally
         {

@@ -185,12 +185,13 @@ public class TriviaGame(CredifyConfiguration credifyConfig, PersistenceService p
         }
     }
 
+    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(10) };
+
     private async Task GenerateQuestion()
     {
         try
         {
-            var http = new HttpClient();
-            var response = await http.GetAsync("https://opentdb.com/api.php?amount=1&category=15&encode=base64");
+            var response = await Http.GetAsync("https://opentdb.com/api.php?amount=1&category=15&encode=base64");
             var content = await response.DeserializeHttpResponseContentAsync<Trivia>();
             if (content?.ResponseCode is not 0) return;
             var question = content.Results.First();
@@ -202,6 +203,10 @@ public class TriviaGame(CredifyConfiguration credifyConfig, PersistenceService p
             {
                 GameInfo.IncorrectAnswers.Add(ChatUtils.DecodeBase64(incorrectAnswer));
             }
+        }
+        catch (TaskCanceledException)
+        {
+            // Timeout reached
         }
         catch (Exception e)
         {
