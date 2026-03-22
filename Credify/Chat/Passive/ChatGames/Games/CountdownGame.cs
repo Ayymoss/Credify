@@ -29,8 +29,8 @@ public class CountdownGame(CredifyConfiguration credifyConfig, PersistenceServic
         var message = credifyConfig.Translations.Passive.CountdownBroadcast.FormatExt(PluginConstants.PluginName, GameInfo.GameName,
             GameInfo.Question);
         
-        // Store per-server broadcast times for fair timing calculation
-        GameInfo.ServerBroadcastTimes = await chatUtils.BroadcastToAllServers([message]);
+        // Record broadcast time — latency compensation handled per-server at answer time
+        GameInfo.BroadcastTime = await chatUtils.BroadcastToAllServers([message]);
         
         // Schedule timeout, which will trigger grace period before final calculation
         Utilities.ExecuteAfterDelay(credifyConfig.ChatGame.CountdownTimeout, TimeoutReached, CancellationToken.None);
@@ -38,7 +38,7 @@ public class CountdownGame(CredifyConfiguration credifyConfig, PersistenceServic
 
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(10) };
 
-    public override async Task HandleChatMessageAsync(EFClient client, string message, long? gameTime, DateTime eventTime)
+    public override async Task HandleChatMessageAsync(EFClient client, string message, DateTime eventTime)
     {
         // Accept answers during Started or Closing (grace period) states
         if (GameState is not (GameState.Started or GameState.Closing)) return;
@@ -65,9 +65,7 @@ public class CountdownGame(CredifyConfiguration credifyConfig, PersistenceServic
 
             await MessageReceivedLock.WaitAsync();
 
-            // Calculate fair reaction time based on per-server timing
-            var serverEndpoint = client.CurrentServer.EndPoint;
-            var reactionTimeSeconds = CalculateReactionTime(serverEndpoint, gameTime, eventTime, chatUtils.GetServerTimeTracker());
+            var reactionTimeSeconds = CalculateReactionTime(client, eventTime);
 
             var player = new ClientAnswerInfo
             {
@@ -75,9 +73,7 @@ public class CountdownGame(CredifyConfiguration credifyConfig, PersistenceServic
                 Client = client,
                 Answer = message,
                 Answered = DateTimeOffset.UtcNow,
-                ReactionTimeSeconds = reactionTimeSeconds,
-                ServerEndpoint = serverEndpoint,
-                // Store word length for bonus calculation at end
+                ReactionTimeSeconds = reactionTimeSeconds
             };
 
             GameInfo.Players.Add(player);

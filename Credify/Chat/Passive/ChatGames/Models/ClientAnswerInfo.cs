@@ -11,12 +11,7 @@ public class ClientAnswerInfo
     public long Payout { get; set; }
     
     /// <summary>
-    /// Calculated fair reaction time in seconds, based on per-server timing.
+    /// Calculated fair reaction time in seconds, compensated for server log pipeline latency.
     /// </summary>
     public double ReactionTimeSeconds { get; set; }
-    
-    /// <summary>
-    /// Server endpoint where this answer was submitted.
-    /// </summary>
-    public long ServerEndpoint { get; set; }
 }

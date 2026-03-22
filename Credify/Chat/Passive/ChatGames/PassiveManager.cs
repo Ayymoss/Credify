@@ -46,10 +46,10 @@ public class PassiveManager(
         }
     }
 
-    public async Task HandleChatAsync(EFClient client, string message, long? gameTime, DateTime eventTime)
+    public async Task HandleChatAsync(EFClient client, string message, DateTime eventTime)
     {
         // Accept answers during Started or Closing (grace period) states
         if (_currentGame?.GameState is not (GameState.Started or GameState.Closing)) return;
-        await _currentGame.HandleChatMessageAsync(client, message, gameTime, eventTime);
+        await _currentGame.HandleChatMessageAsync(client, message, eventTime);
     }
 }

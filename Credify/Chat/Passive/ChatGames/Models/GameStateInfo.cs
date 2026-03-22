@@ -1,5 +1,3 @@
-using Credify.Services;
-
 namespace Credify.Chat.Passive.ChatGames.Models;
 
 public class GameStateInfo
@@ -11,12 +9,12 @@ public class GameStateInfo
     public List<string> AllAnswers { get; set; } = [];
     public List<ClientAnswerInfo> Players { get; set; } = [];
     public DateTimeOffset Started { get; set; }
-    
+
     /// <summary>
-    /// Per-server broadcast times for fair reaction time calculation.
-    /// Key is server endpoint, value is timing info at broadcast.
+    /// Wall-clock time when the broadcast was sent to all servers.
+    /// Used with per-server LatencyMetrics to calculate fair reaction times.
     /// </summary>
-    public Dictionary<long, TimeTrackingInfo> ServerBroadcastTimes { get; set; } = new();
+    public DateTime BroadcastTime { get; set; }
 }
 
 public enum GameState

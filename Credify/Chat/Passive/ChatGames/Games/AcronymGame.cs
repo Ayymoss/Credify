@@ -32,18 +32,18 @@ public class AcronymGame(CredifyConfiguration credifyConfig, PersistenceService 
             GameInfo.GameName, 
             GameInfo.Question);
 
-        // Store per-server broadcast times for fair timing calculation
-        GameInfo.ServerBroadcastTimes = await chatUtils.BroadcastToAllServers([message]);
+        // Record broadcast time — latency compensation handled per-server at answer time
+        GameInfo.BroadcastTime = await chatUtils.BroadcastToAllServers([message]);
 
         // Schedule timeout, which will trigger grace period before final calculation
         Utilities.ExecuteAfterDelay(credifyConfig.ChatGame.AcronymTimeout, TimeoutReached, CancellationToken.None);
     }
 
-    public override async Task HandleChatMessageAsync(EFClient client, string message, long? gameTime, DateTime eventTime)
+    public override async Task HandleChatMessageAsync(EFClient client, string message, DateTime eventTime)
     {
         // Accept answers during Started or Closing (grace period) states
         if (GameState is not (GameState.Started or GameState.Closing)) return;
-        
+
         // Check if player already answered
         if (GameInfo.Players.Any(x => x.Client.ClientId == client.ClientId))
         {
@@ -59,9 +59,7 @@ public class AcronymGame(CredifyConfiguration credifyConfig, PersistenceService 
         {
             await MessageReceivedLock.WaitAsync();
 
-            // Calculate fair reaction time based on per-server timing
-            var serverEndpoint = client.CurrentServer.EndPoint;
-            var reactionTimeSeconds = CalculateReactionTime(serverEndpoint, gameTime, eventTime, chatUtils.GetServerTimeTracker());
+            var reactionTimeSeconds = CalculateReactionTime(client, eventTime);
 
             var player = new ClientAnswerInfo
             {
@@ -69,8 +67,7 @@ public class AcronymGame(CredifyConfiguration credifyConfig, PersistenceService 
                 Client = client,
                 Answer = message,
                 Answered = DateTimeOffset.UtcNow,
-                ReactionTimeSeconds = reactionTimeSeconds,
-                ServerEndpoint = serverEndpoint
+                ReactionTimeSeconds = reactionTimeSeconds
             };
 
             GameInfo.Players.Add(player);

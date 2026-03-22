@@ -91,7 +91,6 @@ public class Plugin : IPluginV2
         // Core
         serviceCollection.AddConfiguration("CredifyConfigurationV3", new CredifyConfiguration());
         serviceCollection.AddSingleton<CredifyCache>();
-        serviceCollection.AddSingleton<ServerTimeTracker>();
 
         // Persistence Services (order matters due to dependencies)
         serviceCollection.AddSingleton<StatisticsService>();

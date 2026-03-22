@@ -12,6 +12,7 @@
 /dataSources/
 /dataSources.local.xml
 .sisyphus/
+.claude/
 
 # Common IntelliJ Platform excludes
 *.suo

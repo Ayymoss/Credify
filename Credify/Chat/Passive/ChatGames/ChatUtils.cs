@@ -1,52 +1,33 @@
 using System.Text;
 using Credify.Configuration;
-using Credify.Services;
 using SharedLibraryCore.Interfaces;
 
 namespace Credify.Chat.Passive.ChatGames;
 
-public class ChatUtils(CredifyConfiguration credifyConfig, ServerTimeTracker serverTimeTracker)
+public class ChatUtils(CredifyConfiguration credifyConfig)
 {
     private IManager? _manager;
 
     public void SetManager(IManager manager) => _manager = manager;
-    
-    public ServerTimeTracker GetServerTimeTracker() => serverTimeTracker;
 
     /// <summary>
-    /// Broadcasts messages to all servers in parallel and returns per-server timing info for fair reaction calculation.
+    /// Broadcasts messages to all servers in parallel and returns the broadcast wall-clock time.
+    /// Latency compensation is handled per-server at answer time via LatencyMetrics.
     /// </summary>
-    public async Task<Dictionary<long, TimeTrackingInfo>> BroadcastToAllServers(string[] messages)
+    public async Task<DateTime> BroadcastToAllServers(string[] messages)
     {
-        var broadcastTimes = new Dictionary<long, TimeTrackingInfo>();
-        
-        if (_manager is null) return broadcastTimes;
+        var broadcastTime = DateTime.UtcNow;
+
+        if (_manager is null) return broadcastTime;
 
         var servers = _manager.GetServers()
             .Where(s => s.ConnectedClients.Count > 0)
             .ToList();
-        
-        // Capture the broadcast time using DateTime (broadcasts don't generate GameTime events)
-        // Estimate GameTime at broadcast time based on last known GameTime
-        var broadcastEventTime = DateTime.UtcNow;
-        
-        // Record timing for all servers - estimate GameTime at broadcast time using model
-        foreach (var server in servers)
-        {
-            // Estimate what GameTime would be at broadcast time (returns double? for fractional precision)
-            var estimatedGameTime = serverTimeTracker.EstimateGameTimeAt(server.EndPoint, broadcastEventTime);
-            
-            // Convert double? to long? for TimeTrackingInfo (round to nearest whole second for storage)
-            long? estimatedGameTimeWhole = estimatedGameTime.HasValue ? (long)Math.Round(estimatedGameTime.Value) : null;
-            var timeInfo = new TimeTrackingInfo(estimatedGameTimeWhole, broadcastEventTime);
-            broadcastTimes[server.EndPoint] = timeInfo;
-        }
-        
-        // Broadcast to all servers in parallel
+
         var broadcastTasks = servers.Select(server => server.BroadcastAsync(messages));
         await Task.WhenAll(broadcastTasks);
-        
-        return broadcastTimes;
+
+        return broadcastTime;
     }
 
     public static List<T> Shuffle<T>(List<T> list)

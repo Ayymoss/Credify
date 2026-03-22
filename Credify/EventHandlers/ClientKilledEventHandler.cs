@@ -17,20 +17,10 @@ public class ClientKilledEventHandler(
     QuestManager questManager,
     StreakTracker streakTracker,
     BountyContractManager bountyContractManager,
-    ServerTimeTracker serverTimeTracker,
     CredifyConfiguration config)
 {
     public async Task HandleAsync(ClientKillEvent clientEvent, CancellationToken token)
     {
-        // Update server time tracker for fair timing calculation
-        if (clientEvent.Owner is not null)
-        {
-            serverTimeTracker.UpdateFromEvent(
-                clientEvent.Owner.EndPoint,
-                clientEvent.GameTime,
-                clientEvent.Time);
-        }
-        
         await persistenceService.OnKill(clientEvent.Client);
         await questManager.HandleKillAsync(clientEvent);
         
