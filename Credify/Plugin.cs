@@ -10,6 +10,7 @@ using Credify.Chat.Active.Games.Roulette;
 using Credify.Chat.Active.Games.Roulette.Utilities;
 using Credify.Chat.Feature.Achievements;
 using Credify.Chat.Feature.Bounty;
+using Credify.Chat.Feature.Duel;
 using Credify.Chat.Feature.Raffle;
 using Credify.Chat.Passive.ChatGames;
 using Credify.Chat.Passive.Quests;
@@ -190,6 +191,9 @@ public class Plugin : IPluginV2
 
         // Achievements
         serviceCollection.AddSingleton<AchievementManager>();
+
+        // Duels
+        serviceCollection.AddSingleton<DuelManager>();
         
         // Event Handlers
         serviceCollection.AddSingleton<CredifyEventHandler>();

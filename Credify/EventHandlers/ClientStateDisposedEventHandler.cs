@@ -5,6 +5,7 @@ using Credify.Chat.Active.Games.Poker;
 using Credify.Chat.Active.Games.Roulette;
 using Credify.Chat.Feature.Achievements;
 using Credify.Chat.Feature.Bounty;
+using Credify.Chat.Feature.Duel;
 using Credify.Services;
 using SharedLibraryCore.Events.Management;
 using SharedLibraryCore.Database.Models;
@@ -23,7 +24,8 @@ public class ClientStateDisposedEventHandler(
     CrashGame crashGame,
     StreakTracker streakTracker,
     BountyContractManager bountyContractManager,
-    AchievementManager achievementManager)
+    AchievementManager achievementManager,
+    DuelManager duelManager)
 {
     public async Task HandleAsync(ClientStateDisposeEvent clientEvent, CancellationToken token)
     {
@@ -43,5 +45,6 @@ public class ClientStateDisposedEventHandler(
         
         streakTracker.OnDisconnect(clientEvent.Client);
         bountyContractManager.OnPlayerDisconnect(clientEvent.Client);
+        await duelManager.OnDisconnectAsync(clientEvent.Client);
     }
 }

@@ -2,6 +2,7 @@ using Credify.Configuration;
 using Credify.Constants;
 using Credify.Chat.Feature.Achievements;
 using Credify.Chat.Feature.Bounty;
+using Credify.Chat.Feature.Duel;
 using Credify.Chat.Passive.Quests;
 using Credify.Services;
 using SharedLibraryCore;
@@ -19,6 +20,7 @@ public class ClientKilledEventHandler(
     StreakTracker streakTracker,
     BountyContractManager bountyContractManager,
     AchievementManager achievementManager,
+    DuelManager duelManager,
     CredifyConfiguration config)
 {
     public async Task HandleAsync(ClientKillEvent clientEvent, CancellationToken token)
@@ -68,7 +70,8 @@ public class ClientKilledEventHandler(
         if (clientEvent.Victim is not null)
         {
             streakTracker.OnDeath(clientEvent.Victim);
-            
+            await duelManager.HandleKillAsync(clientEvent.Client, clientEvent.Victim);
+
             // Handle player-placed bounty contracts
             var contractResult = await bountyContractManager.ClaimBountiesAsync(clientEvent.Client, clientEvent.Victim);
             if (contractResult.Success && contractResult.TotalClaimed > 0)
