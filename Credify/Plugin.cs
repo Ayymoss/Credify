@@ -8,6 +8,7 @@ using Credify.Chat.Active.Games.Minefield.Utilities;
 using Credify.Chat.Active.Games.Poker;
 using Credify.Chat.Active.Games.Roulette;
 using Credify.Chat.Active.Games.Roulette.Utilities;
+using Credify.Chat.Feature.Achievements;
 using Credify.Chat.Feature.Bounty;
 using Credify.Chat.Feature.Raffle;
 using Credify.Chat.Passive.ChatGames;
@@ -186,6 +187,9 @@ public class Plugin : IPluginV2
         
         // Bounty Contracts
         serviceCollection.AddSingleton<BountyContractManager>();
+
+        // Achievements
+        serviceCollection.AddSingleton<AchievementManager>();
         
         // Event Handlers
         serviceCollection.AddSingleton<CredifyEventHandler>();

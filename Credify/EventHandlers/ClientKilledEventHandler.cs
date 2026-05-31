@@ -1,5 +1,6 @@
 using Credify.Configuration;
 using Credify.Constants;
+using Credify.Chat.Feature.Achievements;
 using Credify.Chat.Feature.Bounty;
 using Credify.Chat.Passive.Quests;
 using Credify.Services;
@@ -17,12 +18,14 @@ public class ClientKilledEventHandler(
     QuestManager questManager,
     StreakTracker streakTracker,
     BountyContractManager bountyContractManager,
+    AchievementManager achievementManager,
     CredifyConfiguration config)
 {
     public async Task HandleAsync(ClientKillEvent clientEvent, CancellationToken token)
     {
         await persistenceService.OnKill(clientEvent.Client);
         await questManager.HandleKillAsync(clientEvent);
+        await achievementManager.HandleKill(clientEvent.Client);
         
         // Handle streak tracking and bounties (scale auto-bounty by server player count)
         var serverPlayerCount = clientEvent.Owner?.ConnectedClients.Count ?? 2;

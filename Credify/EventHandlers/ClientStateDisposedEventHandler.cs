@@ -3,6 +3,7 @@ using Credify.Chat.Active.Games.Crash;
 using Credify.Chat.Active.Games.Minefield;
 using Credify.Chat.Active.Games.Poker;
 using Credify.Chat.Active.Games.Roulette;
+using Credify.Chat.Feature.Achievements;
 using Credify.Chat.Feature.Bounty;
 using Credify.Services;
 using SharedLibraryCore.Events.Management;
@@ -21,12 +22,14 @@ public class ClientStateDisposedEventHandler(
     MinefieldGame minefieldManager,
     CrashGame crashGame,
     StreakTracker streakTracker,
-    BountyContractManager bountyContractManager)
+    BountyContractManager bountyContractManager,
+    AchievementManager achievementManager)
 {
     public async Task HandleAsync(ClientStateDisposeEvent clientEvent, CancellationToken token)
     {
         await Task.WhenAll(
             persistenceService.WriteClientQuestsAsync(clientEvent.Client),
+            achievementManager.SaveAsync(clientEvent.Client),
             persistenceService.WriteClientCreditsAsync(clientEvent.Client),
             persistenceService.WriteStatisticsAsync(),
             persistenceService.WriteTopScoreAsync(),

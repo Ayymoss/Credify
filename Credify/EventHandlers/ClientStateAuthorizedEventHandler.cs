@@ -1,3 +1,4 @@
+using Credify.Chat.Feature.Achievements;
 using Credify.Chat.Feature.Bounty;
 using Credify.Configuration;
 using Credify.Services;
@@ -13,13 +14,23 @@ namespace Credify.EventHandlers;
 public class ClientStateAuthorizedEventHandler(
     PersistenceService persistenceService,
     BountyContractManager bountyContractManager,
+    AchievementManager achievementManager,
     CredifyConfiguration config)
 {
     public async Task HandleAsync(ClientStateAuthorizeEvent clientEvent, CancellationToken token)
     {
         await persistenceService.OnJoinAsync(clientEvent.Client);
+        await achievementManager.LoadAsync(clientEvent.Client);
+
         var userCredits = await persistenceService.GetClientCreditsAsync(clientEvent.Client);
         clientEvent.Client.Tell(config.Translations.Economy.UserCredits.FormatExt(userCredits.ToString("N0")));
+
+        // Greet returning players by their top earned title.
+        if (config.Achievement.IsEnabled && achievementManager.TopTitle(clientEvent.Client) is { } title)
+        {
+            clientEvent.Client.Tell(config.Translations.Achievements.TitleGreeting
+                .FormatExt(title, clientEvent.Client.CleanedName));
+        }
 
         // Remind a returning player that they're still a target (the one-time placement
         // warning is long gone if they reconnected).

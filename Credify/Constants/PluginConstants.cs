@@ -74,4 +74,9 @@ public static class PluginConstants
     /// Metadata key for a client's current consecutive daily-claim streak.
     /// </summary>
     public const string DailyStreak = "Credits_DailyStreak";
+
+    /// <summary>
+    /// Metadata key for storing a client's achievement progress and unlocks.
+    /// </summary>
+    public const string AchievementsKey = "Credits_Achievements";
 }

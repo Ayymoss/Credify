@@ -18,5 +18,6 @@ public class CredifyConfiguration
     public MinefieldConfiguration Minefield { get; set; } = new();
     public CrashConfiguration Crash { get; set; } = new();
     public DailyConfiguration Daily { get; set; } = new();
+    public AchievementConfiguration Achievement { get; set; } = new();
     public TranslationsRoot Translations { get; set; } = new();
 }

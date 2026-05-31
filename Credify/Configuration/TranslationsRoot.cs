@@ -22,4 +22,5 @@ public class TranslationsRoot
     public WheelTranslations Wheel { get; set; } = new();
     public StreakTranslations Streak { get; set; } = new();
     public BountyContractTranslations BountyContract { get; set; } = new();
+    public AchievementsTranslations Achievements { get; set; } = new();
 }
