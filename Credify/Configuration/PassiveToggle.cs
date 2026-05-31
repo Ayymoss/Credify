@@ -8,4 +8,5 @@ public class PassiveToggle
     public bool IsTypingTestEnabled { get; set; } = true;
     public bool IsCompleteTheWordEnabled { get; set; } = true;
     public bool IsAcronymEnabled { get; set; } = true;
+    public bool IsUnscrambleEnabled { get; set; } = true;
 }

@@ -10,6 +10,7 @@ public class ChatGameConfiguration
     public TimeSpan TypingTestTimeout { get; set; } = TimeSpan.FromSeconds(15);
     public TimeSpan CompleteWordTimeout { get; set; } = TimeSpan.FromSeconds(20);
     public TimeSpan AcronymTimeout { get; set; } = TimeSpan.FromSeconds(25);
+    public TimeSpan UnscrambleTimeout { get; set; } = TimeSpan.FromSeconds(20);
     public int MaxPayout { get; set; } = 10_000;
     public int TypingTestTextLength { get; set; } = 10;
 

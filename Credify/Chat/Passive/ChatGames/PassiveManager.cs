@@ -27,6 +27,7 @@ public class PassiveManager(
             if (credifyConfig.ChatGame.EnabledPassiveGames.IsTypingTestEnabled) gameTypes.Add(typeof(TypingTestGame));
             if (credifyConfig.ChatGame.EnabledPassiveGames.IsCompleteTheWordEnabled) gameTypes.Add(typeof(CompleteTheWordGame));
             if (credifyConfig.ChatGame.EnabledPassiveGames.IsAcronymEnabled) gameTypes.Add(typeof(AcronymGame));
+            if (credifyConfig.ChatGame.EnabledPassiveGames.IsUnscrambleEnabled) gameTypes.Add(typeof(UnscrambleGame));
 
             if (gameTypes.Count is 0) return;
 

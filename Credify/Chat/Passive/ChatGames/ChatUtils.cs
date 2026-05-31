@@ -52,6 +52,7 @@ public class ChatUtils(CredifyConfiguration credifyConfig)
             "TriviaGame" => credifyConfig.Translations.Passive.FriendlyTriviaGame,
             "AcronymGame" => credifyConfig.Translations.Passive.FriendlyAcronymGame,
             "CompleteTheWordGame" => credifyConfig.Translations.Passive.FriendlyCompleteWordGame,
+            "UnscrambleGame" => credifyConfig.Translations.Passive.FriendlyUnscrambleGame,
             _ => throw new ArgumentOutOfRangeException(gameName, "Invalid game name")
         };
     }
