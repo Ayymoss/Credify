@@ -6,12 +6,8 @@ namespace Credify.Chat.Active.Games.Blackjack;
 /// <summary>
 /// State machine for Blackjack game with transition validation.
 /// </summary>
-internal class BlackjackStateMachine : GameStateMachine<GameState>
+internal class BlackjackStateMachine() : GameStateMachine<GameState>(GameState.WaitingForPlayers)
 {
-    public BlackjackStateMachine() : base(GameState.WaitingForPlayers)
-    {
-    }
-
     /// <summary>
     /// Validates state transitions to ensure game flow integrity.
     /// </summary>

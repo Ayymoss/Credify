@@ -27,12 +27,27 @@ public class SlotsConfiguration
         new SlotSymbol { Name = "ORANGE", Display = "ORANGE", Weight = 20 }
     ];
     
-    /// <summary>
-    /// Payout multipliers
-    /// </summary>
-    public double ThreeMatchMultiplier { get; set; } = 10.0;
-    public double TwoMatchMultiplier { get; set; } = 2.0;
-    public double JackpotMultiplier { get; set; } = 50.0;
+    // Payout multipliers (gross return: a win pays back bet * multiplier).
+    //
+    // RTP is tuned to a realistic ~95% (4.6% house edge). With the default weights
+    // above (total 100), per spin:
+    //   - three-of-a-kind (non-7): 4.3625%  -> 21x  => 0.9161
+    //   - jackpot (7 7 7):         0.0125%  -> 300x => 0.0375
+    //   - any two matching:        46.875%  -> 0x   (no win, like a real single-line reel)
+    //   RTP = 0.9161 + 0.0375 = ~0.954
+    //
+    // WARNING: paying "any two matching" is what made this game pay out at ~138% RTP.
+    // With 6 symbols it lands ~47% of spins, so even a 2x there hands the player a huge
+    // edge. Keep TwoMatchMultiplier at 0 unless you re-derive the whole RTP.
+
+    /// <summary>Three matching (non-jackpot) symbols. Drives almost all of the RTP.</summary>
+    public double ThreeMatchMultiplier { get; set; } = 21.0;
+
+    /// <summary>Two matching symbols. 0 = no payout (realistic for a single-line 3-reel slot).</summary>
+    public double TwoMatchMultiplier { get; set; } = 0.0;
+
+    /// <summary>Three jackpot symbols (7 7 7). Rare (~1 in 8000) so it can pay big.</summary>
+    public double JackpotMultiplier { get; set; } = 300.0;
 }
 
 public class SlotSymbol
