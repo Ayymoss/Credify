@@ -476,12 +476,17 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
                 [Config.Translations.Blackjack.StartingGame.FormatExt(Players.Count)], true);
         }
 
+        // Safety net: if everyone left sitting (e.g. other players disconnected), un-sit them
+        // so the table can't stall - there's no one left to sit out for.
+        if (!Players.IsEmpty && Players.All(p => p.Value.SittingOut))
+        {
+            foreach (var player in Players.Values) player.SittingOut = false;
+        }
+
         try
         {
             await _startGameLock.WaitAsync(token);
-            // Don't restart for a table where everyone is sitting out (would tight-loop);
-            // it resumes when a sitter bets/"back"s or a new player joins.
-            if (Players.Any(p => !p.Value.SittingOut)) await StartGameAsync();
+            if (!Players.IsEmpty) await StartGameAsync();
         }
         finally
         {
@@ -597,10 +602,19 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
 
         var trimmed = message.Trim();
 
-        // Sit out / rejoin without leaving the table.
+        // Sit out / rejoin without leaving the table. Only allowed when someone else is
+        // still playing - sitting out alone would just stall the table, so tell them to leave.
         if (trimmed.Equals("sit", StringComparison.OrdinalIgnoreCase) ||
             trimmed.Equals("skip", StringComparison.OrdinalIgnoreCase))
         {
+            var someoneElsePlaying = Players.Any(p =>
+                !Equals(p.Key, client) && p.Value is { Queued: false, SittingOut: false });
+            if (!someoneElsePlaying)
+            {
+                await _outputHandler.TellPlayerAsync(player, [Config.Translations.Blackjack.SitAlone]);
+                return;
+            }
+
             player.SittingOut = true;
             await _outputHandler.TellPlayerAsync(player, [Config.Translations.Blackjack.SitOut]);
             return;
