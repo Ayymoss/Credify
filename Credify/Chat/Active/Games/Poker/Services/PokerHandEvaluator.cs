@@ -33,6 +33,44 @@ public class PokerHandEvaluator
     }
 
     /// <summary>
+    /// Best 5-card hand from whatever cards are currently available (2 hole + 0-5
+    /// community). Returns null pre-flop (fewer than 5 cards), otherwise the best hand
+    /// from the 5, 6 or 7 cards on offer. Used for live "what do I have" hints.
+    /// </summary>
+    public PokerHand? EvaluateBestAvailable(IReadOnlyList<PokerCard> holeCards, IReadOnlyList<PokerCard> communityCards)
+    {
+        var allCards = holeCards.Concat(communityCards).ToList();
+        if (allCards.Count < 5) return null;
+
+        PokerHand? bestHand = null;
+        foreach (var combination in GetCombinations(allCards, 5))
+        {
+            var hand = Evaluate5CardHand(combination);
+            if (bestHand is null || hand.CompareTo(bestHand) > 0) bestHand = hand;
+        }
+
+        return bestHand;
+    }
+
+    private static IEnumerable<List<PokerCard>> GetCombinations(List<PokerCard> cards, int choose)
+    {
+        var indices = new int[choose];
+        for (var i = 0; i < choose; i++) indices[i] = i;
+
+        while (true)
+        {
+            yield return indices.Select(i => cards[i]).ToList();
+
+            var pos = choose - 1;
+            while (pos >= 0 && indices[pos] == cards.Count - choose + pos) pos--;
+            if (pos < 0) yield break;
+
+            indices[pos]++;
+            for (var i = pos + 1; i < choose; i++) indices[i] = indices[i - 1] + 1;
+        }
+    }
+
+    /// <summary>
     /// Evaluates a 5-card poker hand.
     /// </summary>
     public PokerHand Evaluate5CardHand(List<PokerCard> cards)

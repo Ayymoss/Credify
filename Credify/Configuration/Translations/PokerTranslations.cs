@@ -23,6 +23,15 @@ public class PokerTranslations
     public string BigBlindPosted { get; set; } = "BB: (Color::Accent){{name}} (Color::Green)${{amount}}";
     public string WaitingForPlayer { get; set; } = "(Color::Yellow)Waiting for (Color::Accent){{name}} (Color::Yellow)to act... (Color::White)((Color::Accent){{seconds}}(Color::White)s timeout)";
     public string NotEnoughPlayers { get; set; } = "(Color::Yellow)Not enough players. Waiting for more to join...";
+
+    // Turn prompt (sent only to the acting player; carries full context so they don't
+    // need to scroll back for the board/their cards)
+    public string TurnHeader { get; set; } = "(Color::Red)>>> YOUR TURN <<< (Color::Yellow)({{seconds}}s)";
+    public string Board { get; set; } = "(Color::White)Board: (Color::Accent){{cards}}";
+    public string BoardPreFlop { get; set; } = "(Color::White)Board: (Color::Yellow)(pre-flop)";
+    public string YourCardsWithHand { get; set; } = "(Color::White)You: (Color::Accent){{cards}} (Color::White)- (Color::Yellow){{hand}}";
+    public string TableState { get; set; } = "(Color::White)Pot (Color::Green)${{pot}} (Color::White)| Bet (Color::Green)${{bet}} (Color::White)| Chips (Color::Green)${{chips}}";
+    public string TimeWarning { get; set; } = "(Color::Red){{seconds}}s left to act!";
     
     // Cards
     public string YourCards { get; set; } = "Your cards: (Color::Accent){{cards}}";

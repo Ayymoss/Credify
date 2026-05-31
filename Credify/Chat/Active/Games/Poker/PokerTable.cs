@@ -355,12 +355,26 @@ public class PokerTable(
             ], false);
         }
 
-        // Tell the active player it's their turn - split into separate lines for clarity
+        // Tell the active player it's their turn, with full context (board, their cards +
+        // current made hand, table state, actions) so they don't need to scroll back. <=5 lines.
+        var seconds = Config.Poker.TimeoutForPlayerAction.TotalSeconds.ToString("0");
+        var boardLine = _communityCards.Count == 0
+            ? _pokerTrans.BoardPreFlop
+            : _pokerTrans.Board.FormatExt(string.Join(", ", _communityCards.Select(c => c.ToString())));
+        var holeStr = player.HoleCards is { Count: > 0 }
+            ? string.Join(", ", player.HoleCards.Select(c => c.ToString()))
+            : "?";
+        var handName = TryGetHandName(player);
+        var youLine = handName is null
+            ? _pokerTrans.YourCards.FormatExt(holeStr)
+            : _pokerTrans.YourCardsWithHand.FormatExt(holeStr, handName);
+
         await output.TellPlayerAsync(player, [
-            "(Color::Red)>>> YOUR TURN <<<",
-            actionPrompt,
-            $"{_pokerTrans.CurrentBet.FormatExt(_currentRound.CurrentBet.ToString("N0"))} | {_pokerTrans.PotSize.FormatExt(_totalPot.ToString("N0"))}",
-            _pokerTrans.YourChips.FormatExt(player.Chips.ToString("N0"))
+            _pokerTrans.TurnHeader.FormatExt(seconds),
+            boardLine,
+            youLine,
+            _pokerTrans.TableState.FormatExt(_totalPot.ToString("N0"), _currentRound.CurrentBet.ToString("N0"), player.Chips.ToString("N0")),
+            actionPrompt
         ], false);
 
         // Mark player as waiting for action
@@ -375,6 +389,17 @@ public class PokerTable(
 
         // Store completion source for chat handler
         _pendingActionCompletions[player.Client] = actionCompleted;
+
+        // Warn the actor ~10s before the auto-fold (no visible clock in chat).
+        if (Config.Poker.TimeoutForPlayerAction > TimeSpan.FromSeconds(12))
+        {
+            var warnAfter = Config.Poker.TimeoutForPlayerAction - TimeSpan.FromSeconds(10);
+            SharedLibraryCore.Utilities.ExecuteAfterDelay(warnAfter, async warnCt =>
+            {
+                if (warnCt.IsCancellationRequested || actionCompleted.Task.IsCompleted) return;
+                await output.TellPlayerAsync(player, [_pokerTrans.TimeWarning.FormatExt("10")], false);
+            }, token);
+        }
 
         try
         {
@@ -898,6 +923,31 @@ public class PokerTable(
     /// <summary>
     /// Shows cards and game state to a player (for cards/river commands).
     /// </summary>
+    /// <summary>
+    /// Friendly name of the player's current best made hand (e.g. "Pair", "Flush"), or
+    /// null pre-flop / when the player has no hole cards.
+    /// </summary>
+    private string? TryGetHandName(PokerPlayer player)
+    {
+        if (player.HoleCards is not { Count: 2 }) return null;
+        var hand = handEvaluator.EvaluateBestAvailable(player.HoleCards, _communityCards);
+        return hand is null ? null : HandRankName(hand.Rank);
+    }
+
+    private string HandRankName(HandRank rank) => rank switch
+    {
+        HandRank.RoyalFlush => _pokerTrans.HandRoyalFlush,
+        HandRank.StraightFlush => _pokerTrans.HandStraightFlush,
+        HandRank.FourOfAKind => _pokerTrans.HandFourOfAKind,
+        HandRank.FullHouse => _pokerTrans.HandFullHouse,
+        HandRank.Flush => _pokerTrans.HandFlush,
+        HandRank.Straight => _pokerTrans.HandStraight,
+        HandRank.ThreeOfAKind => _pokerTrans.HandThreeOfAKind,
+        HandRank.TwoPair => _pokerTrans.HandTwoPair,
+        HandRank.Pair => _pokerTrans.HandPair,
+        _ => _pokerTrans.HandHighCard
+    };
+
     public async Task ShowCardsAsync(EFClient client, bool showRiverOnly = false)
     {
         if (!Players.TryGetValue(client, out var player))
@@ -907,11 +957,14 @@ public class PokerTable(
 
         var messages = new List<string>();
 
-        // Show hole cards (unless river-only)
-        if (!showRiverOnly && player.HoleCards != null && player.HoleCards.Count > 0)
+        // Show hole cards (unless river-only), annotated with the current made hand.
+        if (!showRiverOnly && player.HoleCards is { Count: > 0 })
         {
-            messages.Add(_pokerTrans.YourCards.FormatExt(
-                string.Join(", ", player.HoleCards.Select(c => c.ToString()))));
+            var holeStr = string.Join(", ", player.HoleCards.Select(c => c.ToString()));
+            var handName = TryGetHandName(player);
+            messages.Add(handName is null
+                ? _pokerTrans.YourCards.FormatExt(holeStr)
+                : _pokerTrans.YourCardsWithHand.FormatExt(holeStr, handName));
         }
 
         // Show community cards if they exist
