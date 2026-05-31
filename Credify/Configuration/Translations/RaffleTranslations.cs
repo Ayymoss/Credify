@@ -6,7 +6,8 @@ public class RaffleTranslations
     public string ShowDescription { get; set; } = "Shows the current raffle holders";
     public string Description { get; set; } = "Buy your raffle ticket!";
     private string PrefixLong { get; set; } = "[(Color::Pink)Raffle(Color::White)]";
-    public string Success { get; set; } = "(Color::Accent)You have purchased ticket {{ticket}}! (Color::Green)Good luck!";
+    public string Success { get; set; } = "(Color::Accent)Ticket {{ticket}} purchased! (Color::Green)Good luck!";
+    public string PurchaseOdds { get; set; } = "(Color::White)Pot (Color::Green)${{pot}} (Color::White)| (Color::Accent){{count}} (Color::White)entries | (Color::Accent){{odds}} pct (Color::White)to win";
     public string ClientAlreadyPurchased { get; set; } = "(Color::Yellow)You have already purchased a ticket!";
     public string TicketAlreadyPurchased { get; set; } = "(Color::Yellow)Ticket {{ticket}} has already been purchased!";
     public string InvalidTicketRange { get; set; } = "(Color::Red)Invalid ticket range! (Color::White)0-1000";

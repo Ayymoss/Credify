@@ -18,14 +18,16 @@ public class RaffleCommand : Command
     private readonly PersistenceService _persistenceService;
     private readonly CredifyConfiguration _credifyConfig;
     private readonly RaffleManager _raffleManager;
+    private readonly CredifyCache _cache;
 
     public RaffleCommand(CommandConfiguration config, ITranslationLookup translationLookup, PersistenceService persistenceService,
-        CredifyConfiguration credifyConfig, RaffleManager raffleManager) :
+        CredifyConfiguration credifyConfig, RaffleManager raffleManager, CredifyCache cache) :
         base(config, translationLookup)
     {
         _persistenceService = persistenceService;
         _credifyConfig = credifyConfig;
         _raffleManager = raffleManager;
+        _cache = cache;
         Name = "credifyraffle";
         Description = credifyConfig.Translations.Raffle.Description;
         Alias = "crraf";
@@ -69,6 +71,10 @@ public class RaffleCommand : Command
         {
             case StatusTypes.Success:
                 gameEvent.Origin.Tell(_credifyConfig.Translations.Raffle.Success.FormatExt(result.Ticket?.ToString("N0")));
+                var entries = (await _raffleManager.GetPlayersAsync()).Count;
+                var odds = entries > 0 ? 100.0 / entries : 100.0;
+                gameEvent.Origin.Tell(_credifyConfig.Translations.Raffle.PurchaseOdds.FormatExt(
+                    _cache.BankCredits.ToString("N0"), entries, odds.ToString("0.#")));
                 ICredifyEventService.RaiseEvent(ObjectiveType.Raffle, gameEvent.Origin);
                 break;
             case StatusTypes.ClientAlreadyPurchased:

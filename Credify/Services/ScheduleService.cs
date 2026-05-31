@@ -24,7 +24,8 @@ public class ScheduleService(
 
         Utilities.ExecuteAfterDelay(TimeSpan.FromMinutes(1), LotteryDelayCheck, token);
 
-        Utilities.ExecuteAfterDelay(TimeSpan.FromMinutes(1), GenerateDailyQuestsAsync, token);
+        Utilities.ExecuteAfterDelay(TimeSpan.FromMinutes(1),
+            cancellationToken => GenerateDailyQuestsAsync(manager, cancellationToken), token);
     }
 
     private async Task InitChatGameAsync(CancellationToken token)
@@ -71,15 +72,22 @@ public class ScheduleService(
             cancellationToken => AdvertisementDelayAsync(manager, cancellationToken), token);
     }
 
-    private Task GenerateDailyQuestsAsync(CancellationToken token)
+    private async Task GenerateDailyQuestsAsync(IManager manager, CancellationToken token)
     {
         questManager.GenerateDailyQuests();
+
+        // Let online players know fresh dailies are available (drives them to the now-compact !crq).
+        foreach (var server in manager.GetServers())
+        {
+            if (server.ConnectedClients.Count is 0) continue;
+            await server.BroadcastAsync([config.Translations.Quests.DailyReset], token: token);
+        }
 
         var now = TimeProvider.System.GetLocalNow();
         var nextMidnight = new DateTimeOffset(now.Year, now.Month, now.Day, 0, 0, 0, now.Offset).AddDays(1);
         var timeUntilMidnight = nextMidnight - now;
 
-        Utilities.ExecuteAfterDelay(timeUntilMidnight, GenerateDailyQuestsAsync, token);
-        return Task.CompletedTask;
+        Utilities.ExecuteAfterDelay(timeUntilMidnight,
+            cancellationToken => GenerateDailyQuestsAsync(manager, cancellationToken), token);
     }
 }

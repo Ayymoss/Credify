@@ -95,8 +95,34 @@ public class QuestManager(CredifyConfiguration config, PersistenceService persis
 
         if (questMeta.Completed) return;
 
+        var oldProgress = questMeta.Progress;
         questMeta.Progress += increment;
         client.SetAdditionalProperty(PluginConstants.ClientQuestsKey, clientQuests);
+
+        var quest = ActiveQuests.FirstOrDefault(q => (int)q.ObjectiveType == questId);
+        if (quest is not null) NotifyMilestone(client, quest, oldProgress, questMeta.Progress);
+    }
+
+    /// <summary>
+    /// Whispers a one-line progress nudge when the player crosses a 25/50/75pct milestone
+    /// of a quest. Bounded to ~3 messages per quest so it never spams; completion is
+    /// announced separately, so the final crossing to 100pct is intentionally skipped here.
+    /// </summary>
+    private void NotifyMilestone(EFClient client, Quest quest, int oldProgress, int newProgress)
+    {
+        var total = quest.ObjectiveCount;
+        if (total <= 0 || newProgress >= total || !client.IsIngame) return;
+
+        var crossed = false;
+        foreach (var pct in (int[]) [25, 50, 75])
+        {
+            var threshold = (long)total * pct / 100;
+            if (oldProgress < threshold && newProgress >= threshold) crossed = true;
+        }
+
+        if (!crossed) return;
+        client.Tell(config.Translations.Quests.Progress
+            .FormatExt(quest.Name, newProgress.ToString("N0"), total.ToString("N0")));
     }
 
     private async Task CheckQuestCompletionAsync(EFClient client, Quest quest)

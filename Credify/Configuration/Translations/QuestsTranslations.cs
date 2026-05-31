@@ -14,5 +14,7 @@ public class QuestsTranslations
     public string Completed { get; set; } = "(Color::Green)Completed";
     public string Quest { get; set; } = "{{questName}} (Color::Accent)({{progressFormat}}(Color::Accent))";
     public string ProgressFormat { get; set; } = "(Color::Yellow){{progress}}(Color::Accent)/(Color::Green){{total}}";
+    public string Progress { get; set; } = "[(Color::Pink)Quest(Color::White)] (Color::Accent){{name}}(Color::White): (Color::Yellow){{progress}}(Color::White)/(Color::Green){{total}}";
+    public string DailyReset { get; set; } = "[(Color::Pink)Quest(Color::White)] (Color::Accent)New daily quests are live! (Color::White)Type (Color::Accent)!crq (Color::White)to see them";
     // @formatter:on
 }
