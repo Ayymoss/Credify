@@ -34,7 +34,7 @@ public class ClientMessagedEventHandler(
             pokerManager.HandleChatAsync(messageEvent.Client, messageEvent.Message),
             minefieldManager.HandleChatAsync(messageEvent.Client, messageEvent.Message),
             roulette.HandleChatAsync(messageEvent.Client, messageEvent.Message),
-            crash.HandleChatAsync(messageEvent.Client, messageEvent.Message)
+            crash.HandleChatAsync(messageEvent.Client, messageEvent.Message, messageEvent.Time)
         );
     }
 }

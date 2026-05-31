@@ -7,6 +7,7 @@ public class CrashTranslations
     public string TitleShort { get; set; } = "[(Color::Pink)CR(Color::White)]";
     public string Description { get; set; } = "Bet, ride the rocket, and cash out before it crashes";
     public string Disabled { get; set; } = "(Color::Yellow)Crash is disabled";
+    public string NoLatency { get; set; } = "(Color::Yellow)Crash isn't available here - it needs the game-log companion for fair, latency-corrected cash-outs.";
     public string Join { get; set; } = "(Color::Yellow)Joined Crash! (Color::White)Place a bet for the next launch.";
     public string Leave { get; set; } = "(Color::Yellow)You have left Crash. (Color::White)(!crcrash to play)";
 

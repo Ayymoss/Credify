@@ -30,6 +30,13 @@ public class CrashGame(
     private double _multiplier = 1.0;
     private double _crashPoint = 1.0;
 
+    // Flight timeline for latency-fair cash-outs: _tickValues[k] is the multiplier broadcast
+    // at tick k (index 0 = launch/1.00), and _flightStart is when the flight began (UTC, the
+    // same clock as ClientMessageEvent.Time).
+    private DateTime _flightStart;
+    private readonly List<double> _tickValues = [];
+    private readonly object _tickValuesLock = new();
+
     private CrashConfiguration Settings => Config.Crash;
     private CrashTranslations Translations => Config.Translations.Crash;
 
@@ -104,6 +111,12 @@ public class CrashGame(
         _gameState = CrashGameState.Flying;
         _crashPoint = ComputeCrashPoint();
         _multiplier = 1.0;
+        _flightStart = DateTime.UtcNow;
+        lock (_tickValuesLock)
+        {
+            _tickValues.Clear();
+            _tickValues.Add(1.0); // index 0 = launch
+        }
 
         await output.TellPlayersAsync(_roundPlayers, [Translations.Launched]);
 
@@ -114,6 +127,7 @@ public class CrashGame(
             var next = Math.Round(_multiplier * Settings.GrowthPerTick, 2);
             if (next >= _crashPoint) break; // rocket crashes this tick
             _multiplier = next;
+            lock (_tickValuesLock) _tickValues.Add(next);
 
             List<CrashPlayer> stillIn;
             lock (_roundPlayers) stillIn = _roundPlayers.Where(p => p.CashedMultiplier is null).ToList();
@@ -180,7 +194,16 @@ public class CrashGame(
         });
     }
 
-    public override async Task HandleChatAsync(EFClient client, string message)
+    // IActiveGame entry point. The fan-out uses the time-aware overload below; this fallback
+    // (no message timestamp) just treats the cash as happening now.
+    public override Task HandleChatAsync(EFClient client, string message) =>
+        HandleChatAsync(client, message, DateTime.UtcNow);
+
+    /// <summary>
+    /// Time-aware chat handler. <paramref name="eventTime"/> (UTC) is the message timestamp,
+    /// used to latency-compensate cash-outs back to the multiplier the player actually saw.
+    /// </summary>
+    public async Task HandleChatAsync(EFClient client, string message, DateTime eventTime)
     {
         if (!Players.ContainsKey(client)) return;
 
@@ -196,7 +219,7 @@ public class CrashGame(
                     await HandleBetAsync(player, message);
                     break;
                 case CrashGameState.Flying:
-                    await HandleCashAsync(player, message);
+                    await HandleCashAsync(player, message, eventTime);
                     break;
             }
         });
@@ -248,7 +271,7 @@ public class CrashGame(
         if (allBet) _bettingToken?.Cancel();
     }
 
-    private async Task HandleCashAsync(CrashPlayer player, string message)
+    private async Task HandleCashAsync(CrashPlayer player, string message, DateTime eventTime)
     {
         if (!player.HasBet || player.CashedMultiplier is not null) return;
 
@@ -260,7 +283,7 @@ public class CrashGame(
             return;
         }
 
-        var multiplier = _multiplier; // current server-side multiplier at processing time
+        var multiplier = MultiplierSeenAt(player.Client, eventTime);
         player.CashedMultiplier = multiplier;
 
         var payout = (long)(player.Stake * multiplier);
@@ -270,6 +293,41 @@ public class CrashGame(
 
         await output.TellPlayerAsync(player,
             [Translations.CashedOut.FormatExt(multiplier.ToString("0.00"), payout.ToString("N0"), profit.ToString("N0"))]);
+    }
+
+    /// <summary>
+    /// The multiplier the player actually saw when they typed CASH, back-dated by their
+    /// server's log/RCON latency. The cash reached us at <paramref name="eventTime"/> after the
+    /// log pipeline delay, and the value they saw had also travelled to them (half RCON RTT) -
+    /// so we read the tick that was on their screen at that adjusted moment. Never exceeds the
+    /// latest broadcast tick (no cashing the future).
+    /// </summary>
+    private double MultiplierSeenAt(EFClient client, DateTime eventTime)
+    {
+        var offset = LatencyOffsetSeconds(client);
+        var elapsedSeen = (eventTime - _flightStart).TotalSeconds - offset;
+        var seenTick = (int)Math.Floor(elapsedSeen / Settings.TickInterval.TotalSeconds);
+
+        lock (_tickValuesLock)
+        {
+            seenTick = Math.Clamp(seenTick, 0, _tickValues.Count - 1);
+            return _tickValues[seenTick];
+        }
+    }
+
+    /// <summary>
+    /// Per-server view-staleness in seconds: log pipeline (answer reaching us) plus the
+    /// broadcast send leg (half RCON RTT). Crash requires GameLogPipelineMs (enforced at join),
+    /// so this is normally present; returns 0 as a safe fallback.
+    /// </summary>
+    private static double LatencyOffsetSeconds(EFClient client)
+    {
+        var metrics = client.CurrentServer.LatencyMetrics;
+        if (metrics?.GameLogPipelineMs is not { } logLatency) return 0;
+
+        var offset = logLatency / 1000.0;
+        if (metrics.RconRoundTripMs is { } rtt) offset += rtt / 2000.0;
+        return offset;
     }
 
     #endregion

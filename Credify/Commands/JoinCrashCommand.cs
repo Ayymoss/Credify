@@ -32,6 +32,15 @@ public class JoinCrashCommand : Command
 
     public override async Task ExecuteAsync(GameEvent gameEvent)
     {
+        // Crash relies on game-log latency to time cash-outs fairly. Without it (no GSC
+        // companion on this server) cashing would be guesswork, so it's unavailable here.
+        if (_credifyConfig.Crash.IsEnabled &&
+            gameEvent.Origin.CurrentServer.LatencyMetrics?.GameLogPipelineMs is null)
+        {
+            gameEvent.Origin.Tell(_credifyConfig.Translations.Crash.NoLatency);
+            return;
+        }
+
         await _helper.ExecuteAsync(
             gameEvent,
             isGameEnabled: _credifyConfig.Crash.IsEnabled,
