@@ -3,6 +3,7 @@ using Credify.Chat.Passive.Quests;
 using Credify.Chat.Passive.Quests.Models;
 using Credify.Commands.Attributes;
 using Credify.Configuration;
+using Credify.Helpers;
 using SharedLibraryCore;
 using SharedLibraryCore.Configuration;
 using SharedLibraryCore.Database.Models;
@@ -32,11 +33,12 @@ public class QuestCommand : Command
     {
         var playerQuests = _questManager.GetPlayerQuests(gameEvent.Origin);
 
+        // In-progress permanents first (most relevant), completed ones hidden to de-clutter.
         var permanentQuests = playerQuests
-            .Where(x => !x.Completed) // Remove completed perms to de-clutter view.
+            .Where(x => !x.Completed)
             .Where(quest => _questManager.ActiveQuests.Any(aq => aq.IsPermanent && (int)aq.ObjectiveType == quest.QuestId))
+            .OrderByDescending(q => q.Progress)
             .Select(QuestMessage)
-            .OrderBy(_ => Guid.NewGuid())
             .ToList();
 
         var dailyQuests = playerQuests
@@ -44,22 +46,24 @@ public class QuestCommand : Command
             .Select(QuestMessage)
             .ToList();
 
-        List<string> messages = [];
-        if (permanentQuests.Count is not 0)
-        {
-            messages.Add(_credifyConfig.Translations.Quests.PermanentHeader);
-            messages.AddRange(permanentQuests);
-        }
+        var trans = _credifyConfig.Translations.Quests;
+        const string separator = " (Color::White)| ";
+        const int maxWidth = 56;
 
+        List<string> messages = [];
         if (dailyQuests.Count is not 0)
-        {
-            messages.Add(_credifyConfig.Translations.Quests.DailyHeader);
-            messages.AddRange(dailyQuests);
-        }
+            messages.AddRange(ChatLines.Pack(trans.DailyLabel, dailyQuests, separator, maxWidth));
+        if (permanentQuests.Count is not 0)
+            messages.AddRange(ChatLines.Pack(trans.PermanentLabel, permanentQuests, separator, maxWidth));
 
         if (messages.Count is 0)
         {
-            messages.Add(_credifyConfig.Translations.Quests.NoQuests);
+            messages.Add(trans.NoQuests);
+        }
+        else if (messages.Count > 5)
+        {
+            // Keep within the chat line budget; surface the overflow instead of spamming.
+            messages = messages.Take(4).Append(trans.MoreQuests).ToList();
         }
 
         await gameEvent.Origin.TellAsync(messages);

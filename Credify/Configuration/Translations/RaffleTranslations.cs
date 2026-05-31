@@ -20,6 +20,11 @@ public class RaffleTranslations
     public string PreviousRaffleCount { get; set; } = "(Color::White)Previous total players (Color::Accent){{playerCount}}";
     public string LastWinner { get; set; } = "Last winner (Color::Accent){{name}} (@{{clientId}}) (Color::White)won (Color::Green)${{winTotal}}(Color::White)!";
     public string TicketHolder { get; set; } = "[(Color::Accent)#{{ticket}}(Color::White)] {{name}}";
+    public string ShowSummary { get; set; } = "(Color::Accent)--Raffle-- (Color::White)Pot (Color::Green)${{pot}} (Color::White)- (Color::Accent){{count}} (Color::White)entries";
+    public string YourTicket { get; set; } = "(Color::White)Your ticket (Color::Accent)#{{ticket}} (Color::White)| Draw in (Color::Accent){{next}}";
+    public string NoTicketYet { get; set; } = "(Color::White)No ticket yet - buy one: (Color::Accent)!crraf (Color::White)| Draw in (Color::Accent){{next}}";
+    public string TicketsLabel { get; set; } = "(Color::Accent)Tickets:";
+    public string MoreTickets { get; set; } = "(Color::White)...and (Color::Accent){{count}} (Color::White)more";
     // @formatter:on
 
     public string Prefix(string message) => $"{PrefixLong} {message}";

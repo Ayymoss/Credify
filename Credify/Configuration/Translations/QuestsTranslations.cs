@@ -6,7 +6,10 @@ public class QuestsTranslations
     public string Description { get; set; } = "Shows the quests";
     public string PermanentHeader { get; set; } = "(Color::Accent)--Permanent Quests--";
     public string DailyHeader { get; set; } = "(Color::Accent)--Daily Quests--";
-    public string NoQuests { get; set; } = "(Color::Yellow)You have no active quests."; 
+    public string DailyLabel { get; set; } = "(Color::Accent)Daily:";
+    public string PermanentLabel { get; set; } = "(Color::Accent)Permanent:";
+    public string MoreQuests { get; set; } = "(Color::White)...and more - finish some, then (Color::Accent)!crq";
+    public string NoQuests { get; set; } = "(Color::Yellow)You have no active quests.";
     public string CompletedQuest { get; set; } = "[(Color::Pink)Quest(Color::White)] (Color::Accent){{name}} (Color::White)completed (Color::Accent){{quest}} (Color::White)and was rewarded (Color::Green)${{reward}}(Color::White)!";
     public string Completed { get; set; } = "(Color::Green)Completed";
     public string Quest { get; set; } = "{{questName}} (Color::Accent)({{progressFormat}}(Color::Accent))";

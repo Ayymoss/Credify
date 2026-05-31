@@ -1,6 +1,7 @@
 using Credify.Chat.Feature.Raffle;
 using Credify.Commands.Attributes;
 using Credify.Configuration;
+using Credify.Helpers;
 using Credify.Services;
 using Humanizer;
 using SharedLibraryCore;
@@ -44,31 +45,39 @@ public class ShowRaffleCommand : Command
             return;
         }
 
+        var raffle = _credifyConfig.Translations.Raffle;
+        var next = nextOccurrence.Humanize();
+        const string separator = " (Color::White)| ";
+        const int maxWidth = 56;
+        const int maxEntriesShown = 8;
+
+        List<string> lines =
+        [
+            raffle.ShowSummary.FormatExt(_cache.BankCredits.ToString("N0"), ticketHolders.Count),
+        ];
+
+        // Highlight the caller's own ticket, or nudge them to buy one.
+        var ownEntry = ticketHolders.FirstOrDefault(e => e.Client.ClientId == gameEvent.Origin.ClientId);
+        lines.Add(ownEntry is not null
+            ? raffle.YourTicket.FormatExt(ownEntry.Ticket.ToString("N0"), next)
+            : raffle.NoTicketYet.FormatExt(next));
+
+        // Top entries by ticket, packed onto as few lines as possible, with an overflow note.
+        var shown = ticketHolders.OrderByDescending(entry => entry.Ticket).Take(maxEntriesShown).ToList();
+        var tokens = shown
+            .Select(entry => raffle.TicketHolder.FormatExt(entry.Ticket.ToString("N0"), entry.Client.CleanedName))
+            .ToList();
+        lines.AddRange(ChatLines.Pack(raffle.TicketsLabel, tokens, separator, maxWidth));
+        if (ticketHolders.Count > shown.Count)
+            lines.Add(raffle.MoreTickets.FormatExt(ticketHolders.Count - shown.Count));
+
+        // Last winner, if there's room within the line budget.
         var lastWinner = await _raffleManager.GetLastWinnerAsync();
+        if (lastWinner is not null)
+            lines.Add(raffle.LastWinner.FormatExt(lastWinner.ClientName, lastWinner.ClientId,
+                lastWinner.Amount.ToString("N0")));
 
-        List<string> lastWinnerPlaceholder = lastWinner is null
-            ? [_credifyConfig.Translations.Raffle.NoLastWinner]
-            :
-            [
-                _credifyConfig.Translations.Raffle.PreviousRaffleCount.FormatExt(lastWinner.PreviousPlayers),
-                _credifyConfig.Translations.Raffle.LastWinner.FormatExt(lastWinner.ClientName, lastWinner.ClientId,
-                    lastWinner.Amount.ToString("N0"))
-            ];
-
-        var headerMessages = new[]
-        {
-            _credifyConfig.Translations.Raffle.ShowRaffleHeader,
-            _credifyConfig.Translations.Raffle.RaffleNextDraw.FormatExt(nextOccurrence.Humanize())
-        };
-
-        var ticketHolderNames = ticketHolders
-            .OrderByDescending(entry => entry.Ticket)
-            .Select(creditEntry => _credifyConfig.Translations.Raffle.TicketHolder
-                .FormatExt(creditEntry.Ticket.ToString("N0"), creditEntry.Client.CleanedName))
-            .ToArray();
-
-        headerMessages = headerMessages.Concat(ticketHolderNames).ToArray();
-        headerMessages = headerMessages.Concat(lastWinnerPlaceholder).ToArray();
-        await gameEvent.Origin.TellAsync(headerMessages);
+        if (lines.Count > 5) lines = lines.Take(5).ToList();
+        await gameEvent.Origin.TellAsync(lines);
     }
 }
