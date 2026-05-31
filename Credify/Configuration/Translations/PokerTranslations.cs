@@ -3,6 +3,7 @@ namespace Credify.Configuration.Translations;
 public class PokerTranslations
 {
     // @formatter:off
+    public string CommandPokerDescription { get; set; } = "Join or leave the poker table (Texas Hold'em)";
     public string Title { get; set; } = "[(Color::Pink)Poker(Color::White)]";
     public string TitleShort { get; set; } = "[(Color::Pink)PK(Color::White)]";
     public string Disabled { get; set; } = "(Color::Yellow)Poker is currently disabled";

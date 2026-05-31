@@ -23,7 +23,7 @@ public class BuyCommand : Command
         _credifyConfig = credifyConfig;
         Name = "credifybuy";
         Alias = "crbuy";
-        Description = credifyConfig.Translations.Core.CommandBuyDescription;
+        Description = credifyConfig.Translations.Shop.CommandBuyDescription;
         Permission = Data.Models.Client.EFClient.Permission.User;
         RequiresTarget = false;
         Arguments =
@@ -40,7 +40,7 @@ public class BuyCommand : Command
     {
         if (!_credifyConfig.Shop.IsEnabled)
         {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.Core.ShopDisabled);
+            gameEvent.Origin.Tell(_credifyConfig.Translations.Shop.ShopDisabled);
             return;
         }
 
@@ -57,7 +57,7 @@ public class BuyCommand : Command
         // Check if item exists
         if (serverItems.FirstOrDefault(x => x.Id == itemId) is not { } serverItem)
         {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.Core.ItemDoesNotExist);
+            gameEvent.Origin.Tell(_credifyConfig.Translations.Shop.ItemDoesNotExist);
             return;
         }
 
@@ -73,7 +73,7 @@ public class BuyCommand : Command
         var clientItem = clientItems.FirstOrDefault(x => x.Id == itemId);
         if (clientItem?.Amount >= serverItem.MaxPurchaseAmount)
         {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.Core.TooManyOfItem);
+            gameEvent.Origin.Tell(_credifyConfig.Translations.Shop.TooManyOfItem);
             return;
         }
 
@@ -103,7 +103,7 @@ public class BuyCommand : Command
 
         await _persistenceService.RemoveCreditsAsync(gameEvent.Origin, serverItem.Cost);
         await _persistenceService.WriteClientShopAsync(gameEvent.Origin, clientItems);
-        gameEvent.Origin.Tell(_credifyConfig.Translations.Core.BoughtItem
+        gameEvent.Origin.Tell(_credifyConfig.Translations.Shop.BoughtItem
             .FormatExt(serverItem.Name, serverItem.Cost.ToString("N0")));
     }
 }

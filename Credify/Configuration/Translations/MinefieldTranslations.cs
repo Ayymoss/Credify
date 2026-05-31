@@ -3,6 +3,7 @@ namespace Credify.Configuration.Translations;
 public class MinefieldTranslations
 {
     // @formatter:off
+    public string CommandMinefieldDescription { get; set; } = "Play Minefield - clear tiles for rising payouts, avoid the mines";
     public string Title { get; set; } = "[(Color::Pink)Minefield(Color::White)]";
     public string TitleShort { get; set; } = "[(Color::Pink)Mine(Color::White)]";
     public string Disabled { get; set; } = "(Color::Yellow)Minefield is disabled";

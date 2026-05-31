@@ -25,7 +25,7 @@ public class JoinRouletteCommand : Command
         _credifyConfig = credifyConfig;
         Name = "credifyroulette";
         Alias = "crrl";
-        Description = credifyConfig.Translations.Core.CommandRouletteDescription;
+        Description = credifyConfig.Translations.Roulette.CommandRouletteDescription;
         Permission = Data.Models.Client.EFClient.Permission.User;
         RequiresTarget = false;
     }

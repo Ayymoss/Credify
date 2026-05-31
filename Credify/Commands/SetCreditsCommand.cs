@@ -22,7 +22,7 @@ public class SetCreditsCommand : Command
         _persistenceService = persistenceService;
         _credifyConfig = credifyConfig;
         Name = "credifysetcredits";
-        Description = credifyConfig.Translations.Core.CommandSetCreditsDescription;
+        Description = credifyConfig.Translations.Admin.CommandSetCreditsDescription;
         Alias = "crset";
         Permission = EFClient.Permission.Owner;
         RequiresTarget = true;
@@ -52,10 +52,10 @@ public class SetCreditsCommand : Command
         }
 
         gameEvent.Target.SetAdditionalProperty(PluginConstants.CreditsAmount, Math.Abs(argAmount));
-        gameEvent.Origin.Tell(_credifyConfig.Translations.Core.SetCreditsForTarget
+        gameEvent.Origin.Tell(_credifyConfig.Translations.Admin.SetCreditsForTarget
             .FormatExt(gameEvent.Target.Name, Math.Abs(argAmount).ToString("N0")));
         if (gameEvent.Origin.ClientId != gameEvent.Target.ClientId)
-            gameEvent.Target.Tell(_credifyConfig.Translations.Core.CreditsSetByOrigin
+            gameEvent.Target.Tell(_credifyConfig.Translations.Admin.CreditsSetByOrigin
                 .FormatExt(gameEvent.Origin.Name, Math.Abs(argAmount).ToString("N0")));
         _persistenceService.OrderTop(gameEvent.Target, Math.Abs(argAmount));
         await _persistenceService.WriteClientCreditsAsync(gameEvent.Target, argAmount);

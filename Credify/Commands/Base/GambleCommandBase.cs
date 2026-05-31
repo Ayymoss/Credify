@@ -47,13 +47,13 @@ public abstract class GambleCommandBase : Command
 
         if (stake < minBet)
         {
-            gameEvent.Origin.Tell(CredifyConfig.Translations.Core.MinimumAmount);
+            gameEvent.Origin.Tell(CredifyConfig.Translations.Gambling.MinimumAmount);
             return null;
         }
 
         if (maxBet > 0 && stake > maxBet)
         {
-            gameEvent.Origin.Tell(CredifyConfig.Translations.Core.MaximumAmount.FormatExt(maxBet.ToString("N0")));
+            gameEvent.Origin.Tell(CredifyConfig.Translations.Gambling.MaximumAmount.FormatExt(maxBet.ToString("N0")));
             return null;
         }
 

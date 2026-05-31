@@ -28,7 +28,7 @@ public class ResetCreditsCommand : Command
         _credifyConfig = credifyConfig;
         _persistenceService = persistenceService;
         Name = "credifyresetcredits";
-        Description = credifyConfig.Translations.Core.CommandResetCreditsDescription;
+        Description = credifyConfig.Translations.Admin.CommandResetCreditsDescription;
         Alias = "crreset";
         Permission = EFClient.Permission.Owner;
         RequiresTarget = false;
@@ -47,21 +47,21 @@ public class ResetCreditsCommand : Command
         var configId = gameEvent.Origin.CurrentServer.Manager.GetApplicationSettings().Configuration().Id;
         if (!gameEvent.Data.Equals(configId))
         {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.Core.PassIdAsArgument);
+            gameEvent.Origin.Tell(_credifyConfig.Translations.Admin.PassIdAsArgument);
             return;
         }
 
-        gameEvent.Origin.Tell(_credifyConfig.Translations.Core.ResettingCreditsInit);
+        gameEvent.Origin.Tell(_credifyConfig.Translations.Admin.ResettingCreditsInit);
         await using var context = _context.CreateContext();
-        await ResetMetaItems(context, PluginConstants.CreditsAmount, _credifyConfig.Translations.Core.ResettingCredits, gameEvent);
-        await ResetMetaItems(context, PluginConstants.RaffleKey, _credifyConfig.Translations.Core.ResettingRaffleTickets,
+        await ResetMetaItems(context, PluginConstants.CreditsAmount, _credifyConfig.Translations.Admin.ResettingCredits, gameEvent);
+        await ResetMetaItems(context, PluginConstants.RaffleKey, _credifyConfig.Translations.Admin.ResettingRaffleTickets,
             gameEvent);
-        await ResetMetaItems(context, PluginConstants.ShopKey, _credifyConfig.Translations.Core.ResettingShopItems, gameEvent);
+        await ResetMetaItems(context, PluginConstants.ShopKey, _credifyConfig.Translations.Admin.ResettingShopItems, gameEvent);
         await context.SaveChangesAsync();
 
         ResetOnlinePlayersAdditional(gameEvent.Origin.CurrentServer.Manager);
         await ResetAndWriteStats(gameEvent);
-        gameEvent.Origin.Tell(_credifyConfig.Translations.Core.ResetCreditsComplete);
+        gameEvent.Origin.Tell(_credifyConfig.Translations.Admin.ResetCreditsComplete);
     }
 
     private static void ResetOnlinePlayersAdditional(IManager manager)
@@ -84,15 +84,15 @@ public class ResetCreditsCommand : Command
 
     private async Task ResetAndWriteStats(GameEvent gameEvent)
     {
-        gameEvent.Origin.Tell(_credifyConfig.Translations.Core.ResettingTopStats);
+        gameEvent.Origin.Tell(_credifyConfig.Translations.Admin.ResettingTopStats);
         _persistenceService.ResetTop();
         await _persistenceService.WriteTopScoreAsync();
 
-        gameEvent.Origin.Tell(_credifyConfig.Translations.Core.ResettingStatistics);
+        gameEvent.Origin.Tell(_credifyConfig.Translations.Admin.ResettingStatistics);
         _persistenceService.ResetStatistics();
         await _persistenceService.WriteStatisticsAsync();
 
-        gameEvent.Origin.Tell(_credifyConfig.Translations.Core.ResettingBank);
+        gameEvent.Origin.Tell(_credifyConfig.Translations.Admin.ResettingBank);
         _persistenceService.ResetBank();
         await _persistenceService.WriteBankCreditsAsync();
     }

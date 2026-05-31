@@ -27,7 +27,7 @@ public class CreditCommand : Command
         _cache = cache;
         _clientService = clientService;
         Name = "credify";
-        Description = credifyConfig.Translations.Core.CommandCheckCreditsDescription;
+        Description = credifyConfig.Translations.Economy.CommandCheckCreditsDescription;
         Alias = "cr";
         Permission = EFClient.Permission.User;
         RequiresTarget = false;
@@ -58,7 +58,7 @@ public class CreditCommand : Command
         // Handle unknown target
         if (argPlayer.Length is not 0 && gameEvent.Target is null)
         {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.Core.ErrorFindingTargetUser);
+            gameEvent.Origin.Tell(_credifyConfig.Translations.Economy.ErrorFindingTargetUser);
             return;
         }
 
@@ -67,7 +67,7 @@ public class CreditCommand : Command
         if (gameEvent.Target is not null)
         {
             credits = await _persistenceService.GetClientCreditsAsync(gameEvent.Target);
-            gameEvent.Origin.Tell(_credifyConfig.Translations.Core.TargetCredits.FormatExt(gameEvent.Target.Name, credits.ToString("N0")));
+            gameEvent.Origin.Tell(_credifyConfig.Translations.Economy.TargetCredits.FormatExt(gameEvent.Target.Name, credits.ToString("N0")));
             return;
         }
 
@@ -75,8 +75,8 @@ public class CreditCommand : Command
         credits = await _persistenceService.GetClientCreditsAsync(gameEvent.Origin);
         await gameEvent.Origin.TellAsync(
         [
-            _credifyConfig.Translations.Core.OriginCredits.FormatExt(credits.ToString("N0")),
-            _credifyConfig.Translations.Core.ServerBankCredits.FormatExt(_cache.BankCredits.ToString("N0"))
+            _credifyConfig.Translations.Economy.OriginCredits.FormatExt(credits.ToString("N0")),
+            _credifyConfig.Translations.Economy.ServerBankCredits.FormatExt(_cache.BankCredits.ToString("N0"))
         ]);
     }
 }

@@ -33,7 +33,7 @@ public class WheelCommand : Command
         _wheelService = wheelService;
         Name = "credifywheel";
         Alias = "crwof";
-        Description = credifyConfig.Translations.Core.CommandWheelDescription;
+        Description = credifyConfig.Translations.Wheel.CommandWheelDescription;
         Permission = EFClient.Permission.User;
         RequiresTarget = false;
         Arguments = [];
@@ -43,7 +43,7 @@ public class WheelCommand : Command
     {
         if (!_credifyConfig.Wheel.IsEnabled)
         {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.Core.WheelDisabled);
+            gameEvent.Origin.Tell(_credifyConfig.Translations.Wheel.WheelDisabled);
             return;
         }
 
@@ -52,7 +52,7 @@ public class WheelCommand : Command
         if (lastUsedDate.HasValue && !CanSpinWheel(lastUsedDate.Value))
         {
             var timeUntilReset = GetTimeUntilReset();
-            gameEvent.Origin.Tell(_credifyConfig.Translations.Core.WheelCooldown.FormatExt(timeUntilReset));
+            gameEvent.Origin.Tell(_credifyConfig.Translations.Wheel.WheelCooldown.FormatExt(timeUntilReset));
             return;
         }
 
@@ -121,13 +121,13 @@ public class WheelCommand : Command
         var profit = payout - userBalance;
         if (profit > 0)
         {
-            var broadcastMsg = _credifyConfig.Translations.Core.WheelBroadcastWin.FormatExt(
+            var broadcastMsg = _credifyConfig.Translations.Wheel.WheelBroadcastWin.FormatExt(
                 gameEvent.Origin.CleanedName, profit.ToString("N0"), segment.Name, probability);
             await _gamePlayerCommunication.BroadcastToAllServersAsync(gameEvent.Origin, [broadcastMsg]);
         }
         else if (profit < 0)
         {
-            var broadcastMsg = _credifyConfig.Translations.Core.WheelBroadcastLoss.FormatExt(
+            var broadcastMsg = _credifyConfig.Translations.Wheel.WheelBroadcastLoss.FormatExt(
                 gameEvent.Origin.CleanedName, Math.Abs(profit).ToString("N0"), segment.Name, probability);
             await _gamePlayerCommunication.BroadcastToAllServersAsync(gameEvent.Origin, [broadcastMsg]);
         }
@@ -136,22 +136,22 @@ public class WheelCommand : Command
         string message;
         if (segment.IsOneHundredKOrDouble)
         {
-            message = _credifyConfig.Translations.Core.WheelTwoXCash.FormatExt(
+            message = _credifyConfig.Translations.Wheel.WheelTwoXCash.FormatExt(
                 segment.Name, profit.ToString("N0"), newBalance.ToString("N0"));
         }
         else if (profit > 0)
         {
-            message = _credifyConfig.Translations.Core.WheelWin.FormatExt(
+            message = _credifyConfig.Translations.Wheel.WheelWin.FormatExt(
                 segment.Name, profit.ToString("N0"), newBalance.ToString("N0"));
         }
         else if (profit == 0)
         {
-            message = _credifyConfig.Translations.Core.WheelBreakEven.FormatExt(
+            message = _credifyConfig.Translations.Wheel.WheelBreakEven.FormatExt(
                 segment.Name, newBalance.ToString("N0"));
         }
         else
         {
-            message = _credifyConfig.Translations.Core.WheelPartialLoss.FormatExt(
+            message = _credifyConfig.Translations.Wheel.WheelPartialLoss.FormatExt(
                 segment.Name, Math.Abs(profit).ToString("N0"), newBalance.ToString("N0"));
         }
         
@@ -160,11 +160,11 @@ public class WheelCommand : Command
 
     private async Task ShowSpinningAnimationAsync(EFClient client)
     {
-        await client.TellAsync([_credifyConfig.Translations.Core.WheelSpinning]);
+        await client.TellAsync([_credifyConfig.Translations.Wheel.WheelSpinning]);
         await Task.Delay(1500);
-        await client.TellAsync([_credifyConfig.Translations.Core.WheelSlowing]);
+        await client.TellAsync([_credifyConfig.Translations.Wheel.WheelSlowing]);
         await Task.Delay(2000);
-        await client.TellAsync([_credifyConfig.Translations.Core.WheelStopping]);
+        await client.TellAsync([_credifyConfig.Translations.Wheel.WheelStopping]);
         await Task.Delay(1000);
     }
 

@@ -26,7 +26,7 @@ public class TopCreditsCommand : Command
         _credifyConfig = credifyConfig;
         Name = "credifytop";
         Alias = "crtop";
-        Description = credifyConfig.Translations.Core.CommandTopCreditsDescription;
+        Description = credifyConfig.Translations.Economy.CommandTopCreditsDescription;
         Permission = EFClient.Permission.User;
         RequiresTarget = false;
     }
@@ -36,11 +36,11 @@ public class TopCreditsCommand : Command
         // If user requests top and there are no entries.
         if (_cache.TopCredits.Count is 0)
         {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.Core.NoOneHasCreditsForTop);
+            gameEvent.Origin.Tell(_credifyConfig.Translations.Economy.NoOneHasCreditsForTop);
             return;
         }
 
-        gameEvent.Origin.Tell(_credifyConfig.Translations.Core.TopCreditsTitle);
+        gameEvent.Origin.Tell(_credifyConfig.Translations.Economy.TopCreditsTitle);
 
         await using var context = _contextFactory.CreateContext(false);
         var names = await context.Clients
@@ -52,7 +52,7 @@ public class TopCreditsCommand : Command
 
         var output = _cache.TopCredits
             .OrderByDescending(entry => entry.Credits)
-            .Select((creditEntry, index) => _credifyConfig.Translations.Core.TopPlayerEntry
+            .Select((creditEntry, index) => _credifyConfig.Translations.Economy.TopPlayerEntry
                 .FormatExt(index + 1, creditEntry.Credits.ToString("N0"), names[creditEntry.ClientId]));
 
         await gameEvent.Origin.TellAsync(output);

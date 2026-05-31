@@ -26,7 +26,7 @@ public class PlaceBountyCommand : Command
         _bountyManager = bountyManager;
         Name = "credifybounty";
         Alias = "crbounty";
-        Description = credifyConfig.Translations.Core.CommandPlaceBountyDescription;
+        Description = credifyConfig.Translations.BountyContract.CommandPlaceBountyDescription;
         Permission = Data.Models.Client.EFClient.Permission.User;
         RequiresTarget = true;
         Arguments =
@@ -48,19 +48,19 @@ public class PlaceBountyCommand : Command
     {
         if (!_credifyConfig.BountyContract.IsEnabled)
         {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.Core.BountyContractDisabled);
+            gameEvent.Origin.Tell(_credifyConfig.Translations.BountyContract.BountyContractDisabled);
             return;
         }
 
         if (gameEvent.Target is null)
         {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.Core.ErrorFindingTargetUser);
+            gameEvent.Origin.Tell(_credifyConfig.Translations.Economy.ErrorFindingTargetUser);
             return;
         }
 
         if (gameEvent.Target.ClientId == gameEvent.Origin.ClientId)
         {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.Core.CannotTargetSelf);
+            gameEvent.Origin.Tell(_credifyConfig.Translations.Economy.CannotTargetSelf);
             return;
         }
 
@@ -88,14 +88,14 @@ public class PlaceBountyCommand : Command
         }
 
         // Notify placer
-        var placerMsg = _credifyConfig.Translations.Core.BountyContractPlaced.FormatExt(
+        var placerMsg = _credifyConfig.Translations.BountyContract.BountyContractPlaced.FormatExt(
             result.Contract!.Amount.ToString("N0"),
             gameEvent.Target.CleanedName,
             result.Fee.ToString("N0"));
         gameEvent.Origin.Tell(placerMsg);
 
         // Notify target
-        var targetMsg = _credifyConfig.Translations.Core.BountyContractTargeted.FormatExt(
+        var targetMsg = _credifyConfig.Translations.BountyContract.BountyContractTargeted.FormatExt(
             result.Contract.Amount.ToString("N0"),
             gameEvent.Origin.CleanedName);
         gameEvent.Target.Tell(targetMsg);
@@ -103,7 +103,7 @@ public class PlaceBountyCommand : Command
         // Announce to server if enabled
         if (_credifyConfig.BountyContract.AnnouncePlacement)
         {
-            var announceMsg = _credifyConfig.Translations.Core.BountyContractAnnouncement.FormatExt(
+            var announceMsg = _credifyConfig.Translations.BountyContract.BountyContractAnnouncement.FormatExt(
                 PluginConstants.PluginName,
                 result.Contract.Amount.ToString("N0"),
                 gameEvent.Target.CleanedName);

@@ -28,7 +28,7 @@ public class JoinPokerCommand : Command
         _poker = poker;
         Name = "credifypoker";
         Alias = "crpk";
-        Description = credifyConfig.Translations.Core.CommandPokerDescription;
+        Description = credifyConfig.Translations.Poker.CommandPokerDescription;
         Permission = Data.Models.Client.EFClient.Permission.User;
         RequiresTarget = false;
     }

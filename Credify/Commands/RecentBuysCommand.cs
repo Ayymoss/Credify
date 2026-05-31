@@ -22,7 +22,7 @@ public class RecentBuysCommand : Command
         _credifyConfig = credifyConfig;
         Name = "credifyrecentbuys";
         Alias = "crrb";
-        Description = credifyConfig.Translations.Core.CommandRecentBuysDescription;
+        Description = credifyConfig.Translations.Shop.CommandRecentBuysDescription;
         Permission = EFClient.Permission.Administrator;
         RequiresTarget = false;
     }
@@ -32,11 +32,11 @@ public class RecentBuysCommand : Command
         var serverItems = _credifyConfig.Shop.Items;
         var recentBuys = await _persistenceService.ReadRecentBoughtItemsAsync();
 
-        gameEvent.Origin.Tell(_credifyConfig.Translations.Core.RecentBuysTitle);
+        gameEvent.Origin.Tell(_credifyConfig.Translations.Shop.RecentBuysTitle);
 
         var output = recentBuys.OrderByDescending(entry => entry.Bought)
             .Where(x => x.Bought > TimeProvider.System.GetUtcNow().AddMonths(-1))
-            .Select((buyer, index) => _credifyConfig.Translations.Core.RecentBoughtItemEntry
+            .Select((buyer, index) => _credifyConfig.Translations.Shop.RecentBoughtItemEntry
                 .FormatExt(index + 1, buyer.ClientName, buyer.ClientId, serverItems.First(x => x.Id == buyer.Id).Name,
                     buyer.Bought.Humanize()));
 

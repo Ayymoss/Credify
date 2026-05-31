@@ -25,7 +25,7 @@ public class JoinMinefieldCommand : Command
         _credifyConfig = credifyConfig;
         Name = "credifyminefield";
         Alias = "crmine";
-        Description = credifyConfig.Translations.Core.CommandMinefieldDescription;
+        Description = credifyConfig.Translations.Minefield.CommandMinefieldDescription;
         Permission = Data.Models.Client.EFClient.Permission.User;
         RequiresTarget = false;
     }

@@ -24,7 +24,7 @@ public class PayCommand : Command
         _persistenceService = persistenceService;
         _credifyConfig = credifyConfig;
         Name = "credifypay";
-        Description = credifyConfig.Translations.Core.CommandPayCreditsDescription;
+        Description = credifyConfig.Translations.Economy.CommandPayCreditsDescription;
         Alias = "crpay";
         Permission = EFClient.Permission.User;
         RequiresTarget = true;
@@ -55,25 +55,25 @@ public class PayCommand : Command
 
         if (gameEvent.Origin.ClientId == gameEvent.Target.ClientId)
         {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.Core.CannotTargetSelf);
+            gameEvent.Origin.Tell(_credifyConfig.Translations.Economy.CannotTargetSelf);
             return;
         }
 
         if (gameEvent.Target.ClientId is 1)
         {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.Core.CannotTargetConsole);
+            gameEvent.Origin.Tell(_credifyConfig.Translations.Economy.CannotTargetConsole);
             return;
         }
 
         if (credits < 10)
         {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.Core.MinimumAmount);
+            gameEvent.Origin.Tell(_credifyConfig.Translations.Gambling.MinimumAmount);
             return;
         }
 
         if (credits > _credifyConfig.Core.MaxGiveCredits)
         {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.Core.MaximumAmount.FormatExt(_credifyConfig.Core.MaxGiveCredits));
+            gameEvent.Origin.Tell(_credifyConfig.Translations.Gambling.MaximumAmount.FormatExt(_credifyConfig.Core.MaxGiveCredits));
             return;
         }
 
@@ -81,9 +81,9 @@ public class PayCommand : Command
         await _persistenceService.RemoveCreditsAsync(gameEvent.Origin, credits);
         await _persistenceService.AddCreditsAsync(gameEvent.Target, credits);
 
-        gameEvent.Origin.Tell(_credifyConfig.Translations.Core.PaySent
+        gameEvent.Origin.Tell(_credifyConfig.Translations.Economy.PaySent
             .FormatExt(credits.ToString("N0"), gameEvent.Target.CleanedName));
-        gameEvent.Target.Tell(_credifyConfig.Translations.Core.PayReceived
+        gameEvent.Target.Tell(_credifyConfig.Translations.Economy.PayReceived
             .FormatExt(credits.ToString("N0"), gameEvent.Origin.CleanedName));
     }
 }

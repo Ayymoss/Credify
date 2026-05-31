@@ -3,6 +3,7 @@
 public class BlackjackTranslations
 {
     // @formatter:off
+    public string CommandBlackjackDescription { get; set; } = "Join Blackjack";
     public string Title { get; set; } = "[(Color::Pink)Blackjack(Color::White)]";
     public string TitleShort { get; set; } = "[(Color::Pink)BJ(Color::White)]";
     public string Join { get; set; } = "(Color::Yellow)You have joined the game! (Color::White)(Type amount you want to bet!)";

@@ -21,7 +21,7 @@ public class StatisticsCommand : Command
         _cache = cache;
         _credifyConfig = credifyConfig;
         Name = "credifystats";
-        Description = credifyConfig.Translations.Core.CommandStatisticsDescription;
+        Description = credifyConfig.Translations.Economy.CommandStatisticsDescription;
         Alias = "crstats";
         Permission = EFClient.Permission.User;
         RequiresTarget = false;
@@ -32,11 +32,11 @@ public class StatisticsCommand : Command
         await gameEvent.Origin.TellAsync(
         [
             // @formatter:off
-            _credifyConfig.Translations.Core.StatsHeader,
-            _credifyConfig.Translations.Core.StatsBankCredits.FormatExt(_cache.BankCredits.ToString("N0")),
-            _credifyConfig.Translations.Core.StatsTotalEarnedCredits.FormatExt(_cache.StatisticsState.CreditsEarned.ToString("N0")),
-            _credifyConfig.Translations.Core.StatsTotalSpentCredits.FormatExt(_cache.StatisticsState.CreditsSpent.ToString("N0")),
-            _credifyConfig.Translations.Core.StatsTotalWonCredits.FormatExt(_cache.StatisticsState.CreditsWon.ToString("N0")),
+            _credifyConfig.Translations.Economy.StatsHeader,
+            _credifyConfig.Translations.Economy.StatsBankCredits.FormatExt(_cache.BankCredits.ToString("N0")),
+            _credifyConfig.Translations.Economy.StatsTotalEarnedCredits.FormatExt(_cache.StatisticsState.CreditsEarned.ToString("N0")),
+            _credifyConfig.Translations.Economy.StatsTotalSpentCredits.FormatExt(_cache.StatisticsState.CreditsSpent.ToString("N0")),
+            _credifyConfig.Translations.Economy.StatsTotalWonCredits.FormatExt(_cache.StatisticsState.CreditsWon.ToString("N0")),
             // @formatter:on
         ]);
     }

@@ -23,7 +23,7 @@ public class ShowRaffleCommand : Command
         _cache = cache;
         _raffleManager = raffleManager;
         Name = "credifyshowraffle";
-        Description = credifyConfig.Translations.Core.CommandShowRaffleDescription;
+        Description = credifyConfig.Translations.Raffle.CommandShowRaffleDescription;
         Alias = "crsr";
         Permission = Data.Models.Client.EFClient.Permission.User;
         RequiresTarget = false;

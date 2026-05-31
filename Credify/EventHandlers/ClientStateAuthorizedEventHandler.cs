@@ -17,6 +17,6 @@ public class ClientStateAuthorizedEventHandler(
     {
         await persistenceService.OnJoinAsync(clientEvent.Client);
         var userCredits = await persistenceService.GetClientCreditsAsync(clientEvent.Client);
-        clientEvent.Client.Tell(config.Translations.Core.UserCredits.FormatExt(userCredits.ToString("N0")));
+        clientEvent.Client.Tell(config.Translations.Economy.UserCredits.FormatExt(userCredits.ToString("N0")));
     }
 }

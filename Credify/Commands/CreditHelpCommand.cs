@@ -22,7 +22,7 @@ public class CreditHelpCommand : Command
         _credifyConfig = credifyConfig;
         _commandDiscoveryService = commandDiscoveryService;
         Name = "credifyhelp";
-        Description = credifyConfig.Translations.Core.CommandHelpDescription;
+        Description = credifyConfig.Translations.Help.CommandHelpDescription;
         Alias = "crhelp";
         Permission = EFClient.Permission.User;
         RequiresTarget = false;
@@ -56,8 +56,8 @@ public class CreditHelpCommand : Command
         if (string.IsNullOrWhiteSpace(categoryArg))
         {
             // Show all categories
-            messages.Add(_credifyConfig.Translations.Core.HelpHeader);
-            messages.Add(_credifyConfig.Translations.Core.HelpAvailableCategories);
+            messages.Add(_credifyConfig.Translations.Help.HelpHeader);
+            messages.Add(_credifyConfig.Translations.Help.HelpAvailableCategories);
             
             foreach (var category in categories)
             {
@@ -65,7 +65,7 @@ public class CreditHelpCommand : Command
                 messages.Add($"  (Color::Accent){category} (Color::White)({commandCount} commands)");
             }
             
-            messages.Add(_credifyConfig.Translations.Core.HelpCategoryUsage);
+            messages.Add(_credifyConfig.Translations.Help.HelpCategoryUsage);
         }
         else
         {
@@ -76,8 +76,8 @@ public class CreditHelpCommand : Command
 
             if (category == null || !commandsByCategory.TryGetValue(category, out var commands))
             {
-                messages.Add(_credifyConfig.Translations.Core.HelpUnknownCategory.FormatExt(categoryArg));
-                messages.Add(_credifyConfig.Translations.Core.HelpAvailableCategories);
+                messages.Add(_credifyConfig.Translations.Help.HelpUnknownCategory.FormatExt(categoryArg));
+                messages.Add(_credifyConfig.Translations.Help.HelpAvailableCategories);
                 foreach (var cat in categories)
                 {
                     messages.Add($"  (Color::Accent){cat}");
@@ -86,7 +86,7 @@ public class CreditHelpCommand : Command
             else
             {
                 var displayName = _commandDiscoveryService.GetCategoryDisplayName(category);
-                messages.Add(_credifyConfig.Translations.Core.HelpCategoryHeader.FormatExt(displayName));
+                messages.Add(_credifyConfig.Translations.Help.HelpCategoryHeader.FormatExt(displayName));
 
                 foreach (var cmd in commands)
                 {
