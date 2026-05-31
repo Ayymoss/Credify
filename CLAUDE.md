@@ -46,7 +46,7 @@ Passive chat games use IW4MAdmin's `server.LatencyMetrics` (available via `clien
 
 ### Configuration — `Configuration/CredifyConfiguration.cs`
 
-Root config object containing sub-configs for each feature. Stored under metadata key `"CredifyConfigurationV3"`. Translations are nested under `TranslationsRoot` with per-feature translation classes using `{{placeholder}}` syntax and IW4MAdmin color codes like `(Color::Accent)`.
+Root config object containing sub-configs for each feature. Stored under metadata key `"CredifyConfigurationV4"`. Translations are nested under `TranslationsRoot` with per-feature translation classes using `{{placeholder}}` syntax and IW4MAdmin color codes like `(Color::Accent)`.
 
 ### Commands — `Commands/`
 

@@ -95,7 +95,7 @@ public class Plugin : IPluginV2
     public static void RegisterDependencies(IServiceCollection serviceCollection)
     {
         // Core
-        serviceCollection.AddConfiguration("CredifyConfigurationV3", new CredifyConfiguration());
+        serviceCollection.AddConfiguration("CredifyConfigurationV4", new CredifyConfiguration());
         serviceCollection.AddSingleton<CredifyCache>();
 
         // Persistence Services (order matters due to dependencies)
