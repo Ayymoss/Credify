@@ -14,10 +14,10 @@ namespace Credify.EventHandlers;
 /// </summary>
 public class ClientStateDisposedEventHandler(
     PersistenceService persistenceService,
-    BlackjackManager blackjack,
-    RouletteManager rouletteManager,
+    BlackjackGame blackjack,
+    Table rouletteManager,
     PokerManager pokerManager,
-    MinefieldManager minefieldManager,
+    MinefieldGame minefieldManager,
     StreakTracker streakTracker,
     BountyContractManager bountyContractManager)
 {

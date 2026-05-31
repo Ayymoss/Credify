@@ -1,6 +1,8 @@
 using Credify.Chat.Active.Core;
 using Credify.Chat.Active.Games.Blackjack;
+using Credify.Chat.Active.Games.Blackjack.Utilities;
 using Credify.Chat.Active.Games.Minefield;
+using Credify.Chat.Active.Games.Minefield.Utilities;
 using Credify.Chat.Active.Games.Poker;
 using Credify.Chat.Active.Games.Roulette;
 using Credify.Chat.Active.Games.Roulette.Utilities;
@@ -29,12 +31,12 @@ public class Plugin : IPluginV2
 {
     private readonly PersistenceService _persistenceService;
     private readonly ChatUtils _chatUtils;
-    private readonly RouletteManager _rouletteManager;
+    private readonly Table _rouletteTable;
     private readonly ScheduleService _scheduleService;
     private readonly RaffleManager _raffleManager;
     private readonly PokerManager _pokerManager;
-    private readonly BlackjackManager _blackjackManager;
-    private readonly MinefieldManager _minefieldManager;
+    private readonly BlackjackGame _blackjackGame;
+    private readonly MinefieldGame _minefieldGame;
     private readonly ClientKilledEventHandler _clientKilledEventHandler;
     private readonly ClientMessagedEventHandler _clientMessagedEventHandler;
     private readonly ClientStateAuthorizedEventHandler _clientStateAuthorizedEventHandler;
@@ -49,12 +51,12 @@ public class Plugin : IPluginV2
     public Plugin(
         PersistenceService persistenceService,
         ChatUtils chatUtils,
-        RouletteManager rouletteManager,
+        Table rouletteTable,
         ScheduleService scheduleService,
         RaffleManager raffleManager,
         PokerManager pokerManager,
-        BlackjackManager blackjackManager,
-        MinefieldManager minefieldManager,
+        BlackjackGame blackjackGame,
+        MinefieldGame minefieldGame,
         ClientKilledEventHandler clientKilledEventHandler,
         ClientMessagedEventHandler clientMessagedEventHandler,
         ClientStateAuthorizedEventHandler clientStateAuthorizedEventHandler,
@@ -65,12 +67,12 @@ public class Plugin : IPluginV2
     {
         _persistenceService = persistenceService;
         _chatUtils = chatUtils;
-        _rouletteManager = rouletteManager;
+        _rouletteTable = rouletteTable;
         _scheduleService = scheduleService;
         _raffleManager = raffleManager;
         _pokerManager = pokerManager;
-        _blackjackManager = blackjackManager;
-        _minefieldManager = minefieldManager;
+        _blackjackGame = blackjackGame;
+        _minefieldGame = minefieldGame;
         _clientKilledEventHandler = clientKilledEventHandler;
         _clientMessagedEventHandler = clientMessagedEventHandler;
         _clientStateAuthorizedEventHandler = clientStateAuthorizedEventHandler;
@@ -115,16 +117,44 @@ public class Plugin : IPluginV2
         serviceCollection.AddSingleton<GamePlayerCommunication>();
         serviceCollection.AddSingleton<ActiveGameTracker>();
         
+        // Active games are registered directly as their game class (each implements
+        // IActiveGame). The I/O handlers they need are constructed here in the factory,
+        // which removes the per-game shim "manager" that used to do only this.
+
         // Blackjack
-        serviceCollection.AddSingleton<BlackjackManager>();
+        serviceCollection.AddSingleton(sp =>
+        {
+            var config = sp.GetRequiredService<CredifyConfiguration>();
+            var communication = sp.GetRequiredService<GamePlayerCommunication>();
+            var persistence = sp.GetRequiredService<PersistenceService>();
+            var input = new BlackjackHandleInput(config.Translations.Blackjack);
+            var output = new BlackjackHandleOutput(config.Translations.Blackjack, communication);
+            return new BlackjackGame(persistence, config, communication, input, output);
+        });
 
         // Minefield
-        serviceCollection.AddSingleton<MinefieldManager>();
+        serviceCollection.AddSingleton(sp =>
+        {
+            var config = sp.GetRequiredService<CredifyConfiguration>();
+            var communication = sp.GetRequiredService<GamePlayerCommunication>();
+            var persistence = sp.GetRequiredService<PersistenceService>();
+            var input = new MinefieldHandleInput(config.Translations.Minefield);
+            var output = new MinefieldHandleOutput(config.Translations.Minefield, communication);
+            return new MinefieldGame(persistence, config, communication, input, output);
+        });
 
         // Roulette
-        serviceCollection.AddSingleton<RouletteManager>();
+        serviceCollection.AddSingleton(sp =>
+        {
+            var config = sp.GetRequiredService<CredifyConfiguration>();
+            var translations = sp.GetRequiredService<TranslationsRoot>();
+            var communication = sp.GetRequiredService<GamePlayerCommunication>();
+            var persistence = sp.GetRequiredService<PersistenceService>();
+            var output = new RouletteHandleOutput(translations, communication);
+            return new Table(config, translations, persistence, communication, output);
+        });
 
-        // Poker
+        // Poker (keeps its manager: buy-in overload + cards/river routing)
         serviceCollection.AddSingleton<PokerManager>();
 
         // Raffle
@@ -187,13 +217,13 @@ public class Plugin : IPluginV2
         await _raffleManager.ReadAndCalculateNextDrawAsync();
 
         // Register all active games with the tracker
-        _activeGameTracker.RegisterGame(_blackjackManager);
-        _activeGameTracker.RegisterGame(_rouletteManager);
+        _activeGameTracker.RegisterGame(_blackjackGame);
+        _activeGameTracker.RegisterGame(_rouletteTable);
         _activeGameTracker.RegisterGame(_pokerManager);
-        _activeGameTracker.RegisterGame(_minefieldManager);
+        _activeGameTracker.RegisterGame(_minefieldGame);
 
-        // Use Task.Run instead of Thread for async operations
-        _ = Task.Run(async () => await _rouletteManager.StartGameAsync(token), token);
+        // Continuous games run their loop in the background
+        _ = Task.Run(async () => await _rouletteTable.GameLoopAsync(token), token);
         _ = Task.Run(async () => await _pokerManager.StartGameAsync(token), token);
 
         _scheduleService.TriggerSchedules(manager, token);

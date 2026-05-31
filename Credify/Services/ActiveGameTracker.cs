@@ -44,6 +44,23 @@ public class ActiveGameTracker
             .Where(game => excludeGame == null || game != excludeGame)
             .FirstOrDefault(game => game.IsPlayerPlaying(player));
 
-        return gameIn?.GetType().Name.Replace("Manager", "");
+        return gameIn is null ? null : GetGameDisplayName(gameIn);
+    }
+
+    /// <summary>
+    /// Derives a friendly game name (e.g. "Blackjack", "Roulette") from the implementing
+    /// type's namespace segment under "...Games.&lt;Name&gt;", which is stable regardless of
+    /// whether the type is the game class, a table, or a manager.
+    /// </summary>
+    private static string GetGameDisplayName(IActiveGame game)
+    {
+        var ns = game.GetType().Namespace ?? string.Empty;
+        const string marker = ".Games.";
+        var markerIndex = ns.IndexOf(marker, StringComparison.Ordinal);
+        if (markerIndex < 0) return game.GetType().Name;
+
+        var rest = ns[(markerIndex + marker.Length)..];
+        var dotIndex = rest.IndexOf('.');
+        return dotIndex >= 0 ? rest[..dotIndex] : rest;
     }
 }

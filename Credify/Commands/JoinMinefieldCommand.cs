@@ -13,15 +13,15 @@ namespace Credify.Commands;
 [CommandCategory("Games")]
 public class JoinMinefieldCommand : Command
 {
-    private readonly GameJoinCommandHelper<MinefieldManager> _helper;
+    private readonly GameJoinCommandHelper<MinefieldGame> _helper;
     private readonly CredifyConfiguration _credifyConfig;
 
     public JoinMinefieldCommand(CommandConfiguration config, ITranslationLookup translationLookup,
-        MinefieldManager minefieldManager, CredifyConfiguration credifyConfig,
+        MinefieldGame minefieldManager, CredifyConfiguration credifyConfig,
         PersistenceService persistenceService, ActiveGameTracker gameTracker)
         : base(config, translationLookup)
     {
-        _helper = new GameJoinCommandHelper<MinefieldManager>(minefieldManager, credifyConfig, persistenceService, gameTracker);
+        _helper = new GameJoinCommandHelper<MinefieldGame>(minefieldManager, credifyConfig, persistenceService, gameTracker);
         _credifyConfig = credifyConfig;
         Name = "credifyminefield";
         Alias = "crmine";

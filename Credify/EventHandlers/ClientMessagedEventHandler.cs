@@ -12,10 +12,10 @@ namespace Credify.EventHandlers;
 /// </summary>
 public class ClientMessagedEventHandler(
     PassiveManager passiveManager,
-    BlackjackManager blackjack,
+    BlackjackGame blackjack,
     QuestManager questManager,
     PokerManager pokerManager,
-    MinefieldManager minefieldManager)
+    MinefieldGame minefieldManager)
 {
     public async Task HandleAsync(ClientMessageEvent messageEvent, CancellationToken token)
     {

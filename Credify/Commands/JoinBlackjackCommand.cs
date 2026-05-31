@@ -13,16 +13,16 @@ namespace Credify.Commands;
 [CommandCategory("Games")]
 public class JoinBlackjackCommand : Command
 {
-    private readonly GameJoinCommandHelper<BlackjackManager> _helper;
+    private readonly GameJoinCommandHelper<BlackjackGame> _helper;
     private readonly CredifyConfiguration _credifyConfig;
-    private readonly BlackjackManager _blackjackManager;
+    private readonly BlackjackGame _blackjackManager;
 
     public JoinBlackjackCommand(CommandConfiguration config, ITranslationLookup translationLookup,
-        BlackjackManager blackjackManager, CredifyConfiguration credifyConfig,
+        BlackjackGame blackjackManager, CredifyConfiguration credifyConfig,
         PersistenceService persistenceService, ActiveGameTracker gameTracker) 
         : base(config, translationLookup)
     {
-        _helper = new GameJoinCommandHelper<BlackjackManager>(blackjackManager, credifyConfig, persistenceService, gameTracker);
+        _helper = new GameJoinCommandHelper<BlackjackGame>(blackjackManager, credifyConfig, persistenceService, gameTracker);
         _credifyConfig = credifyConfig;
         _blackjackManager = blackjackManager;
         Name = "credifyblackjack";

@@ -13,15 +13,15 @@ namespace Credify.Commands;
 [CommandCategory("Games")]
 public class JoinRouletteCommand : Command
 {
-    private readonly GameJoinCommandHelper<RouletteManager> _helper;
+    private readonly GameJoinCommandHelper<Table> _helper;
     private readonly CredifyConfiguration _credifyConfig;
 
-    public JoinRouletteCommand(CommandConfiguration config, ITranslationLookup translationLookup, 
-        CredifyConfiguration credifyConfig, PersistenceService persistenceService, RouletteManager roulette,
-        ActiveGameTracker gameTracker) 
+    public JoinRouletteCommand(CommandConfiguration config, ITranslationLookup translationLookup,
+        CredifyConfiguration credifyConfig, PersistenceService persistenceService, Table roulette,
+        ActiveGameTracker gameTracker)
         : base(config, translationLookup)
     {
-        _helper = new GameJoinCommandHelper<RouletteManager>(roulette, credifyConfig, persistenceService, gameTracker);
+        _helper = new GameJoinCommandHelper<Table>(roulette, credifyConfig, persistenceService, gameTracker);
         _credifyConfig = credifyConfig;
         Name = "credifyroulette";
         Alias = "crrl";
