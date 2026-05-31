@@ -54,7 +54,6 @@ public class BlackjackTranslations
     public string SplitNowPlayingSecond { get; set; } = "(Color::Accent)Now playing split hand...";
     public string SplitInsufficientFunds { get; set; } = "(Color::Yellow)Not enough credits to split";
     public string SplitNotAllowed { get; set; } = "(Color::Yellow)Cannot split. Need matching pair.";
-    public string SplitHandOutcome { get; set; } = "(Color::White)Split hand: {{outcome}} [(Color::Yellow){{total}}(Color::White)]";
     
     // Insurance
     public string InsuranceOffer { get; set; } = "(Color::Yellow)Dealer shows Ace! (Color::White)Type [I] for insurance (costs (Color::Green)${{amount}}(Color::White))";

@@ -13,9 +13,7 @@ public class PokerTranslations
     // Join/Leave
     public string JoinGame { get; set; } = "(Color::Yellow)You have joined the poker table! (Color::White)Waiting for more players...";
     public string LeaveGame { get; set; } = "(Color::Yellow)You have left the poker table";
-    public string PlayerJoined { get; set; } = "(Color::Accent){{name}} (Color::White)joined the poker table (Color::Accent){{count}} (Color::White)player(s)";
     public string InsufficientCredits { get; set; } = "(Color::Yellow)Insufficient credits to join. Minimum buy-in: (Color::Green)${{amount}}";
-    public string InvalidBuyIn { get; set; } = "(Color::Yellow)Invalid buy-in amount. Must be between (Color::Green)${{min}} (Color::White)and (Color::Green)${{max}}";
     
     // Game States
     public string WaitingForPlayers { get; set; } = "(Color::Yellow)Waiting for more players... Need (Color::Accent){{count}} (Color::White)more";
@@ -29,13 +27,11 @@ public class PokerTranslations
     // Cards
     public string YourCards { get; set; } = "Your cards: (Color::Accent){{cards}}";
     public string CommunityCards { get; set; } = "Community cards: (Color::Accent){{cards}}";
-    public string CardsDealt { get; set; } = "(Color::Accent)Hole cards dealt";
     public string FlopDealt { get; set; } = "(Color::Accent)Flop: (Color::White){{cards}}";
     public string TurnDealt { get; set; } = "(Color::Accent)Turn: (Color::White){{card}}";
     public string RiverDealt { get; set; } = "(Color::Accent)River: (Color::White){{card}}";
     
     // Betting Actions - unified 'c' for Check/Call
-    public string ActionPrompt { get; set; } = "(Color::Red)>>> YOUR TURN <<< (Color::White){{options}}";
     public string Fold { get; set; } = "Fold (f)";
     public string Check { get; set; } = "Check (c)";
     public string Call { get; set; } = "Call {{amount}} (c)";
@@ -51,7 +47,6 @@ public class PokerTranslations
     public string ActionTimeout { get; set; } = "(Color::Yellow)Action timeout - {{name}} (Color::White)automatically folded";
     
     // Betting Round
-    public string BettingRoundStart { get; set; } = "(Color::Accent)-- {{round}} --";
     public string CurrentBet { get; set; } = "Current bet: (Color::Green)${{amount}}";
     public string PotSize { get; set; } = "Pot: (Color::Green)${{amount}}";
     public string BettingComplete { get; set; } = "(Color::Accent)Betting round complete";
@@ -76,17 +71,12 @@ public class PokerTranslations
     
     // Errors - now includes available options
     public string InvalidAction { get; set; } = "(Color::Yellow)Invalid action. Available: {{options}}";
-    public string CannotCheck { get; set; } = "(Color::Yellow)Cannot check - must call or fold";
-    public string InvalidRaise { get; set; } = "(Color::Yellow)Invalid raise amount. Minimum: (Color::Green)${{min}}";
-    public string InsufficientChips { get; set; } = "(Color::Yellow)Insufficient chips to call";
     
     // Status
     public string YourChips { get; set; } = "Your chips: (Color::Green)${{amount}}";
     public string PlayerEliminated { get; set; } = "(Color::Accent){{name}} (Color::White)was eliminated";
-    public string NextHandStarting { get; set; } = "(Color::Yellow)Next hand starting in (Color::Accent){{seconds}} (Color::White)seconds...";
     
     // Top-up
-    public string LowChipsWarning { get; set; } = "(Color::Yellow)Low chips! Type (Color::Accent)topup (Color::Yellow)to add more from your balance";
     public string TopUpSuccess { get; set; } = "(Color::Green)Added (Color::Green)${{amount}} (Color::White)to your chips. New total: (Color::Green)${{total}}";
     public string TopUpNoCredits { get; set; } = "(Color::Yellow)Not enough credits to top up";
     // @formatter:on

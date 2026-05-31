@@ -17,6 +17,12 @@ public class Player(EFClient client)
     public long? PendingStake { get; set; }
     public BetCategory? SelectedCategory { get; set; }
 
+    /// <summary>
+    /// The last accepted single-line bet input ("&lt;stake&gt; &lt;bet&gt;"), kept across
+    /// rounds so the player can repeat it with "same". Not cleared on round reset.
+    /// </summary>
+    public string? LastBetInput { get; set; }
+
     public void CreateBet(BaseBet bet) => Bet = bet;
     public void ClearBet() => Bet = null;
     

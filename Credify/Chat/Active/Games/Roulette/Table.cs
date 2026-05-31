@@ -81,22 +81,42 @@ public class Table(
     {
         _gameState = RouletteGameState.CollectingBets;
 
-        // Prompt all players for their stake
+        // Prompt all players for their bet (single-line syntax taught up front).
         foreach (var player in _roundPlayers)
         {
             var credits = await PersistenceService.GetClientCreditsAsync(player.Client);
-            await output.TellPlayerAsync(player, 
-                [translations.Roulette.HowMuchToBet.FormatExt(credits.ToString("N0"))]);
+            await output.TellPlayerAsync(player,
+            [
+                translations.Roulette.HowMuchToBet.FormatExt(credits.ToString("N0")),
+                translations.Roulette.BetSyntaxHint,
+                translations.Roulette.BetSyntaxExtras
+            ]);
         }
 
         // Wait for all players to complete betting or timeout
         _bettingTimeoutToken?.Dispose();
         _bettingTimeoutToken = new CancellationTokenSource();
-        
+
+        var bettingWindow = Config.Roulette.TimeoutForPlayerAction * 3; // 3x timeout for full bet flow
+
+        // Warn still-betting players ~10s before the window closes (no visible clock in chat).
+        var warnAfter = bettingWindow - TimeSpan.FromSeconds(10);
+        if (warnAfter > TimeSpan.Zero)
+        {
+            SharedLibraryCore.Utilities.ExecuteAfterDelay(warnAfter, async warnToken =>
+            {
+                if (warnToken.IsCancellationRequested) return;
+                var pending = _roundPlayers
+                    .Where(p => p.InputState is not (PlayerInputState.Complete or PlayerInputState.TimedOut))
+                    .ToList();
+                if (pending.Count > 0) await output.TellPlayersAsync(pending, [translations.Roulette.TimeWarning]);
+            }, _bettingTimeoutToken.Token);
+        }
+
         try
         {
             using var linkedToken = CancellationTokenSource.CreateLinkedTokenSource(token, _bettingTimeoutToken.Token);
-            await Task.Delay(Config.Roulette.TimeoutForPlayerAction * 3, linkedToken.Token); // 3x timeout for full bet flow
+            await Task.Delay(bettingWindow, linkedToken.Token);
         }
         catch (OperationCanceledException)
         {
@@ -147,25 +167,99 @@ public class Table(
 
     private async Task HandleStakeInputAsync(Player player, string message)
     {
-        var credits = await PersistenceService.GetClientCreditsAsync(player.Client);
-        var parser = new RouletteStakeParser(_stakeValidator, credits, translations.Roulette, Config);
-        var result = parser.Parse(message);
+        var trimmed = message.Trim();
 
-        if (!result.IsValid)
+        // Show the bet legend on demand (so the up-front prompt can stay short).
+        if (trimmed.Equals("bets", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.Equals("help", StringComparison.OrdinalIgnoreCase) || trimmed == "?")
         {
-            await output.TellPlayerAsync(player, [result.ErrorMessage ?? translations.Roulette.InvalidBetInput]);
+            await output.TellPlayerAsync(player,
+            [
+                translations.Roulette.BetLegendOutside,
+                translations.Roulette.BetLegendDozensColumns,
+                translations.Roulette.BetLegendInside,
+                translations.Roulette.BetLegendFormat
+            ]);
             return;
         }
 
-        player.PendingStake = result.Result;
-        player.InputState = PlayerInputState.WaitingForCategory;
-        _gameState = RouletteGameState.AwaitingBetCategory;
+        // Repeat the previous bet verbatim.
+        if (trimmed.Equals("same", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.Equals("again", StringComparison.OrdinalIgnoreCase))
+        {
+            if (player.LastBetInput is null)
+            {
+                await output.TellPlayerAsync(player, [translations.Roulette.NoPreviousBet]);
+                return;
+            }
+            trimmed = player.LastBetInput;
+        }
 
-        // Prompt for bet category
-        await output.TellPlayerAsync(player, [
-            translations.Roulette.InnerOrOutsideBet,
-            translations.Roulette.InnerOrOutsideBetAcceptableInputs
-        ]);
+        var credits = await PersistenceService.GetClientCreditsAsync(player.Client);
+        var tokens = trimmed.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        var stakeParser = new RouletteStakeParser(_stakeValidator, credits, translations.Roulette, Config);
+        var stakeResult = stakeParser.Parse(tokens[0]);
+        if (!stakeResult.IsValid)
+        {
+            await output.TellPlayerAsync(player, [stakeResult.ErrorMessage ?? translations.Roulette.InvalidBetInput]);
+            return;
+        }
+
+        // Stake-only -> fall back to the guided category/details flow.
+        if (tokens.Length == 1)
+        {
+            player.PendingStake = stakeResult.Result;
+            player.InputState = PlayerInputState.WaitingForCategory;
+            _gameState = RouletteGameState.AwaitingBetCategory;
+
+            await output.TellPlayerAsync(player, [
+                translations.Roulette.InnerOrOutsideBet,
+                translations.Roulette.InnerOrOutsideBetAcceptableInputs
+            ]);
+            return;
+        }
+
+        // Single-line bet: "<stake> <bet...>".
+        var stake = (int)stakeResult.Result;
+        var betInput = string.Join(' ', tokens.Skip(1));
+        if (await TryPlaceBetAsync(player, stake, betInput))
+        {
+            player.LastBetInput = $"{stake} {betInput}";
+            return;
+        }
+
+        await output.TellPlayerAsync(player,
+            [translations.Roulette.InvalidBetType, translations.Roulette.InvalidBetHint]);
+    }
+
+    /// <summary>
+    /// Attempts to build and place a bet from a raw bet token. Tries the outside-bet
+    /// keywords first (single word), then inside-bet numbers (1-6). Returns false if
+    /// neither parser accepts the input (caller reports the error).
+    /// </summary>
+    private async Task<bool> TryPlaceBetAsync(Player player, int stake, string betInput)
+    {
+        BaseBet? bet = null;
+
+        var outside = new RouletteOutsideBetParser(stake, translations.Roulette).Parse(betInput);
+        if (outside is { IsValid: true, Result: not null })
+        {
+            bet = outside.Result;
+        }
+        else
+        {
+            var inside = new RouletteInsideBetParser(stake, translations.Roulette).Parse(betInput);
+            if (inside is { IsValid: true, Result: not null }) bet = inside.Result;
+        }
+
+        if (bet is null) return false;
+
+        player.CreateBet(bet);
+        await PersistenceService.RemoveCreditsAsync(player.Client, bet.Stake);
+        player.InputState = PlayerInputState.Complete;
+        await output.TellPlayerAsync(player, [translations.Roulette.BetAccepted]);
+        return true;
     }
 
     private async Task HandleCategoryInputAsync(Player player, string message)
@@ -238,6 +332,7 @@ public class Table(
         player.CreateBet(bet);
         await PersistenceService.RemoveCreditsAsync(player.Client, bet.Stake);
         player.InputState = PlayerInputState.Complete;
+        player.LastBetInput = $"{stake} {message.Trim()}"; // enables "same" next round
 
         await output.TellPlayerAsync(player, [translations.Roulette.BetAccepted]);
     }
