@@ -121,7 +121,7 @@ public class CountdownGame(CredifyConfiguration credifyConfig, PersistenceServic
         
         if (GameInfo.Players.Count is 0)
         {
-            var message = credifyConfig.Translations.Passive.TypingTestNoAnswer.FormatExt(PluginConstants.PluginName);
+            var message = credifyConfig.Translations.Passive.CountdownNoAnswer.FormatExt(PluginConstants.PluginName);
             await chatUtils.BroadcastToAllServers([message]);
             return;
         }

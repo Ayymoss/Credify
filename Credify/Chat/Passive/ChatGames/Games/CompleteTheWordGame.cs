@@ -1,4 +1,5 @@
 using Credify.Chat.Passive.ChatGames.Models;
+using Credify.Chat.Passive.Quests.Enums;
 using Credify.Configuration;
 using Credify.Constants;
 using Credify.Services;
@@ -120,6 +121,7 @@ public class CompleteTheWordGame(CredifyConfiguration credifyConfig, Persistence
                 credifyConfig.ChatGame.PayoutDecayExponent);
 
             await persistenceService.AddCreditsAsync(player.Client, player.Payout);
+            ICredifyEventService.RaiseEvent(ObjectiveType.Trivia, player.Client);
         }
 
         // Announce winner
@@ -127,6 +129,7 @@ public class CompleteTheWordGame(CredifyConfiguration credifyConfig, Persistence
             PluginConstants.PluginName,
             winner.Client.CleanedName,
             winner.Payout.ToString("N0"),
+            $"{winner.ReactionTimeSeconds:N2}",
             GameInfo.Answer);
         await chatUtils.BroadcastToAllServers([broadcastMessage]);
 

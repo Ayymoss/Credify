@@ -25,14 +25,15 @@ public class PassiveTranslations
     public string TriviaNoWinner { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] (Color::Yellow)No one answered correctly! (Color::White)The answer was (Color::Accent){{question}}";
     public string CountdownWordNotFound { get; set; } = "(Color::Yellow){{word}} (Color::White)was not found in the dictionary";
     public string CountdownWinBroadcast { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] (Color::Accent){{count}} (Color::White)winner(s) with (Color::Green)${{amount}} (Color::White)paid out! Accepted answers were (Color::Accent){{words}}";
+    public string CountdownNoAnswer { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] (Color::Yellow)Times up! No valid words were found!";
     public string CountdownBroadcast { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] [(Color::Accent){{name}}(Color::White)] (Color::Yellow)Find the best word in these letters, (Color::Accent){{question}}";
     
     // Complete The Word Game
     public string CompleteWordBroadcast { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] [(Color::Accent){{name}}(Color::White)] (Color::Yellow)Fill in the missing letters! (Color::Accent){{question}}";
-    public string CompleteWordWinnerBroadcast { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] (Color::Accent){{name}} (Color::White)won (Color::Green)${{amount}} (Color::White)! The word was (Color::Accent){{answer}}";
+    public string CompleteWordWinnerBroadcast { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] (Color::Accent){{name}} (Color::White)won (Color::Green)${{amount}} (Color::White)in (Color::Accent){{time}} (Color::White)seconds! The word was (Color::Accent){{answer}}";
     
     // Acronym Game
     public string AcronymBroadcast { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] [(Color::Accent){{name}}(Color::White)] (Color::Yellow)What does (Color::Accent){{question}} (Color::Yellow)stand for?";
-    public string AcronymWinnerBroadcast { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] (Color::Accent){{name}} (Color::White)won (Color::Green)${{amount}} (Color::White)! The answer was (Color::Accent){{answer}}";
+    public string AcronymWinnerBroadcast { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] (Color::Accent){{name}} (Color::White)won (Color::Green)${{amount}} (Color::White)in (Color::Accent){{time}} (Color::White)seconds! The answer was (Color::Accent){{answer}}";
     // @formatter:on
 }
