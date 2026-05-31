@@ -12,14 +12,21 @@ using SharedLibraryCore.Interfaces;
 namespace Credify.Commands;
 
 [CommandCategory("Games")]
-public class RockPaperScissorsCommand : GambleCommandBase
+public class RockPaperScissorsCommand : Command
 {
+    private readonly PersistenceService _persistence;
+    private readonly CredifyConfiguration _credifyConfig;
+    private readonly GambleCommandHelper _gamble;
+
     public RockPaperScissorsCommand(CommandConfiguration config, ITranslationLookup translationLookup,
-        PersistenceService persistenceService, CredifyConfiguration credifyConfig) : base(config, translationLookup, persistenceService, credifyConfig)
+        PersistenceService persistenceService, CredifyConfiguration credifyConfig) : base(config, translationLookup)
     {
+        _persistence = persistenceService;
+        _credifyConfig = credifyConfig;
+        _gamble = new GambleCommandHelper(persistenceService, credifyConfig);
         Name = "creditsrps";
         Alias = "crrps";
-        Description = CredifyConfig.Translations.Gambling.RockPaperScissorsDescription;
+        Description = _credifyConfig.Translations.Gambling.RockPaperScissorsDescription;
         Permission = Data.Models.Client.EFClient.Permission.User;
         RequiresTarget = false;
         Arguments =
@@ -55,12 +62,12 @@ public class RockPaperScissorsCommand : GambleCommandBase
 
         if (!rpsLookup.TryGetValue(userRpsArg.ToLower(), out var playerChoice))
         {
-            gameEvent.Origin.Tell(CredifyConfig.Translations.Gambling.BadRpsArgument);
+            gameEvent.Origin.Tell(_credifyConfig.Translations.Gambling.BadRpsArgument);
             return;
         }
 
-        if (await TryResolveStakeAsync(gameEvent, userStakeArg, GameConstants.MinimumCredits, 0,
-                CredifyConfig.Translations.Core.ErrorParsingSecondArgument) is not { } stake) return;
+        if (await _gamble.TryResolveStakeAsync(gameEvent, userStakeArg, GameConstants.MinimumCredits, 0,
+                _credifyConfig.Translations.Core.ErrorParsingSecondArgument) is not { } stake) return;
 
         long userBalance;
         var outcomeMatrix = new[,]
@@ -79,18 +86,18 @@ public class RockPaperScissorsCommand : GambleCommandBase
         switch (outcome)
         {
             case 0: // Tie
-                userBalance = await Persistence.GetClientCreditsAsync(gameEvent.Origin);
-                message = CredifyConfig.Translations.Gambling.Draw.FormatExt(stake.ToString("N0"), userBalance.ToString("N0"));
+                userBalance = await _persistence.GetClientCreditsAsync(gameEvent.Origin);
+                message = _credifyConfig.Translations.Gambling.Draw.FormatExt(stake.ToString("N0"), userBalance.ToString("N0"));
                 break;
             case 1: // User wins
                 ICredifyEventService.RaiseEvent(ObjectiveType.Baller, gameEvent.Origin, stake * 2);
-                userBalance = await Persistence.AddCreditsAsync(gameEvent.Origin, stake); // Since money is never taken, this is x2
-                message = CredifyConfig.Translations.Gambling.Won
+                userBalance = await _persistence.AddCreditsAsync(gameEvent.Origin, stake); // Since money is never taken, this is x2
+                message = _credifyConfig.Translations.Gambling.Won
                     .FormatExt(stake.ToString("N0"), userBalance.ToString("N0"));
                 break;
             default: // User loses
-                userBalance = await Persistence.RemoveCreditsAsync(gameEvent.Origin, stake);
-                message = CredifyConfig.Translations.Gambling.Lost
+                userBalance = await _persistence.RemoveCreditsAsync(gameEvent.Origin, stake);
+                message = _credifyConfig.Translations.Gambling.Lost
                     .FormatExt(stake.ToString("N0"), userBalance.ToString("N0"));
                 break;
         }

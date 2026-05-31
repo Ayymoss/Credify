@@ -12,14 +12,21 @@ using SharedLibraryCore.Interfaces;
 namespace Credify.Commands;
 
 [CommandCategory("Games")]
-public class CoinFlipCommand : GambleCommandBase
+public class CoinFlipCommand : Command
 {
+    private readonly PersistenceService _persistence;
+    private readonly CredifyConfiguration _credifyConfig;
+    private readonly GambleCommandHelper _gamble;
+
     public CoinFlipCommand(CommandConfiguration config, ITranslationLookup translationLookup, PersistenceService persistenceService,
-        CredifyConfiguration credifyConfig) : base(config, translationLookup, persistenceService, credifyConfig)
+        CredifyConfiguration credifyConfig) : base(config, translationLookup)
     {
+        _persistence = persistenceService;
+        _credifyConfig = credifyConfig;
+        _gamble = new GambleCommandHelper(persistenceService, credifyConfig);
         Name = "creditcf";
         Alias = "crcf";
-        Description = CredifyConfig.Translations.Gambling.CoinFlipDescription;
+        Description = _credifyConfig.Translations.Gambling.CoinFlipDescription;
         Permission = Data.Models.Client.EFClient.Permission.User;
         RequiresTarget = false;
         Arguments =
@@ -53,12 +60,12 @@ public class CoinFlipCommand : GambleCommandBase
 
         if (!rpsLookup.TryGetValue(userRpsArg.ToLower(), out var playerChoice))
         {
-            gameEvent.Origin.Tell(CredifyConfig.Translations.Gambling.BadCfArgument);
+            gameEvent.Origin.Tell(_credifyConfig.Translations.Gambling.BadCfArgument);
             return;
         }
 
-        if (await TryResolveStakeAsync(gameEvent, userStakeArg, GameConstants.MinimumCredits, 0,
-                CredifyConfig.Translations.Core.ErrorParsingSecondArgument) is not { } stake) return;
+        if (await _gamble.TryResolveStakeAsync(gameEvent, userStakeArg, GameConstants.MinimumCredits, 0,
+                _credifyConfig.Translations.Core.ErrorParsingSecondArgument) is not { } stake) return;
 
         var computerChoice = Random.Shared.Next(2);
         string message;
@@ -67,14 +74,14 @@ public class CoinFlipCommand : GambleCommandBase
         if (computerChoice == playerChoice)
         {
             ICredifyEventService.RaiseEvent(ObjectiveType.Baller, gameEvent.Origin, stake * 2);
-            userBalance = await Persistence.AddCreditsAsync(gameEvent.Origin, stake); // Since money is never taken, this is x2
-            message = CredifyConfig.Translations.Gambling.Won
+            userBalance = await _persistence.AddCreditsAsync(gameEvent.Origin, stake); // Since money is never taken, this is x2
+            message = _credifyConfig.Translations.Gambling.Won
                 .FormatExt(stake.ToString("N0"), userBalance.ToString("N0"));
         }
         else
         {
-            userBalance = await Persistence.RemoveCreditsAsync(gameEvent.Origin, stake);
-            message = CredifyConfig.Translations.Gambling.Lost
+            userBalance = await _persistence.RemoveCreditsAsync(gameEvent.Origin, stake);
+            message = _credifyConfig.Translations.Gambling.Lost
                 .FormatExt(stake.ToString("N0"), userBalance.ToString("N0"));
         }
 
