@@ -50,7 +50,7 @@ public class Plugin : IPluginV2
     private readonly ActiveGameTracker _activeGameTracker;
 
     public string Name => PluginConstants.PluginName;
-    public string Version => "2026-03-03";
+    public string Version => "2026-05-31";
     public string Author => "Amos";
 
     public Plugin(

@@ -57,6 +57,11 @@ public class DuelManager(CredifyConfiguration config, PersistenceService persist
                 challenger.Tell(config.Translations.Core.InsufficientCredits);
                 return;
             }
+            if (!PersistenceService.AvailableFunds(target, amount))
+            {
+                challenger.Tell(Trans.TargetCantAfford.FormatExt(target.CleanedName));
+                return;
+            }
 
             var expiry = new CancellationTokenSource();
             _pending[target.ClientId] = new PendingDuel(challenger, target, amount, expiry);
@@ -74,7 +79,7 @@ public class DuelManager(CredifyConfiguration config, PersistenceService persist
                     if (_pending.TryGetValue(target.ClientId, out var p) && p.Challenger.ClientId == challenger.ClientId)
                     {
                         _pending.TryRemove(target.ClientId, out _);
-                        challenger.Tell(Trans.Expired);
+                        challenger.Tell(Trans.ChallengeExpired);
                     }
                 }
                 finally
