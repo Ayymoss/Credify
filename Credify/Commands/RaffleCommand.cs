@@ -27,7 +27,7 @@ public class RaffleCommand : Command
         _credifyConfig = credifyConfig;
         _raffleManager = raffleManager;
         Name = "credifyraffle";
-        Description = credifyConfig.Translations.Raffle.CommandRaffleDescription;
+        Description = credifyConfig.Translations.Raffle.Description;
         Alias = "crraf";
         Permission = EFClient.Permission.User;
         RequiresTarget = false;

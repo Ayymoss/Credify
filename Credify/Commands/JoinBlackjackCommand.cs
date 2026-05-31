@@ -27,7 +27,7 @@ public class JoinBlackjackCommand : Command
         _blackjackManager = blackjackManager;
         Name = "credifyblackjack";
         Alias = "crbj";
-        Description = credifyConfig.Translations.Blackjack.CommandBlackjackDescription;
+        Description = credifyConfig.Translations.Blackjack.Description;
         Permission = Data.Models.Client.EFClient.Permission.User;
         RequiresTarget = false;
     }

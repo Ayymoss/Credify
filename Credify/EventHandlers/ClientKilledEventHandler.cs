@@ -31,7 +31,7 @@ public class ClientKilledEventHandler(
         // Announce streak reward to killer
         if (streakResult.HasStreakReward)
         {
-            var rewardMsg = config.Translations.Streak.StreakReward.FormatExt(
+            var rewardMsg = config.Translations.Streak.Reward.FormatExt(
                 PluginConstants.PluginName, streakResult.CurrentStreak, streakResult.StreakReward.ToString("N0"));
             clientEvent.Client.Tell(rewardMsg);
         }
@@ -39,7 +39,7 @@ public class ClientKilledEventHandler(
         // Announce streak to server
         if (streakResult.ShouldAnnounceStreak)
         {
-            var announceMsg = config.Translations.Streak.StreakAnnouncement.FormatExt(
+            var announceMsg = config.Translations.Streak.Announcement.FormatExt(
                 PluginConstants.PluginName, clientEvent.Client.CleanedName, streakResult.CurrentStreak);
             clientEvent.Owner?.Broadcast(announceMsg);
         }
@@ -70,7 +70,7 @@ public class ClientKilledEventHandler(
             var contractResult = await bountyContractManager.ClaimBountiesAsync(clientEvent.Client, clientEvent.Victim);
             if (contractResult.Success && contractResult.TotalClaimed > 0 && config.BountyContract.AnnounceClaim)
             {
-                var contractMsg = config.Translations.BountyContract.BountyContractClaimed.FormatExt(
+                var contractMsg = config.Translations.BountyContract.Claimed.FormatExt(
                     PluginConstants.PluginName, clientEvent.Client.CleanedName,
                     contractResult.TotalClaimed.ToString("N0"), clientEvent.Victim.CleanedName);
                 clientEvent.Owner?.Broadcast(contractMsg);

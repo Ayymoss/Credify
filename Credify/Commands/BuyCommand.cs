@@ -23,7 +23,7 @@ public class BuyCommand : Command
         _credifyConfig = credifyConfig;
         Name = "credifybuy";
         Alias = "crbuy";
-        Description = credifyConfig.Translations.Shop.CommandBuyDescription;
+        Description = credifyConfig.Translations.Shop.BuyDescription;
         Permission = Data.Models.Client.EFClient.Permission.User;
         RequiresTarget = false;
         Arguments =
@@ -40,7 +40,7 @@ public class BuyCommand : Command
     {
         if (!_credifyConfig.Shop.IsEnabled)
         {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.Shop.ShopDisabled);
+            gameEvent.Origin.Tell(_credifyConfig.Translations.Shop.Disabled);
             return;
         }
 

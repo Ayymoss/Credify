@@ -24,7 +24,7 @@ public class PayCommand : Command
         _persistenceService = persistenceService;
         _credifyConfig = credifyConfig;
         Name = "credifypay";
-        Description = credifyConfig.Translations.Economy.CommandPayCreditsDescription;
+        Description = credifyConfig.Translations.Economy.PayCreditsDescription;
         Alias = "crpay";
         Permission = EFClient.Permission.User;
         RequiresTarget = true;

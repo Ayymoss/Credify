@@ -33,7 +33,7 @@ public class WheelCommand : Command
         _wheelService = wheelService;
         Name = "credifywheel";
         Alias = "crwof";
-        Description = credifyConfig.Translations.Wheel.CommandWheelDescription;
+        Description = credifyConfig.Translations.Wheel.Description;
         Permission = EFClient.Permission.User;
         RequiresTarget = false;
         Arguments = [];
@@ -43,7 +43,7 @@ public class WheelCommand : Command
     {
         if (!_credifyConfig.Wheel.IsEnabled)
         {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.Wheel.WheelDisabled);
+            gameEvent.Origin.Tell(_credifyConfig.Translations.Wheel.Disabled);
             return;
         }
 
@@ -52,7 +52,7 @@ public class WheelCommand : Command
         if (lastUsedDate.HasValue && !CanSpinWheel(lastUsedDate.Value))
         {
             var timeUntilReset = GetTimeUntilReset();
-            gameEvent.Origin.Tell(_credifyConfig.Translations.Wheel.WheelCooldown.FormatExt(timeUntilReset));
+            gameEvent.Origin.Tell(_credifyConfig.Translations.Wheel.Cooldown.FormatExt(timeUntilReset));
             return;
         }
 
@@ -121,13 +121,13 @@ public class WheelCommand : Command
         var profit = payout - userBalance;
         if (profit > 0)
         {
-            var broadcastMsg = _credifyConfig.Translations.Wheel.WheelBroadcastWin.FormatExt(
+            var broadcastMsg = _credifyConfig.Translations.Wheel.BroadcastWin.FormatExt(
                 gameEvent.Origin.CleanedName, profit.ToString("N0"), segment.Name, probability);
             await _gamePlayerCommunication.BroadcastToAllServersAsync(gameEvent.Origin, [broadcastMsg]);
         }
         else if (profit < 0)
         {
-            var broadcastMsg = _credifyConfig.Translations.Wheel.WheelBroadcastLoss.FormatExt(
+            var broadcastMsg = _credifyConfig.Translations.Wheel.BroadcastLoss.FormatExt(
                 gameEvent.Origin.CleanedName, Math.Abs(profit).ToString("N0"), segment.Name, probability);
             await _gamePlayerCommunication.BroadcastToAllServersAsync(gameEvent.Origin, [broadcastMsg]);
         }
@@ -136,22 +136,22 @@ public class WheelCommand : Command
         string message;
         if (segment.IsOneHundredKOrDouble)
         {
-            message = _credifyConfig.Translations.Wheel.WheelTwoXCash.FormatExt(
+            message = _credifyConfig.Translations.Wheel.TwoXCash.FormatExt(
                 segment.Name, profit.ToString("N0"), newBalance.ToString("N0"));
         }
         else if (profit > 0)
         {
-            message = _credifyConfig.Translations.Wheel.WheelWin.FormatExt(
+            message = _credifyConfig.Translations.Wheel.Win.FormatExt(
                 segment.Name, profit.ToString("N0"), newBalance.ToString("N0"));
         }
         else if (profit == 0)
         {
-            message = _credifyConfig.Translations.Wheel.WheelBreakEven.FormatExt(
+            message = _credifyConfig.Translations.Wheel.BreakEven.FormatExt(
                 segment.Name, newBalance.ToString("N0"));
         }
         else
         {
-            message = _credifyConfig.Translations.Wheel.WheelPartialLoss.FormatExt(
+            message = _credifyConfig.Translations.Wheel.PartialLoss.FormatExt(
                 segment.Name, Math.Abs(profit).ToString("N0"), newBalance.ToString("N0"));
         }
         
@@ -160,11 +160,11 @@ public class WheelCommand : Command
 
     private async Task ShowSpinningAnimationAsync(EFClient client)
     {
-        await client.TellAsync([_credifyConfig.Translations.Wheel.WheelSpinning]);
+        await client.TellAsync([_credifyConfig.Translations.Wheel.Spinning]);
         await Task.Delay(1500);
-        await client.TellAsync([_credifyConfig.Translations.Wheel.WheelSlowing]);
+        await client.TellAsync([_credifyConfig.Translations.Wheel.Slowing]);
         await Task.Delay(2000);
-        await client.TellAsync([_credifyConfig.Translations.Wheel.WheelStopping]);
+        await client.TellAsync([_credifyConfig.Translations.Wheel.Stopping]);
         await Task.Delay(1000);
     }
 

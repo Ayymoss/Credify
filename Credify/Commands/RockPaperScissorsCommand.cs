@@ -19,7 +19,7 @@ public class RockPaperScissorsCommand : GambleCommandBase
     {
         Name = "creditsrps";
         Alias = "crrps";
-        Description = CredifyConfig.Translations.Gambling.CommandRockPaperScissorsDescription;
+        Description = CredifyConfig.Translations.Gambling.RockPaperScissorsDescription;
         Permission = Data.Models.Client.EFClient.Permission.User;
         RequiresTarget = false;
         Arguments =
@@ -80,17 +80,17 @@ public class RockPaperScissorsCommand : GambleCommandBase
         {
             case 0: // Tie
                 userBalance = await Persistence.GetClientCreditsAsync(gameEvent.Origin);
-                message = CredifyConfig.Translations.Gambling.GambleDraw.FormatExt(stake.ToString("N0"), userBalance.ToString("N0"));
+                message = CredifyConfig.Translations.Gambling.Draw.FormatExt(stake.ToString("N0"), userBalance.ToString("N0"));
                 break;
             case 1: // User wins
                 ICredifyEventService.RaiseEvent(ObjectiveType.Baller, gameEvent.Origin, stake * 2);
                 userBalance = await Persistence.AddCreditsAsync(gameEvent.Origin, stake); // Since money is never taken, this is x2
-                message = CredifyConfig.Translations.Gambling.GambleWon
+                message = CredifyConfig.Translations.Gambling.Won
                     .FormatExt(stake.ToString("N0"), userBalance.ToString("N0"));
                 break;
             default: // User loses
                 userBalance = await Persistence.RemoveCreditsAsync(gameEvent.Origin, stake);
-                message = CredifyConfig.Translations.Gambling.GambleLost
+                message = CredifyConfig.Translations.Gambling.Lost
                     .FormatExt(stake.ToString("N0"), userBalance.ToString("N0"));
                 break;
         }

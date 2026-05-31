@@ -19,7 +19,7 @@ public class SlotsCommand : GambleCommandBase
     {
         Name = "credifyslots";
         Alias = "crslots";
-        Description = CredifyConfig.Translations.Slots.CommandSlotsDescription;
+        Description = CredifyConfig.Translations.Slots.Description;
         Permission = Data.Models.Client.EFClient.Permission.User;
         RequiresTarget = false;
         Arguments =
@@ -36,7 +36,7 @@ public class SlotsCommand : GambleCommandBase
     {
         if (!CredifyConfig.Slots.IsEnabled)
         {
-            gameEvent.Origin.Tell(CredifyConfig.Translations.Slots.SlotsDisabled);
+            gameEvent.Origin.Tell(CredifyConfig.Translations.Slots.Disabled);
             return;
         }
 
@@ -97,19 +97,19 @@ public class SlotsCommand : GambleCommandBase
             if (resultType == "JACKPOT")
             {
                 // Announce jackpot to server
-                var jackpotMsg = CredifyConfig.Translations.Slots.SlotsJackpot.FormatExt(
+                var jackpotMsg = CredifyConfig.Translations.Slots.Jackpot.FormatExt(
                     PluginConstants.PluginName, gameEvent.Origin.CleanedName, winnings.ToString("N0"));
                 gameEvent.Owner?.Broadcast(jackpotMsg);
             }
             
-            var winMsg = CredifyConfig.Translations.Slots.SlotsWin.FormatExt(
+            var winMsg = CredifyConfig.Translations.Slots.Win.FormatExt(
                 reelDisplay, profit.ToString("N0"), newBalance.ToString("N0"));
             gameEvent.Origin.Tell(winMsg);
         }
         else
         {
             var newBalance = await Persistence.GetClientCreditsAsync(gameEvent.Origin);
-            var loseMsg = CredifyConfig.Translations.Slots.SlotsLose.FormatExt(
+            var loseMsg = CredifyConfig.Translations.Slots.Lose.FormatExt(
                 reelDisplay, bet.ToString("N0"), newBalance.ToString("N0"));
             gameEvent.Origin.Tell(loseMsg);
         }

@@ -21,7 +21,7 @@ public class StatisticsCommand : Command
         _cache = cache;
         _credifyConfig = credifyConfig;
         Name = "credifystats";
-        Description = credifyConfig.Translations.Economy.CommandStatisticsDescription;
+        Description = credifyConfig.Translations.Economy.StatisticsDescription;
         Alias = "crstats";
         Permission = EFClient.Permission.User;
         RequiresTarget = false;

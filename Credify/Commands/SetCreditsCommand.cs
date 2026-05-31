@@ -22,7 +22,7 @@ public class SetCreditsCommand : Command
         _persistenceService = persistenceService;
         _credifyConfig = credifyConfig;
         Name = "credifysetcredits";
-        Description = credifyConfig.Translations.Admin.CommandSetCreditsDescription;
+        Description = credifyConfig.Translations.Admin.SetCreditsDescription;
         Alias = "crset";
         Permission = EFClient.Permission.Owner;
         RequiresTarget = true;

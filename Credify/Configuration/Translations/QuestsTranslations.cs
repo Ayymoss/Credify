@@ -3,7 +3,7 @@
 public class QuestsTranslations
 { 
     // @formatter:off
-    public string CommandQuestDescription { get; set; } = "Shows the quests";
+    public string Description { get; set; } = "Shows the quests";
     public string PermanentHeader { get; set; } = "(Color::Accent)--Permanent Quests--";
     public string DailyHeader { get; set; } = "(Color::Accent)--Daily Quests--";
     public string NoQuests { get; set; } = "(Color::Yellow)You have no active quests."; 

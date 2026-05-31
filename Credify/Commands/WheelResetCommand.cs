@@ -57,11 +57,11 @@ public class WheelResetCommand : Command
         var yesterday = DateTime.Now.Date.AddDays(-1).ToString("yyyy-MM-dd");
         await _metaService.SetPersistentMeta(PluginConstants.WheelLastUsed, yesterday, gameEvent.Target.ClientId);
 
-        gameEvent.Origin.Tell(_credifyConfig.Translations.Wheel.WheelResetSuccess.FormatExt(gameEvent.Target.CleanedName));
+        gameEvent.Origin.Tell(_credifyConfig.Translations.Wheel.ResetSuccess.FormatExt(gameEvent.Target.CleanedName));
         
         if (gameEvent.Origin.ClientId != gameEvent.Target.ClientId)
         {
-            gameEvent.Target.Tell(_credifyConfig.Translations.Wheel.WheelResetTarget.FormatExt(gameEvent.Origin.CleanedName));
+            gameEvent.Target.Tell(_credifyConfig.Translations.Wheel.ResetTarget.FormatExt(gameEvent.Origin.CleanedName));
         }
     }
 }

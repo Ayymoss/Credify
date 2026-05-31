@@ -22,7 +22,7 @@ public class QuestCommand : Command
         _credifyConfig = credifyConfig;
         _questManager = questManager;
         Name = "credifyquests";
-        Description = credifyConfig.Translations.Quests.CommandQuestDescription;
+        Description = credifyConfig.Translations.Quests.Description;
         Alias = "crq";
         Permission = EFClient.Permission.User;
         RequiresTarget = false;

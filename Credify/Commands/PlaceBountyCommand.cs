@@ -26,7 +26,7 @@ public class PlaceBountyCommand : Command
         _bountyManager = bountyManager;
         Name = "credifybounty";
         Alias = "crbounty";
-        Description = credifyConfig.Translations.BountyContract.CommandPlaceBountyDescription;
+        Description = credifyConfig.Translations.BountyContract.PlaceDescription;
         Permission = Data.Models.Client.EFClient.Permission.User;
         RequiresTarget = true;
         Arguments =
@@ -48,7 +48,7 @@ public class PlaceBountyCommand : Command
     {
         if (!_credifyConfig.BountyContract.IsEnabled)
         {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.BountyContract.BountyContractDisabled);
+            gameEvent.Origin.Tell(_credifyConfig.Translations.BountyContract.Disabled);
             return;
         }
 
@@ -88,14 +88,14 @@ public class PlaceBountyCommand : Command
         }
 
         // Notify placer
-        var placerMsg = _credifyConfig.Translations.BountyContract.BountyContractPlaced.FormatExt(
+        var placerMsg = _credifyConfig.Translations.BountyContract.Placed.FormatExt(
             result.Contract!.Amount.ToString("N0"),
             gameEvent.Target.CleanedName,
             result.Fee.ToString("N0"));
         gameEvent.Origin.Tell(placerMsg);
 
         // Notify target
-        var targetMsg = _credifyConfig.Translations.BountyContract.BountyContractTargeted.FormatExt(
+        var targetMsg = _credifyConfig.Translations.BountyContract.Targeted.FormatExt(
             result.Contract.Amount.ToString("N0"),
             gameEvent.Origin.CleanedName);
         gameEvent.Target.Tell(targetMsg);
@@ -103,7 +103,7 @@ public class PlaceBountyCommand : Command
         // Announce to server if enabled
         if (_credifyConfig.BountyContract.AnnouncePlacement)
         {
-            var announceMsg = _credifyConfig.Translations.BountyContract.BountyContractAnnouncement.FormatExt(
+            var announceMsg = _credifyConfig.Translations.BountyContract.Announcement.FormatExt(
                 PluginConstants.PluginName,
                 result.Contract.Amount.ToString("N0"),
                 gameEvent.Target.CleanedName);

@@ -3,8 +3,8 @@
 public class RaffleTranslations
 { 
     // @formatter:off
-    public string CommandShowRaffleDescription { get; set; } = "Shows the current raffle holders";
-    public string CommandRaffleDescription { get; set; } = "Buy your raffle ticket!";
+    public string ShowDescription { get; set; } = "Shows the current raffle holders";
+    public string Description { get; set; } = "Buy your raffle ticket!";
     private string PrefixLong { get; set; } = "[(Color::Pink)Raffle(Color::White)]";
     public string Success { get; set; } = "(Color::Accent)You have purchased ticket {{ticket}}! (Color::Green)Good luck!";
     public string ClientAlreadyPurchased { get; set; } = "(Color::Yellow)You have already purchased a ticket!";

@@ -28,7 +28,7 @@ public class ResetCreditsCommand : Command
         _credifyConfig = credifyConfig;
         _persistenceService = persistenceService;
         Name = "credifyresetcredits";
-        Description = credifyConfig.Translations.Admin.CommandResetCreditsDescription;
+        Description = credifyConfig.Translations.Admin.ResetCreditsDescription;
         Alias = "crreset";
         Permission = EFClient.Permission.Owner;
         RequiresTarget = false;

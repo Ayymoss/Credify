@@ -27,7 +27,7 @@ public class CreditCommand : Command
         _cache = cache;
         _clientService = clientService;
         Name = "credify";
-        Description = credifyConfig.Translations.Economy.CommandCheckCreditsDescription;
+        Description = credifyConfig.Translations.Economy.CheckCreditsDescription;
         Alias = "cr";
         Permission = EFClient.Permission.User;
         RequiresTarget = false;

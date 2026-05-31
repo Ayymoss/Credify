@@ -26,7 +26,7 @@ public class TopCreditsCommand : Command
         _credifyConfig = credifyConfig;
         Name = "credifytop";
         Alias = "crtop";
-        Description = credifyConfig.Translations.Economy.CommandTopCreditsDescription;
+        Description = credifyConfig.Translations.Economy.TopCreditsDescription;
         Permission = EFClient.Permission.User;
         RequiresTarget = false;
     }

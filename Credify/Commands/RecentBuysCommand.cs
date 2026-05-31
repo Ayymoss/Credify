@@ -22,7 +22,7 @@ public class RecentBuysCommand : Command
         _credifyConfig = credifyConfig;
         Name = "credifyrecentbuys";
         Alias = "crrb";
-        Description = credifyConfig.Translations.Shop.CommandRecentBuysDescription;
+        Description = credifyConfig.Translations.Shop.RecentBuysDescription;
         Permission = EFClient.Permission.Administrator;
         RequiresTarget = false;
     }

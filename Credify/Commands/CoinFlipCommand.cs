@@ -19,7 +19,7 @@ public class CoinFlipCommand : GambleCommandBase
     {
         Name = "creditcf";
         Alias = "crcf";
-        Description = CredifyConfig.Translations.Gambling.CommandCoinFlipDescription;
+        Description = CredifyConfig.Translations.Gambling.CoinFlipDescription;
         Permission = Data.Models.Client.EFClient.Permission.User;
         RequiresTarget = false;
         Arguments =
@@ -68,13 +68,13 @@ public class CoinFlipCommand : GambleCommandBase
         {
             ICredifyEventService.RaiseEvent(ObjectiveType.Baller, gameEvent.Origin, stake * 2);
             userBalance = await Persistence.AddCreditsAsync(gameEvent.Origin, stake); // Since money is never taken, this is x2
-            message = CredifyConfig.Translations.Gambling.GambleWon
+            message = CredifyConfig.Translations.Gambling.Won
                 .FormatExt(stake.ToString("N0"), userBalance.ToString("N0"));
         }
         else
         {
             userBalance = await Persistence.RemoveCreditsAsync(gameEvent.Origin, stake);
-            message = CredifyConfig.Translations.Gambling.GambleLost
+            message = CredifyConfig.Translations.Gambling.Lost
                 .FormatExt(stake.ToString("N0"), userBalance.ToString("N0"));
         }
 

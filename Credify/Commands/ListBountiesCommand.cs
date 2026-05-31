@@ -21,7 +21,7 @@ public class ListBountiesCommand : Command
         _bountyManager = bountyManager;
         Name = "credifybounties";
         Alias = "crbounties";
-        Description = credifyConfig.Translations.BountyContract.CommandListBountiesDescription;
+        Description = credifyConfig.Translations.BountyContract.ListDescription;
         Permission = Data.Models.Client.EFClient.Permission.User;
         RequiresTarget = false;
         Arguments = [];
@@ -31,7 +31,7 @@ public class ListBountiesCommand : Command
     {
         if (!_credifyConfig.BountyContract.IsEnabled)
         {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.BountyContract.BountyContractDisabled);
+            gameEvent.Origin.Tell(_credifyConfig.Translations.BountyContract.Disabled);
             return Task.CompletedTask;
         }
 
@@ -39,18 +39,18 @@ public class ListBountiesCommand : Command
 
         if (bounties.Count == 0)
         {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.BountyContract.NoBountiesActive);
+            gameEvent.Origin.Tell(_credifyConfig.Translations.BountyContract.NoneActive);
             return Task.CompletedTask;
         }
 
-        gameEvent.Origin.Tell(_credifyConfig.Translations.BountyContract.BountiesHeader);
+        gameEvent.Origin.Tell(_credifyConfig.Translations.BountyContract.Header);
 
         // Show top 5 bounties
         var topBounties = bounties.Take(5).ToList();
         for (var i = 0; i < topBounties.Count; i++)
         {
             var bounty = topBounties[i];
-            var msg = _credifyConfig.Translations.BountyContract.BountyListEntry.FormatExt(
+            var msg = _credifyConfig.Translations.BountyContract.ListEntry.FormatExt(
                 i + 1,
                 bounty.Amount.ToString("N0"),
                 bounty.TargetName);
@@ -59,7 +59,7 @@ public class ListBountiesCommand : Command
 
         if (bounties.Count > 5)
         {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.BountyContract.BountiesMoreCount.FormatExt(bounties.Count - 5));
+            gameEvent.Origin.Tell(_credifyConfig.Translations.BountyContract.MoreCount.FormatExt(bounties.Count - 5));
         }
 
         return Task.CompletedTask;

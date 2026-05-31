@@ -3,7 +3,7 @@
 public class RouletteTranslations
 {
     // @formatter:off
-    public string CommandRouletteDescription { get; set; } = "Join Roulette";
+    public string Description { get; set; } = "Join Roulette";
     private string PrefixLong { get; set; } = "[(Color::Green)Roulette(Color::White)]";
     private string PrefixShort { get; set; } = "[(Color::Green)RL(Color::White)]";
     public string BallStopped { get; set; } = "The ball landed on (Color::Accent){{number}} (Color::White)({{color}})";

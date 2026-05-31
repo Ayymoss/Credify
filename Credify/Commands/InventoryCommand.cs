@@ -20,7 +20,7 @@ public class InventoryCommand : Command
         _credifyConfig = credifyConfig;
         _persistenceService = persistenceService;
         Name = "credifyinventory";
-        Description = credifyConfig.Translations.Shop.CommandInventoryDescription;
+        Description = credifyConfig.Translations.Shop.InventoryDescription;
         Alias = "crinv";
         Permission = Data.Models.Client.EFClient.Permission.User;
         RequiresTarget = false;
@@ -38,7 +38,7 @@ public class InventoryCommand : Command
     {
         if (!_credifyConfig.Shop.IsEnabled)
         {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.Shop.ShopDisabled);
+            gameEvent.Origin.Tell(_credifyConfig.Translations.Shop.Disabled);
             return;
         }
 
@@ -58,7 +58,7 @@ public class InventoryCommand : Command
         var shopItems = await _persistenceService.GetClientShopItemsAsync(client);
         var headerMessage = new List<string>
         {
-            _credifyConfig.Translations.Shop.ShopClientHeader.FormatExt(client.CleanedName)
+            _credifyConfig.Translations.Shop.ClientHeader.FormatExt(client.CleanedName)
         };
 
         var serverItems = _credifyConfig.Shop.Items.Where(x => x.CanBeBought).ToList();
@@ -67,11 +67,11 @@ public class InventoryCommand : Command
             {
                 var shopItemName = serverItems
                     .FirstOrDefault(x => x.Id == shopItem.Id)?.Name ?? "Unknown Item";
-                return _credifyConfig.Translations.Shop.ShopItemFormatClient
+                return _credifyConfig.Translations.Shop.ItemFormatClient
                     .FormatExt(shopItem.Amount.ToString("N0"), shopItem.Id, shopItemName);
             }).ToList();
 
-        userShopMessages.Add(_credifyConfig.Translations.Help.HelpShop);
+        userShopMessages.Add(_credifyConfig.Translations.Help.Shop);
         var shopMessages = headerMessage.Concat(userShopMessages);
         await gameEvent.Origin.TellAsync(shopMessages);
     }

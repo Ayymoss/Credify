@@ -16,7 +16,7 @@ public class ShopCommand : Command
     {
         _credifyConfig = credifyConfig;
         Name = "credifyshop";
-        Description = credifyConfig.Translations.Shop.CommandShopDescription;
+        Description = credifyConfig.Translations.Shop.Description;
         Alias = "crshop";
         Permission = Data.Models.Client.EFClient.Permission.User;
         RequiresTarget = false;
@@ -26,21 +26,21 @@ public class ShopCommand : Command
     {
         if (!_credifyConfig.Shop.IsEnabled)
         {
-            gameEvent.Origin.Tell(_credifyConfig.Translations.Shop.ShopDisabled);
+            gameEvent.Origin.Tell(_credifyConfig.Translations.Shop.Disabled);
             return;
         }
 
         var headerMessage = new List<string>
         {
-            _credifyConfig.Translations.Shop.ShopServerHeader
+            _credifyConfig.Translations.Shop.ServerHeader
         };
 
         var shopItems = _credifyConfig.Shop.Items
             .Where(x => x.CanBeBought)
-            .Select(shopItem => _credifyConfig.Translations.Shop.ShopItemFormat
+            .Select(shopItem => _credifyConfig.Translations.Shop.ItemFormat
                 .FormatExt(shopItem.Id, shopItem.Cost.ToString("N0"), shopItem.Name)).ToList();
 
-        shopItems.Add(_credifyConfig.Translations.Shop.PurchaseShopItemFormat);
+        shopItems.Add(_credifyConfig.Translations.Shop.PurchaseItemFormat);
         var shopMessages = headerMessage.Concat(shopItems);
         await gameEvent.Origin.TellAsync(shopMessages);
     }
