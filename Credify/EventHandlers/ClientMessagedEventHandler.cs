@@ -1,6 +1,7 @@
 using Credify.Chat.Active.Games.Blackjack;
 using Credify.Chat.Active.Games.Minefield;
 using Credify.Chat.Active.Games.Poker;
+using Credify.Chat.Active.Games.Roulette;
 using Credify.Chat.Passive.ChatGames;
 using Credify.Chat.Passive.Quests;
 using SharedLibraryCore.Events.Game;
@@ -15,7 +16,8 @@ public class ClientMessagedEventHandler(
     BlackjackGame blackjack,
     QuestManager questManager,
     PokerManager pokerManager,
-    MinefieldGame minefieldManager)
+    MinefieldGame minefieldManager,
+    Table roulette)
 {
     public async Task HandleAsync(ClientMessageEvent messageEvent, CancellationToken token)
     {
@@ -28,7 +30,8 @@ public class ClientMessagedEventHandler(
             blackjack.HandleChatAsync(messageEvent.Client, messageEvent.Message),
             questManager.HandleChatAsync(messageEvent.Client, messageEvent.Message),
             pokerManager.HandleChatAsync(messageEvent.Client, messageEvent.Message),
-            minefieldManager.HandleChatAsync(messageEvent.Client, messageEvent.Message)
+            minefieldManager.HandleChatAsync(messageEvent.Client, messageEvent.Message),
+            roulette.HandleChatAsync(messageEvent.Client, messageEvent.Message)
         );
     }
 }
