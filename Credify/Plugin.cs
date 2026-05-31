@@ -1,5 +1,6 @@
 using Credify.Chat.Active.Core;
 using Credify.Chat.Active.Games.Blackjack;
+using Credify.Chat.Active.Games.Minefield;
 using Credify.Chat.Active.Games.Poker;
 using Credify.Chat.Active.Games.Roulette;
 using Credify.Chat.Active.Games.Roulette.Utilities;
@@ -33,6 +34,7 @@ public class Plugin : IPluginV2
     private readonly RaffleManager _raffleManager;
     private readonly PokerManager _pokerManager;
     private readonly BlackjackManager _blackjackManager;
+    private readonly MinefieldManager _minefieldManager;
     private readonly ClientKilledEventHandler _clientKilledEventHandler;
     private readonly ClientMessagedEventHandler _clientMessagedEventHandler;
     private readonly ClientStateAuthorizedEventHandler _clientStateAuthorizedEventHandler;
@@ -52,6 +54,7 @@ public class Plugin : IPluginV2
         RaffleManager raffleManager,
         PokerManager pokerManager,
         BlackjackManager blackjackManager,
+        MinefieldManager minefieldManager,
         ClientKilledEventHandler clientKilledEventHandler,
         ClientMessagedEventHandler clientMessagedEventHandler,
         ClientStateAuthorizedEventHandler clientStateAuthorizedEventHandler,
@@ -67,6 +70,7 @@ public class Plugin : IPluginV2
         _raffleManager = raffleManager;
         _pokerManager = pokerManager;
         _blackjackManager = blackjackManager;
+        _minefieldManager = minefieldManager;
         _clientKilledEventHandler = clientKilledEventHandler;
         _clientMessagedEventHandler = clientMessagedEventHandler;
         _clientStateAuthorizedEventHandler = clientStateAuthorizedEventHandler;
@@ -113,6 +117,9 @@ public class Plugin : IPluginV2
         
         // Blackjack
         serviceCollection.AddSingleton<BlackjackManager>();
+
+        // Minefield
+        serviceCollection.AddSingleton<MinefieldManager>();
 
         // Roulette
         serviceCollection.AddSingleton<RouletteManager>();
@@ -183,6 +190,7 @@ public class Plugin : IPluginV2
         _activeGameTracker.RegisterGame(_blackjackManager);
         _activeGameTracker.RegisterGame(_rouletteManager);
         _activeGameTracker.RegisterGame(_pokerManager);
+        _activeGameTracker.RegisterGame(_minefieldManager);
 
         // Use Task.Run instead of Thread for async operations
         _ = Task.Run(async () => await _rouletteManager.StartGameAsync(token), token);

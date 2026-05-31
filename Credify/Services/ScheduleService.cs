@@ -43,18 +43,28 @@ public class ScheduleService(
         Utilities.ExecuteAfterDelay(TimeSpan.FromMinutes(1), LotteryDelayCheck, token);
     }
 
+    private int _advertisementIndex;
+
     private async Task AdvertisementDelayAsync(IManager manager, CancellationToken token)
     {
+        // Rotate one themed advert per interval rather than dumping every line at once,
+        // so chat stays uncluttered while still cycling through all features over time.
+        string[] adverts =
+        [
+            config.Translations.Core.AdvertisementMessage,
+            config.Translations.Core.AdvertisementQuickBets,
+            config.Translations.Core.AdvertisementRaffle,
+            config.Translations.Core.AdvertisementShop,
+            config.Translations.Core.AdvertisementProfile
+        ];
+
+        var advert = adverts[_advertisementIndex % adverts.Length].FormatExt(PluginConstants.PluginName);
+        _advertisementIndex++;
+
         foreach (var server in manager.GetServers())
         {
             if (server.ConnectedClients.Count is 0) continue;
-            List<string> messages =
-            [
-                config.Translations.Core.AdvertisementMessage.FormatExt(PluginConstants.PluginName),
-                config.Translations.Core.AdvertisementRaffle.FormatExt(PluginConstants.PluginName),
-                config.Translations.Core.AdvertisementShop.FormatExt(PluginConstants.PluginName)
-            ];
-            await server.BroadcastAsync(messages, token: token);
+            await server.BroadcastAsync([advert], token: token);
         }
 
         Utilities.ExecuteAfterDelay(config.Core.AdvertisementIntervalMinutes,

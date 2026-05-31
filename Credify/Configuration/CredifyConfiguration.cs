@@ -15,5 +15,6 @@ public class CredifyConfiguration
     public WheelConfiguration Wheel { get; set; } = new();
     public BountyContractConfiguration BountyContract { get; set; } = new();
     public PokerConfiguration Poker { get; set; } = new();
+    public MinefieldConfiguration Minefield { get; set; } = new();
     public TranslationsRoot Translations { get; set; } = new();
 }

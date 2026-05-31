@@ -21,4 +21,5 @@ public enum ObjectiveType
     MyNameJeff = 16,
     Humiliation = 17,
     Trivia = 18,
+    Minefield = 19,
 }

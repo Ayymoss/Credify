@@ -221,6 +221,7 @@ public class QuestManager(CredifyConfiguration config, PersistenceService persis
                 case ObjectiveType.Blackjack:
                 case ObjectiveType.TopHolder:
                 case ObjectiveType.Roulette:
+                case ObjectiveType.Minefield:
                     UpdatePlayerProgress(client, (int)quest.ObjectiveType, 1);
                     break;
                 case ObjectiveType.Donation:

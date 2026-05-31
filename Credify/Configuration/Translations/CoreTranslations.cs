@@ -3,9 +3,14 @@ namespace Credify.Configuration.Translations;
 public class CoreTranslations
 {
     // @formatter:off
-    public string AdvertisementMessage { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] Gamble your Credits today! (Color::Accent)!crbj(Color::White), (Color::Accent)!crrl(Color::White), (Color::Accent)!crhelp";
-    public string AdvertisementRaffle { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] Join the Raffle! (Color::Accent)!crraf(Color::White), (Color::Accent)!crsr";
-    public string AdvertisementShop { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] Buy items from the shop! (Color::Accent)!crshop(Color::White)";
+    // Advertisement lines are rotated one-per-interval by ScheduleService (not all at once),
+    // so each stays focused on a theme. Keep them short and end gambling/feature lines with
+    // a pointer to !crhelp rather than listing every command.
+    public string AdvertisementMessage { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] Bet your credits! Blackjack (Color::Accent)!crbj(Color::White), Minefield (Color::Accent)!crmine(Color::White), Poker (Color::Accent)!crpk(Color::White), Roulette (Color::Accent)!crrl(Color::White), Slots (Color::Accent)!crslots";
+    public string AdvertisementQuickBets { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] Fancy a quick flutter? Coin flip (Color::Accent)!crcf(Color::White), Rock-Paper-Scissors (Color::Accent)!crrps(Color::White), Wheel of Fortune (Color::Accent)!crwof";
+    public string AdvertisementRaffle { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] Earn more: daily quests (Color::Accent)!crq(Color::White), the raffle (Color::Accent)!crraf(Color::White), and climb the leaderboard (Color::Accent)!crtop";
+    public string AdvertisementShop { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] Spend your credits: shop (Color::Accent)!crshop(Color::White), gift players (Color::Accent)!crpay(Color::White), place a bounty (Color::Accent)!crbounty";
+    public string AdvertisementProfile { get; set; } = "[(Color::Pink){{pluginName}}(Color::White)] Check your balance (Color::Accent)!cr(Color::White), stats (Color::Accent)!crstats(Color::White), inventory (Color::Accent)!crinv(Color::White). Full list: (Color::Accent)!crhelp";
     public string InsufficientCredits { get; set; } = "(Color::Yellow)Insufficient credits";
     public string PassIdAsArgument { get; set; } = "(Color::Yellow)Pass the 'Id' from IW4MAdminConfiguration as an argument";
     public string ResettingCreditsInit { get; set; } = "(Color::Accent)--Credit Reset--";
@@ -86,6 +91,7 @@ public class CoreTranslations
     public string CommandBlackjackDescription { get; set; } ="Join Blackjack";
     public string CommandPokerDescription { get; set; } = "Join or leave the poker table (Texas Hold'em)";
     public string CommandRouletteDescription { get; set; } = "Join Roulette";
+    public string CommandMinefieldDescription { get; set; } = "Play Minefield - clear tiles for rising payouts, avoid the mines";
     public string CommandQuestDescription { get; set; } = "Shows the quests";
     
     // Streak & Bounty
