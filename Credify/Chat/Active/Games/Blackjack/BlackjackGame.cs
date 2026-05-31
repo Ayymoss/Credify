@@ -30,12 +30,7 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
     /// <summary>
     /// Transitions to a new game state.
     /// </summary>
-    protected bool TransitionToState(GameState newState) => _stateMachine.TransitionTo(newState);
-
-    /// <summary>
-    /// Forces a transition to a new game state (use with caution).
-    /// </summary>
-    protected void ForceTransitionToState(GameState newState) => _stateMachine.ForceTransitionTo(newState);
+    protected void TransitionToState(GameState newState) => _stateMachine.TransitionTo(newState);
 
     /// <summary>
     /// Checks if currently in the specified state.
@@ -85,7 +80,7 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
         if (!IsInState(GameState.WaitingForPlayers)) return;
         if (Players.IsEmpty) return;
 
-        ForceTransitionToState(GameState.SettingUpGame);
+        TransitionToState(GameState.SettingUpGame);
         _houseHand =
         [
             _deckService.DrawCardOrReshuffle(),
@@ -101,7 +96,7 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
 
     private async Task RequestPlayerStakesAsync(CancellationToken token)
     {
-        ForceTransitionToState(GameState.RequestPlayerStakes);
+        TransitionToState(GameState.RequestPlayerStakes);
 
         var insufficientFunds = new List<EFClient>();
         foreach (var (client, player) in Players)
@@ -149,7 +144,7 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
     private async Task DealCardsAsync(CancellationToken token)
     {
         if (!IsInState(GameState.RequestPlayerStakes)) return;
-        ForceTransitionToState(GameState.DealCards);
+        TransitionToState(GameState.DealCards);
 
         var noBets = Players
             .Where(x => x.Value is { Queued: false, SittingOut: false, Stake: null })
@@ -196,7 +191,7 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
 
     private async Task OfferInsuranceAsync()
     {
-        ForceTransitionToState(GameState.OfferingInsurance);
+        TransitionToState(GameState.OfferingInsurance);
         
         // Track which players can take insurance (have enough funds)
         var eligibleCount = 0;
@@ -242,7 +237,7 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
 
     private async Task RequestPlayerDecisionsAsync()
     {
-        ForceTransitionToState(GameState.RequestPlayerDecisions);
+        TransitionToState(GameState.RequestPlayerDecisions);
         
         // Check insurance results if dealer has blackjack
         var dealerHasBlackjack = BlackjackPayoutCalculator.IsBlackjack(_houseHand);
@@ -303,7 +298,7 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
     private async Task DealerPlaysAsync(CancellationToken token)
     {
         if (!IsInState(GameState.RequestPlayerDecisions)) return;
-        ForceTransitionToState(GameState.DealerPlays);
+        TransitionToState(GameState.DealerPlays);
 
         // Skip dealer draw if all players (and their split hands) have busted
         var allPlayersBusted = ActivePlayers.All(p =>
@@ -413,7 +408,7 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
 
     private async Task PayoutAsync()
     {
-        ForceTransitionToState(GameState.Payout);
+        TransitionToState(GameState.Payout);
 
         foreach (var (client, player) in ActivePlayers)
         {
@@ -472,7 +467,7 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
         _insuranceToken?.Cancel();
         _insuranceToken?.Dispose();
         _insuranceToken = null;
-        ForceTransitionToState(GameState.WaitingForPlayers);
+        TransitionToState(GameState.WaitingForPlayers);
 
         foreach (var (client, player) in Players)
         {
@@ -524,7 +519,7 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
             _insuranceToken?.Cancel();
             _insuranceToken?.Dispose();
             _insuranceToken = null;
-            ForceTransitionToState(GameState.WaitingForPlayers);
+            TransitionToState(GameState.WaitingForPlayers);
         }
 
         if (!IsInState(GameState.WaitingForPlayers))

@@ -1,81 +1,43 @@
 namespace Credify.Chat.Active.Core;
 
 /// <summary>
-/// Simple state machine base class for game state management.
-/// Provides state transition validation and state change events.
+/// Typed current-state holder for games that track a single game-wide state. Provides the
+/// current state, state queries, and an unconditional transition.
+///
+/// Note: this intentionally does NOT validate transitions. Games guard their own flow with
+/// IsInState checks at each step (e.g. "if (!IsInState(RequestPlayerStakes)) return;"), and
+/// they also need recovery transitions (resetting back to WaitingForPlayers after a
+/// disconnect/timeout) that a strict transition table would reject. A validated FSM was
+/// tried and bypassed everywhere, so it was removed rather than left as dead code.
 /// </summary>
 /// <typeparam name="TState">The state enum type</typeparam>
 public abstract class GameStateMachine<TState> where TState : struct, Enum
 {
-    private TState _currentState;
-
     /// <summary>
     /// Gets the current state.
     /// </summary>
-    public TState CurrentState => _currentState;
+    public TState CurrentState { get; private set; }
 
     /// <summary>
     /// Initializes the state machine with the initial state.
     /// </summary>
     protected GameStateMachine(TState initialState)
     {
-        _currentState = initialState;
+        CurrentState = initialState;
     }
 
     /// <summary>
-    /// Validates if a state transition is allowed. Override to implement custom validation.
+    /// Transitions to a new state.
     /// </summary>
-    protected virtual bool IsValidTransition(TState from, TState to) => true;
-
-    /// <summary>
-    /// Called before a state transition. Override to perform actions before state changes.
-    /// </summary>
-    protected virtual void OnStateExiting(TState exitingState) { }
-
-    /// <summary>
-    /// Called after a state transition. Override to perform actions after state changes.
-    /// </summary>
-    protected virtual void OnStateEntered(TState enteredState) { }
-
-    /// <summary>
-    /// Transitions to a new state if the transition is valid.
-    /// </summary>
-    /// <returns>True if the transition was successful, false otherwise</returns>
-    public bool TransitionTo(TState newState)
-    {
-        if (EqualityComparer<TState>.Default.Equals(_currentState, newState))
-        {
-            return true; // Already in this state
-        }
-
-        if (!IsValidTransition(_currentState, newState))
-        {
-            return false; // Invalid transition
-        }
-
-        OnStateExiting(_currentState);
-        _currentState = newState;
-        OnStateEntered(_currentState);
-        return true;
-    }
-
-    /// <summary>
-    /// Transitions to a new state without validation (use with caution).
-    /// </summary>
-    public void ForceTransitionTo(TState newState)
-    {
-        OnStateExiting(_currentState);
-        _currentState = newState;
-        OnStateEntered(_currentState);
-    }
+    public void TransitionTo(TState newState) => CurrentState = newState;
 
     /// <summary>
     /// Checks if the current state matches the given state.
     /// </summary>
-    public bool IsInState(TState state) => EqualityComparer<TState>.Default.Equals(_currentState, state);
+    public bool IsInState(TState state) => EqualityComparer<TState>.Default.Equals(CurrentState, state);
 
     /// <summary>
     /// Checks if the current state is one of the given states.
     /// </summary>
-    public bool IsInAnyState(params TState[] states) => states.Contains(_currentState);
+    public bool IsInAnyState(params TState[] states) => states.Contains(CurrentState);
 }

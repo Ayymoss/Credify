@@ -47,12 +47,7 @@ public class PokerTable(
     /// <summary>
     /// Transitions to a new game state.
     /// </summary>
-    private bool TransitionToState(PokerGameState newState) => _stateMachine.TransitionTo(newState);
-
-    /// <summary>
-    /// Forces a transition to a new game state (use with caution).
-    /// </summary>
-    private void ForceTransitionToState(PokerGameState newState) => _stateMachine.ForceTransitionTo(newState);
+    private void TransitionToState(PokerGameState newState) => _stateMachine.TransitionTo(newState);
 
     /// <summary>
     /// Checks if currently in the specified state.
@@ -74,7 +69,7 @@ public class PokerTable(
     /// </summary>
     private async Task StartNewHandAsync(CancellationToken token)
     {
-        ForceTransitionToState(PokerGameState.BetweenHands);
+        TransitionToState(PokerGameState.BetweenHands);
         _playersInHand = Players.Values.ToList();
 
         // Check players with insufficient chips and offer top-up
@@ -102,7 +97,7 @@ public class PokerTable(
 
         if (_playersInHand.Count < Config.Poker.MinPlayers)
         {
-            ForceTransitionToState(PokerGameState.WaitingForPlayers);
+            TransitionToState(PokerGameState.WaitingForPlayers);
 
             // Notify remaining players that we're waiting for more
             if (_playersInHand.Count > 0)
@@ -170,7 +165,7 @@ public class PokerTable(
         ]);
 
         // Deal hole cards
-        ForceTransitionToState(PokerGameState.PreFlop);
+        TransitionToState(PokerGameState.PreFlop);
         foreach (var player in _playersInHand)
         {
             player.HoleCards = deckService.DealCards(2);
@@ -186,7 +181,7 @@ public class PokerTable(
         // Flop
         if (GetActivePlayers().Count > 1)
         {
-            ForceTransitionToState(PokerGameState.Flop);
+            TransitionToState(PokerGameState.Flop);
             _communityCards.AddRange(deckService.DealCards(3));
             await output.TellPlayersAsync(_playersInHand, [
                 _pokerTrans.FlopDealt.FormatExt(
@@ -198,7 +193,7 @@ public class PokerTable(
         // Turn
         if (GetActivePlayers().Count > 1)
         {
-            ForceTransitionToState(PokerGameState.Turn);
+            TransitionToState(PokerGameState.Turn);
             _communityCards.Add(deckService.DealCard());
             await output.TellPlayersAsync(_playersInHand, [
                 _pokerTrans.TurnDealt.FormatExt(_communityCards.Last().ToString())
@@ -209,7 +204,7 @@ public class PokerTable(
         // River
         if (GetActivePlayers().Count > 1)
         {
-            ForceTransitionToState(PokerGameState.River);
+            TransitionToState(PokerGameState.River);
             _communityCards.Add(deckService.DealCard());
             await output.TellPlayersAsync(_playersInHand, [
                 _pokerTrans.RiverDealt.FormatExt(_communityCards.Last().ToString())
@@ -563,7 +558,7 @@ public class PokerTable(
     /// </summary>
     private async Task ExecuteShowdownAsync()
     {
-        ForceTransitionToState(PokerGameState.Showdown);
+        TransitionToState(PokerGameState.Showdown);
         var activePlayers = GetActivePlayers();
 
         if (activePlayers.Count == 1)
@@ -887,7 +882,7 @@ public class PokerTable(
             // If we dropped below minimum players, notify remaining players and transition state
             if (Players.Count > 0 && Players.Count < Config.Poker.MinPlayers)
             {
-                ForceTransitionToState(PokerGameState.WaitingForPlayers);
+                TransitionToState(PokerGameState.WaitingForPlayers);
                 await output.TellPlayersAsync(Players.Values.ToList(), [_pokerTrans.NotEnoughPlayers]);
             }
 
