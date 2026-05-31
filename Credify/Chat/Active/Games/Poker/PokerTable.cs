@@ -311,6 +311,13 @@ public class PokerTable(
 
             activePlayers = GetActivePlayers();
             if (activePlayers.Count <= 1) break;
+
+            // A player may have disconnected/left mid-round, shrinking the list. Keep the
+            // positional indices in range so the next access can't go out of bounds
+            // (round completion is still gated by IsBettingRoundComplete below, so this
+            // degrades gracefully rather than crashing the hand).
+            if (actionIndex >= activePlayers.Count) actionIndex %= activePlayers.Count;
+            if (startIndex >= activePlayers.Count) startIndex %= activePlayers.Count;
         }
 
         // Return uncalled bets if any (e.g. All-In overshoot)
