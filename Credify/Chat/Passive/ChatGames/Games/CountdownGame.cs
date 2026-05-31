@@ -182,26 +182,29 @@ public class CountdownGame(CredifyConfiguration credifyConfig, PersistenceServic
         }
     }
 
+    // Letter frequencies from the actual Countdown tile pool. Drawing weighted and
+    // without replacement keeps common letters (E, R, S, T, N...) plentiful and rare
+    // ones (Q, Z, J, X...) scarce, so the 9 letters usually form a workable word.
+    // A uniform pick made rare consonants as likely as common ones, producing boards
+    // few words could be built from.
+    private static readonly (char Letter, int Count)[] VowelPool =
+        [('A', 15), ('E', 21), ('I', 13), ('O', 13), ('U', 5)];
+
+    private static readonly (char Letter, int Count)[] ConsonantPool =
+    [
+        ('B', 2), ('C', 3), ('D', 6), ('F', 2), ('G', 3), ('H', 2), ('J', 1), ('K', 1),
+        ('L', 5), ('M', 4), ('N', 8), ('P', 4), ('Q', 1), ('R', 9), ('S', 9), ('T', 9),
+        ('V', 1), ('W', 1), ('X', 1), ('Y', 1), ('Z', 1)
+    ];
+
     private void GenerateQuestion()
     {
-        const string countdown = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        char[] vowels = ['A', 'E', 'I', 'O', 'U'];
-        var consonants = countdown.Except(vowels).ToList();
-        var letters = new List<char>();
         var vowelCount = Random.Shared.Next(3, 6);
         var consonantCount = 9 - vowelCount;
 
-        for (var i = 0; i < vowelCount; i++)
-        {
-            var index = Random.Shared.Next(vowels.Length);
-            letters.Add(vowels[index]);
-        }
-
-        for (var i = 0; i < consonantCount; i++)
-        {
-            var index = Random.Shared.Next(consonants.Count);
-            letters.Add(consonants[index]);
-        }
+        var letters = new List<char>();
+        letters.AddRange(DrawWithoutReplacement(VowelPool, vowelCount));
+        letters.AddRange(DrawWithoutReplacement(ConsonantPool, consonantCount));
 
         for (var i = letters.Count - 1; i > 0; i--)
         {
@@ -209,9 +212,35 @@ public class CountdownGame(CredifyConfiguration credifyConfig, PersistenceServic
             (letters[i], letters[j]) = (letters[j], letters[i]);
         }
 
-        var shuffledLettersString = new string(letters.ToArray());
-        GameInfo.Question = shuffledLettersString;
+        GameInfo.Question = new string(letters.ToArray());
         GameInfo.Answer = string.Empty;
+    }
+
+    /// <summary>
+    /// Draws <paramref name="count"/> tiles from a weighted pool without replacement —
+    /// each pick removes one tile of the chosen letter, mirroring the physical tile bag.
+    /// </summary>
+    private static List<char> DrawWithoutReplacement((char Letter, int Count)[] pool, int count)
+    {
+        var remaining = pool.Select(p => (p.Letter, p.Count)).ToList();
+        var drawn = new List<char>();
+
+        for (var i = 0; i < count; i++)
+        {
+            var total = remaining.Sum(t => t.Count);
+            var roll = Random.Shared.Next(total);
+            var idx = 0;
+            while (roll >= remaining[idx].Count)
+            {
+                roll -= remaining[idx].Count;
+                idx++;
+            }
+
+            drawn.Add(remaining[idx].Letter);
+            remaining[idx] = (remaining[idx].Letter, remaining[idx].Count - 1);
+        }
+
+        return drawn;
     }
 
     private static bool IsValid(string attempt, string generated)
