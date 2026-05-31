@@ -53,7 +53,8 @@ public class ListBountiesCommand : Command
             var msg = _credifyConfig.Translations.BountyContract.ListEntry.FormatExt(
                 i + 1,
                 bounty.Amount.ToString("N0"),
-                bounty.TargetName);
+                bounty.TargetName,
+                bounty.PlacerName);
             gameEvent.Origin.Tell(msg);
         }
 

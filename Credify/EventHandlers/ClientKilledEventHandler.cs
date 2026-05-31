@@ -68,12 +68,19 @@ public class ClientKilledEventHandler(
             
             // Handle player-placed bounty contracts
             var contractResult = await bountyContractManager.ClaimBountiesAsync(clientEvent.Client, clientEvent.Victim);
-            if (contractResult.Success && contractResult.TotalClaimed > 0 && config.BountyContract.AnnounceClaim)
+            if (contractResult.Success && contractResult.TotalClaimed > 0)
             {
-                var contractMsg = config.Translations.BountyContract.Claimed.FormatExt(
-                    PluginConstants.PluginName, clientEvent.Client.CleanedName,
-                    contractResult.TotalClaimed.ToString("N0"), clientEvent.Victim.CleanedName);
-                clientEvent.Owner?.Broadcast(contractMsg);
+                // Always give the killer a direct confirmation (a broadcast is easy to miss).
+                clientEvent.Client.Tell(config.Translations.BountyContract.ClaimedDirect.FormatExt(
+                    contractResult.TotalClaimed.ToString("N0"), clientEvent.Victim.CleanedName));
+
+                if (config.BountyContract.AnnounceClaim)
+                {
+                    var contractMsg = config.Translations.BountyContract.Claimed.FormatExt(
+                        PluginConstants.PluginName, clientEvent.Client.CleanedName,
+                        contractResult.TotalClaimed.ToString("N0"), clientEvent.Victim.CleanedName);
+                    clientEvent.Owner?.Broadcast(contractMsg);
+                }
             }
         }
     }
