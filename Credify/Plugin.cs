@@ -1,6 +1,8 @@
 using Credify.Chat.Active.Core;
 using Credify.Chat.Active.Games.Blackjack;
 using Credify.Chat.Active.Games.Blackjack.Utilities;
+using Credify.Chat.Active.Games.Crash;
+using Credify.Chat.Active.Games.Crash.Utilities;
 using Credify.Chat.Active.Games.Minefield;
 using Credify.Chat.Active.Games.Minefield.Utilities;
 using Credify.Chat.Active.Games.Poker;
@@ -37,6 +39,7 @@ public class Plugin : IPluginV2
     private readonly PokerManager _pokerManager;
     private readonly BlackjackGame _blackjackGame;
     private readonly MinefieldGame _minefieldGame;
+    private readonly CrashGame _crashGame;
     private readonly ClientKilledEventHandler _clientKilledEventHandler;
     private readonly ClientMessagedEventHandler _clientMessagedEventHandler;
     private readonly ClientStateAuthorizedEventHandler _clientStateAuthorizedEventHandler;
@@ -57,6 +60,7 @@ public class Plugin : IPluginV2
         PokerManager pokerManager,
         BlackjackGame blackjackGame,
         MinefieldGame minefieldGame,
+        CrashGame crashGame,
         ClientKilledEventHandler clientKilledEventHandler,
         ClientMessagedEventHandler clientMessagedEventHandler,
         ClientStateAuthorizedEventHandler clientStateAuthorizedEventHandler,
@@ -73,6 +77,7 @@ public class Plugin : IPluginV2
         _pokerManager = pokerManager;
         _blackjackGame = blackjackGame;
         _minefieldGame = minefieldGame;
+        _crashGame = crashGame;
         _clientKilledEventHandler = clientKilledEventHandler;
         _clientMessagedEventHandler = clientMessagedEventHandler;
         _clientStateAuthorizedEventHandler = clientStateAuthorizedEventHandler;
@@ -154,6 +159,16 @@ public class Plugin : IPluginV2
             return new Table(config, translations, persistence, communication, output);
         });
 
+        // Crash
+        serviceCollection.AddSingleton(sp =>
+        {
+            var config = sp.GetRequiredService<CredifyConfiguration>();
+            var communication = sp.GetRequiredService<GamePlayerCommunication>();
+            var persistence = sp.GetRequiredService<PersistenceService>();
+            var output = new CrashHandleOutput(config.Translations.Crash, communication);
+            return new CrashGame(config, persistence, communication, output);
+        });
+
         // Poker (keeps its manager: buy-in overload + cards/river routing)
         serviceCollection.AddSingleton<PokerManager>();
 
@@ -221,10 +236,12 @@ public class Plugin : IPluginV2
         _activeGameTracker.RegisterGame(_rouletteTable);
         _activeGameTracker.RegisterGame(_pokerManager);
         _activeGameTracker.RegisterGame(_minefieldGame);
+        _activeGameTracker.RegisterGame(_crashGame);
 
         // Continuous games run their loop in the background
         _ = Task.Run(async () => await _rouletteTable.GameLoopAsync(token), token);
         _ = Task.Run(async () => await _pokerManager.StartGameAsync(token), token);
+        _ = Task.Run(async () => await _crashGame.GameLoopAsync(token), token);
 
         _scheduleService.TriggerSchedules(manager, token);
 

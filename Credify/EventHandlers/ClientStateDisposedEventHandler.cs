@@ -1,4 +1,5 @@
 using Credify.Chat.Active.Games.Blackjack;
+using Credify.Chat.Active.Games.Crash;
 using Credify.Chat.Active.Games.Minefield;
 using Credify.Chat.Active.Games.Poker;
 using Credify.Chat.Active.Games.Roulette;
@@ -18,6 +19,7 @@ public class ClientStateDisposedEventHandler(
     Table rouletteManager,
     PokerManager pokerManager,
     MinefieldGame minefieldManager,
+    CrashGame crashGame,
     StreakTracker streakTracker,
     BountyContractManager bountyContractManager)
 {
@@ -32,7 +34,8 @@ public class ClientStateDisposedEventHandler(
             blackjack.LeaveGameAsync(clientEvent.Client),
             rouletteManager.LeaveGameAsync(clientEvent.Client),
             pokerManager.LeaveGameAsync(clientEvent.Client),
-            minefieldManager.LeaveGameAsync(clientEvent.Client)
+            minefieldManager.LeaveGameAsync(clientEvent.Client),
+            crashGame.LeaveGameAsync(clientEvent.Client)
         );
         
         streakTracker.OnDisconnect(clientEvent.Client);

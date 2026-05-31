@@ -12,6 +12,7 @@ public class TranslationsRoot
     public QuestsTranslations Quests { get; set; } = new();
     public PokerTranslations Poker { get; set; } = new();
     public MinefieldTranslations Minefield { get; set; } = new();
+    public CrashTranslations Crash { get; set; } = new();
     public AdminTranslations Admin { get; set; } = new();
     public EconomyTranslations Economy { get; set; } = new();
     public HelpTranslations Help { get; set; } = new();
