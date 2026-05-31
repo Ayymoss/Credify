@@ -662,9 +662,20 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
             [Config.Translations.Blackjack.InsuranceTaken.FormatExt(insuranceCost.ToString("N0"))]);
         
         // Check if all eligible players have responded - if so, proceed immediately
-        // (All players either have insurance, or couldn't afford it)
-        var allResponded = ActivePlayers.All(p => p.Value.HasInsurance || 
-            PersistenceService.GetClientCreditsAsync(p.Key).Result < (p.Value.Stake!.Value / 2));
+        // (All players either have insurance, or couldn't afford it). Awaited rather than
+        // blocking on .Result to avoid stalling the game loop / threadpool.
+        var allResponded = true;
+        foreach (var (otherClient, otherPlayer) in ActivePlayers)
+        {
+            if (otherPlayer.HasInsurance) continue;
+            var otherCredits = await PersistenceService.GetClientCreditsAsync(otherClient);
+            if (otherCredits >= otherPlayer.Stake!.Value / 2)
+            {
+                allResponded = false;
+                break;
+            }
+        }
+
         if (allResponded)
         {
             _insuranceToken?.Cancel();

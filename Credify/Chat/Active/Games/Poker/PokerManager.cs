@@ -73,10 +73,9 @@ public class PokerManager : IActiveGame
     /// <summary>
     /// IActiveGame implementation - removes a player from the game.
     /// </summary>
-    public Task LeaveGameAsync(EFClient player)
+    public async Task LeaveGameAsync(EFClient player)
     {
-        _table.PlayerLeave(player);
-        return Task.CompletedTask;
+        await _table.PlayerLeaveAsync(player);
     }
 
     /// <summary>

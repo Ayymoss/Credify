@@ -98,7 +98,7 @@ public class PokerTable(
 
         foreach (var player in playersToRemove)
         {
-            PlayerLeave(player.Client);
+            await PlayerLeaveAsync(player.Client);
         }
 
         _playersInHand = Players.Values.ToList();
@@ -848,14 +848,15 @@ public class PokerTable(
     /// <summary>
     /// Removes a player from the game.
     /// </summary>
-    public void PlayerLeave(EFClient client)
+    public async Task PlayerLeaveAsync(EFClient client)
     {
         if (Players.TryRemove(client, out var player))
         {
-            // If player has chips, return them
+            // If player has chips, return them. Awaited (not fire-and-forget) so the credit
+            // actually completes and any failure surfaces instead of silently losing chips.
             if (player.Chips > 0)
             {
-                Task.Run(async () => await PersistenceService.AddCreditsAsync(client, player.Chips));
+                await PersistenceService.AddCreditsAsync(client, player.Chips);
             }
 
             _playersInHand.RemoveAll(p => p.Client.Equals(client));
@@ -871,14 +872,7 @@ public class PokerTable(
             if (Players.Count > 0 && Players.Count < Config.Poker.MinPlayers)
             {
                 ForceTransitionToState(PokerGameState.WaitingForPlayers);
-
-                // Notify remaining players that we're waiting for more
-                Task.Run(async () =>
-                {
-                    await output.TellPlayersAsync(Players.Values.ToList(), [
-                        _pokerTrans.NotEnoughPlayers
-                    ]);
-                });
+                await output.TellPlayersAsync(Players.Values.ToList(), [_pokerTrans.NotEnoughPlayers]);
             }
 
             ResetPlayersSignal();
@@ -904,11 +898,10 @@ public class PokerTable(
     /// <summary>
     /// IActiveGame implementation - removes a player from the game.
     /// </summary>
-    public override Task LeaveGameAsync(EFClient player)
+    public override async Task LeaveGameAsync(EFClient player)
     {
-        PlayerLeave(player);
+        await PlayerLeaveAsync(player);
         OnPlayerLeft();
-        return Task.CompletedTask;
     }
 
     /// <summary>

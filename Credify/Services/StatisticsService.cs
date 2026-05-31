@@ -13,12 +13,19 @@ public class StatisticsService(
     IMetaServiceV2 metaService,
     CredifyCache cache)
 {
+    // Guards all access to cache.TopCredits. The list reference is replaced wholesale in
+    // OrderTop/ResetTop, so we cannot lock on the list itself - a dedicated lock object is
+    // required for correctness.
+    private readonly object _topLock = new();
+
     /// <summary>
     /// Writes the top credits leaderboard to persistent storage.
     /// </summary>
     public async Task WriteTopScoreAsync()
     {
-        await metaService.SetPersistentMetaValue(PluginConstants.TopKey, cache.TopCredits);
+        List<TopCreditEntry> snapshot;
+        lock (_topLock) snapshot = [..cache.TopCredits];
+        await metaService.SetPersistentMetaValue(PluginConstants.TopKey, snapshot);
     }
 
     /// <summary>
@@ -26,7 +33,8 @@ public class StatisticsService(
     /// </summary>
     public async Task ReadTopScoreAsync()
     {
-        cache.TopCredits = await metaService.GetPersistentMetaValue<List<TopCreditEntry>>(PluginConstants.TopKey) ?? [];
+        var loaded = await metaService.GetPersistentMetaValue<List<TopCreditEntry>>(PluginConstants.TopKey) ?? [];
+        lock (_topLock) cache.TopCredits = loaded;
     }
 
     /// <summary>
@@ -78,7 +86,7 @@ public class StatisticsService(
     public void OrderTop(EFClient client, long amount)
     {
         if (client.ClientId is 0 or 1) return;
-        lock (cache.TopCredits)
+        lock (_topLock)
         {
             //If the target's credits are greater than last item OR already exists in top, sort & update top.
             if (amount <= cache.TopCredits.LastOrDefault()?.Credits && !ExistInTop(client.ClientId)) return;
@@ -116,7 +124,10 @@ public class StatisticsService(
     /// <summary>
     /// Resets the top credits leaderboard.
     /// </summary>
-    public void ResetTop() => cache.TopCredits = [];
+    public void ResetTop()
+    {
+        lock (_topLock) cache.TopCredits = [];
+    }
 
     /// <summary>
     /// Resets statistics.
