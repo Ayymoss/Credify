@@ -37,7 +37,6 @@ public class PokerTable(
     private readonly BettingRound _currentRound = new();
     private long _totalPot = 0; // Accumulated pot across all betting rounds in a hand
     private int _dealerButtonPosition = -1;
-    private readonly SemaphoreSlim _actionLock = new(1, 1);
     private readonly PokerTranslations _pokerTrans = translations.Poker;
 
     /// <summary>
@@ -63,8 +62,6 @@ public class PokerTable(
     protected override int GetMinimumPlayers() => Config.Poker.MinPlayers;
 
     protected override TimeSpan GetDelayBetweenRounds() => TimeSpan.FromSeconds(3);
-
-    protected override TimeSpan GetDelayWaitingForPlayers() => TimeSpan.FromSeconds(1);
 
     protected override async Task ExecuteGameRoundAsync(CancellationToken token)
     {
@@ -755,10 +752,8 @@ public class PokerTable(
             return;
         }
 
-        try
+        await ExecuteUnderChatLockAsync(async () =>
         {
-            await _actionLock.WaitAsync();
-
             var parseResult = input.Parse(message);
             var availableActions = inputConcrete.FormatAvailableActions(player, _currentRound);
 
@@ -808,11 +803,7 @@ public class PokerTable(
             // Execute action
             await ExecuteActionAsync(player, action, raiseAmount);
             completion.TrySetResult(true);
-        }
-        finally
-        {
-            if (_actionLock.CurrentCount == 0) _actionLock.Release();
-        }
+        });
     }
 
     /// <summary>

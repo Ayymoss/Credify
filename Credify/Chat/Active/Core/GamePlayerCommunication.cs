@@ -62,15 +62,4 @@ public class GamePlayerCommunication
     {
         await sourcePlayer.CurrentServer.BroadcastAsync(messages);
     }
-
-    /// <summary>
-    /// Formats a translation string with arguments using the FormatExt pattern.
-    /// </summary>
-    public static string FormatTranslation(string template, params object[] args)
-    {
-        // FormatExt is an extension method from SharedLibraryCore
-        // We'll use it directly where needed, or implement similar logic here
-        // For now, this is a placeholder that will use the extension method
-        return template; // Actual formatting happens via extension method
-    }
 }

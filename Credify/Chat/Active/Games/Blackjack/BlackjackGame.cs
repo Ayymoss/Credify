@@ -57,7 +57,6 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
     private CancellationTokenSource? _playerStakesToken;
     private CancellationTokenSource? _dealerPlaysToken;
     private CancellationTokenSource? _insuranceToken;
-    private readonly SemaphoreSlim _chatLock = new(1, 1);
     private readonly SemaphoreSlim _startGameLock = new(1, 1);
 
     public BlackjackGame(
@@ -570,10 +569,8 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
             return; // Not in a valid input state
         }
 
-        try
+        await ExecuteUnderChatLockAsync(async () =>
         {
-            await _chatLock.WaitAsync();
-
             switch (GameState)
             {
                 case GameState.RequestPlayerStakes:
@@ -586,11 +583,7 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
                     await HandlePlayerDecisionAsync(client, player, message);
                     break;
             }
-        }
-        finally
-        {
-            if (_chatLock.CurrentCount is 0) _chatLock.Release();
-        }
+        });
     }
 
     #endregion

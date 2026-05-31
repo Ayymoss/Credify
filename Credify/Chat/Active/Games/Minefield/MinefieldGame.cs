@@ -34,7 +34,6 @@ public class MinefieldGame(
     private readonly MinefieldPayoutCalculator _payoutCalculator = new(config.Minefield);
     private readonly IGameInputParser<MinefieldActionResult> _inputHandler = inputHandler;
     private readonly StakeValidator _stakeValidator = new(persistenceService);
-    private readonly SemaphoreSlim _chatLock = new(1, 1);
 
     private MinefieldConfiguration Settings => Config.Minefield;
     private MinefieldTranslations Translations => Config.Translations.Minefield;
@@ -53,8 +52,7 @@ public class MinefieldGame(
 
     public override async Task LeaveGameAsync(EFClient client)
     {
-        await _chatLock.WaitAsync();
-        try
+        await ExecuteUnderChatLockAsync(async () =>
         {
             if (!Players.TryGetValue(client, out var player)) return;
 
@@ -68,19 +66,14 @@ public class MinefieldGame(
                 player.CancelIdleTimer();
                 Players.TryRemove(client, out _);
             }
-        }
-        finally
-        {
-            if (_chatLock.CurrentCount is 0) _chatLock.Release();
-        }
+        });
     }
 
     public override async Task HandleChatAsync(EFClient client, string message)
     {
         if (!Players.TryGetValue(client, out var player)) return;
 
-        await _chatLock.WaitAsync();
-        try
+        await ExecuteUnderChatLockAsync(async () =>
         {
             // Player may have been removed (cash/bust/leave) while we waited for the lock.
             if (!Players.ContainsKey(client)) return;
@@ -97,11 +90,7 @@ public class MinefieldGame(
                     await HandleDiggingInputAsync(player, message);
                     break;
             }
-        }
-        finally
-        {
-            if (_chatLock.CurrentCount is 0) _chatLock.Release();
-        }
+        });
     }
 
     #endregion
@@ -236,7 +225,7 @@ public class MinefieldGame(
 
     /// <summary>
     /// Pays the player their current multiplier and ends the session.
-    /// Caller must hold <see cref="_chatLock"/>.
+    /// Caller must hold the chat lock.
     /// </summary>
     private async Task CashOutAsync(MinefieldPlayer player, bool isAuto, bool isFullClear = false)
     {
@@ -336,18 +325,13 @@ public class MinefieldGame(
         SharedLibraryCore.Utilities.ExecuteAfterDelay(Settings.TimeoutForPlayerAction, async token =>
         {
             if (token.IsCancellationRequested) return;
-            await _chatLock.WaitAsync(CancellationToken.None);
-            try
+            await ExecuteUnderChatLockAsync(async () =>
             {
                 if (token.IsCancellationRequested) return;
                 if (!Players.TryGetValue(player.Client, out var current) || !ReferenceEquals(current, player)) return;
                 if (current.State != SessionState.Digging) return;
                 await CashOutAsync(current, isAuto: true);
-            }
-            finally
-            {
-                if (_chatLock.CurrentCount is 0) _chatLock.Release();
-            }
+            });
         }, cts.Token);
     }
 

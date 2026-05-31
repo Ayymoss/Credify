@@ -23,6 +23,30 @@ public abstract class BaseActiveGame<TPlayer>(
     protected readonly GamePlayerCommunication Communication = communication;
 
     /// <summary>
+    /// Serializes chat-input/state mutations within a game. Every active game needs this,
+    /// so it lives here rather than being re-declared per game.
+    /// </summary>
+    private readonly SemaphoreSlim _chatLock = new(1, 1);
+
+    /// <summary>
+    /// Runs <paramref name="action"/> while holding the game's chat lock, guaranteeing the
+    /// lock is released exactly once. Replaces the hand-rolled WaitAsync/try-finally that
+    /// each game used to duplicate.
+    /// </summary>
+    protected async Task ExecuteUnderChatLockAsync(Func<Task> action)
+    {
+        await _chatLock.WaitAsync();
+        try
+        {
+            await action();
+        }
+        finally
+        {
+            _chatLock.Release();
+        }
+    }
+
+    /// <summary>
     /// Validates that a player has sufficient credits to participate.
     /// </summary>
     protected async Task<bool> ValidatePlayerCreditsAsync(EFClient player, long minimumCredits = GameConstants.MinimumCredits)

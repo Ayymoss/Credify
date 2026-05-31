@@ -28,7 +28,6 @@ public class Table(
 {
     private RouletteGameState _gameState = RouletteGameState.WaitingForPlayers;
     private List<Player> _roundPlayers = [];
-    private readonly SemaphoreSlim _chatLock = new(1, 1);
     private readonly StakeValidator _stakeValidator = new(persistenceService, 10);
     private CancellationTokenSource? _bettingTimeoutToken;
 
@@ -126,10 +125,8 @@ public class Table(
             return;
         }
 
-        try
+        await ExecuteUnderChatLockAsync(async () =>
         {
-            await _chatLock.WaitAsync();
-            
             switch (player.InputState)
             {
                 case PlayerInputState.WaitingForStake:
@@ -145,11 +142,7 @@ public class Table(
 
             // Check if all players completed
             CheckAllPlayersCompleted();
-        }
-        finally
-        {
-            if (_chatLock.CurrentCount == 0) _chatLock.Release();
-        }
+        });
     }
 
     private async Task HandleStakeInputAsync(Player player, string message)
