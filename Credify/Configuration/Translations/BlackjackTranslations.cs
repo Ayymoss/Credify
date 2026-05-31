@@ -9,7 +9,13 @@ public class BlackjackTranslations
     public string Join { get; set; } = "(Color::Yellow)You have joined the game! (Color::White)(Type amount you want to bet!)";
     public string Leave { get; set; } = "(Color::Yellow)You have left the game! (Color::White)(!crbj to join)";
     public string StartingGame { get; set; } = "(Color::Accent)Starting a new game with {{count}} player(s)";
-    public string PlaceBets { get; set; } = "(Color::Yellow)Type the amount of credits you'd like to bet. (Color::White)You have (Color::Green)${{credits}} (Color::White)available";
+    public string PlaceBets { get; set; } = "(Color::Yellow)Place your bet. (Color::White)You have (Color::Green)${{credits}}";
+    public string BetHint { get; set; } = "(Color::Accent)same (Color::White)= repeat last bet | (Color::Accent)sit (Color::White)= sit out";
+    public string NoPreviousBet { get; set; } = "(Color::Yellow)No previous bet to repeat.";
+    public string SitOut { get; set; } = "(Color::Yellow)Sitting out. (Color::White)Bet or type (Color::Accent)back (Color::White)to rejoin.";
+    public string SitBack { get; set; } = "(Color::Green)Welcome back!";
+    public string HandSummary { get; set; } = "(Color::White)You (Color::Yellow){{total}} (Color::White)({{cards}}) vs Dealer (Color::Accent){{dealer}}";
+    public string TimeWarning { get; set; } = "(Color::Red)10s left!";
     public string BetTimeout { get; set; } = "(Color::Yellow)You took too long to bet. (Color::White)You have been removed from the game";
     public string DealerInitialCard { get; set; } = "Dealer's up-card: (Color::Accent){{card}}";
     public string DealerCards { get; set; } = "Dealer's cards [(Color::Yellow){{total}}(Color::White)]: (Color::Accent){{cards}}";

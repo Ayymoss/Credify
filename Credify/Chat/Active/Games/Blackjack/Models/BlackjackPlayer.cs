@@ -17,6 +17,12 @@ public class BlackjackPlayer
     public long? Payout { get; set; }
     public bool Queued { get; set; }
 
+    /// <summary>Last accepted stake, kept across rounds so the player can "same" to rebet.</summary>
+    public long? LastStake { get; set; }
+
+    /// <summary>When true the player keeps their seat but is skipped until they bet or type "back".</summary>
+    public bool SittingOut { get; set; }
+
     // Split hand properties
     public List<BlackjackCard> SplitCards { get; set; } = [];
     public long? SplitStake { get; set; }

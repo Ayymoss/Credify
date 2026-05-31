@@ -107,7 +107,8 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
         foreach (var (client, player) in Players)
         {
             if (player.Queued) continue;
-            
+            if (player.SittingOut) continue; // keep their seat, skip the prompt
+
             player.State = PlayerState.Playing;
             var playerFunds = await PersistenceService.GetClientCreditsAsync(client);
             if (playerFunds < GameConstants.MinimumCredits)
@@ -117,7 +118,10 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
             }
 
             await _outputHandler.TellPlayerAsync(player,
-                [Config.Translations.Blackjack.PlaceBets.FormatExt(playerFunds.ToString("N0"))], true);
+            [
+                Config.Translations.Blackjack.PlaceBets.FormatExt(playerFunds.ToString("N0")),
+                Config.Translations.Blackjack.BetHint
+            ], true);
         }
 
         foreach (var client in insufficientFunds)
@@ -126,8 +130,8 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
             await _outputHandlerConcrete.TellClientAsync(client, [Config.Translations.Blackjack.InsufficientFunds], true);
         }
 
-        // Check if there are any non-queued players remaining (stakes not set yet, can't use ActivePlayers)
-        if (!Players.Any(p => !p.Value.Queued))
+        // Need at least one player who is actually playing this round (not queued, not sitting out).
+        if (!Players.Any(p => p.Value is { Queued: false, SittingOut: false }))
         {
             await EndGameAsync(CancellationToken.None);
             return;
@@ -137,6 +141,9 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
         _playerStakesToken = new CancellationTokenSource();
         SharedLibraryCore.Utilities.ExecuteAfterDelay(Config.Blackjack.TimeoutForPlayerAction, DealCardsAsync,
             _playerStakesToken.Token);
+        ScheduleTimeWarning(_playerStakesToken.Token, () => Players
+            .Where(p => p.Value is { Queued: false, SittingOut: false, Stake: null })
+            .Select(p => p.Value));
     }
 
     private async Task DealCardsAsync(CancellationToken token)
@@ -145,7 +152,7 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
         ForceTransitionToState(GameState.DealCards);
 
         var noBets = Players
-            .Where(x => !x.Value.Queued && x.Value.Stake is null)
+            .Where(x => x.Value is { Queued: false, SittingOut: false, Stake: null })
             .Select(x => x.Key)
             .ToList();
 
@@ -169,13 +176,7 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
                 _deckService.DrawCardOrReshuffle()
             ];
 
-            await _outputHandler.TellPlayerAsync(player,
-            [
-                Config.Translations.Blackjack.DealerInitialCard.FormatExt(_houseHand[0]),
-                Config.Translations.Blackjack.PlayerCards.FormatExt(
-                    BlackjackPayoutCalculator.CalculateHandValue(player.Cards),
-                    string.Join(", ", player.Cards.Select(x => x.ToString())))
-            ]);
+            await _outputHandler.TellPlayerAsync(player, [BuildHandSummary(player)]);
         }
 
         _playerStakesToken?.Cancel();
@@ -294,6 +295,9 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
         _dealerPlaysToken?.Dispose();
         _dealerPlaysToken = new CancellationTokenSource();
         SharedLibraryCore.Utilities.ExecuteAfterDelay(Config.Blackjack.TimeoutForPlayerAction, DealerPlaysAsync, _dealerPlaysToken.Token);
+        ScheduleTimeWarning(_dealerPlaysToken.Token, () => ActivePlayers
+            .Where(x => x.Value.State is PlayerState.Playing or PlayerState.PlayingSplitHand)
+            .Select(x => x.Value));
     }
 
     private async Task DealerPlaysAsync(CancellationToken token)
@@ -480,7 +484,9 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
         try
         {
             await _startGameLock.WaitAsync(token);
-            if (!Players.IsEmpty) await StartGameAsync();
+            // Don't restart for a table where everyone is sitting out (would tight-loop);
+            // it resumes when a sitter bets/"back"s or a new player joins.
+            if (Players.Any(p => !p.Value.SittingOut)) await StartGameAsync();
         }
         finally
         {
@@ -594,8 +600,42 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
     {
         if (player.Stake is not null) return;
 
+        var trimmed = message.Trim();
+
+        // Sit out / rejoin without leaving the table.
+        if (trimmed.Equals("sit", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.Equals("skip", StringComparison.OrdinalIgnoreCase))
+        {
+            player.SittingOut = true;
+            await _outputHandler.TellPlayerAsync(player, [Config.Translations.Blackjack.SitOut]);
+            return;
+        }
+        if (trimmed.Equals("back", StringComparison.OrdinalIgnoreCase))
+        {
+            player.SittingOut = false;
+            var funds = await PersistenceService.GetClientCreditsAsync(client);
+            await _outputHandler.TellPlayerAsync(player,
+            [
+                Config.Translations.Blackjack.SitBack,
+                Config.Translations.Blackjack.PlaceBets.FormatExt(funds.ToString("N0"))
+            ]);
+            return;
+        }
+
+        // Repeat the previous stake.
+        if (trimmed.Equals("same", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.Equals("again", StringComparison.OrdinalIgnoreCase))
+        {
+            if (player.LastStake is null)
+            {
+                await _outputHandler.TellPlayerAsync(player, [Config.Translations.Blackjack.NoPreviousBet]);
+                return;
+            }
+            trimmed = player.LastStake.Value.ToString();
+        }
+
         var stakeResult = await _stakeValidator.ValidateStakeAsync(
-            message,
+            trimmed,
             client,
             Config.Translations.Core.InsufficientCredits,
             Config.Translations.Blackjack.PlaceBets.FormatExt("0"), // Fallback message
@@ -609,6 +649,8 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
         }
 
         player.Stake = stakeResult.Result;
+        player.LastStake = stakeResult.Result; // remember for "same"
+        player.SittingOut = false;             // betting rejoins
         await PersistenceService.RemoveCreditsAsync(client, stakeResult.Result);
         await _outputHandler.TellPlayerAsync(player,
             [Config.Translations.Blackjack.AcceptedBet.FormatExt(stakeResult.Result)]);
@@ -1016,9 +1058,37 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
     }
 
     private List<EFClient> GetRequestStakesRemainders() => Players
-        .Where(x => x.Value is { Queued: false, Stake: null })
+        .Where(x => x.Value is { Queued: false, SittingOut: false, Stake: null })
         .Select(x => x.Key)
         .ToList();
+
+    /// <summary>
+    /// Compact one-line hand summary: "You 18 (10, 8) vs Dealer K".
+    /// </summary>
+    private string BuildHandSummary(BlackjackPlayer player) =>
+        Config.Translations.Blackjack.HandSummary.FormatExt(
+            BlackjackPayoutCalculator.CalculateHandValue(player.Cards),
+            string.Join(", ", player.Cards.Select(c => c.ToString())),
+            _houseHand[0].ToString());
+
+    /// <summary>
+    /// Sends a "10s left" nudge ~10s before a phase timeout (no visible clock in chat).
+    /// The selector is evaluated when the warning fires, so only players still pending
+    /// at that moment are nudged. Tied to the phase token, so it no-ops once the phase ends.
+    /// </summary>
+    private void ScheduleTimeWarning(CancellationToken phaseToken, Func<IEnumerable<BlackjackPlayer>> stillPending)
+    {
+        var warnAfter = Config.Blackjack.TimeoutForPlayerAction - TimeSpan.FromSeconds(10);
+        if (warnAfter <= TimeSpan.Zero) return;
+
+        SharedLibraryCore.Utilities.ExecuteAfterDelay(warnAfter, async ct =>
+        {
+            if (ct.IsCancellationRequested) return;
+            var pending = stillPending().ToList();
+            if (pending.Count > 0)
+                await _outputHandler.TellPlayersAsync(pending, [Config.Translations.Blackjack.TimeWarning]);
+        }, phaseToken);
+    }
 
     private List<EFClient> GetDecisionStateRemainders() => ActivePlayers
         .Where(x => x.Value.State is PlayerState.Playing or PlayerState.PlayingSplitHand)
