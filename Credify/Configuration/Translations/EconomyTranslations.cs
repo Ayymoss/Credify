@@ -11,6 +11,10 @@ public class EconomyTranslations
     public string StatisticsDescription { get; set; } = "Check your credits.";
     public string CheckCreditsDescription { get; set; } = "Check your credits.";
     public string PayCreditsDescription { get; set; } = "Pay credits to another player";
+    public string DailyDescription { get; set; } = "Claim your daily reward (grows with your streak)";
+    public string DailyDisabled { get; set; } = "(Color::Yellow)Daily rewards are disabled.";
+    public string DailyClaimed { get; set; } = "[(Color::Pink)Daily(Color::White)] (Color::Green)+${{reward}}(Color::White)! Streak: (Color::Accent){{streak}} (Color::White)day(s) - come back tomorrow!";
+    public string DailyAlreadyClaimed { get; set; } = "[(Color::Pink)Daily(Color::White)] (Color::Yellow)Already claimed today. (Color::White)Next reward in (Color::Accent){{time}}.";
     public string UserCredits { get; set; } = "You have (Color::Accent)${{userCredits}} (Color::White)credits ((Color::Accent)!crhelp(Color::White))";
     public string NoOneHasCreditsForTop { get; set; } = "No one has any credits for top";
     public string TopCreditsTitle { get; set; } = "(Color::Accent)--Top Credits--";

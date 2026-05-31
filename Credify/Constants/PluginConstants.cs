@@ -64,4 +64,14 @@ public static class PluginConstants
     /// Metadata key for storing last wheel of fortune usage date.
     /// </summary>
     public const string WheelLastUsed = "Credits_WheelLastUsed";
+
+    /// <summary>
+    /// Metadata key for the date a client last claimed their daily reward (yyyy-MM-dd).
+    /// </summary>
+    public const string DailyLastClaim = "Credits_DailyLastClaim";
+
+    /// <summary>
+    /// Metadata key for a client's current consecutive daily-claim streak.
+    /// </summary>
+    public const string DailyStreak = "Credits_DailyStreak";
 }
