@@ -137,7 +137,11 @@ public class QuestManager(CredifyConfiguration config, PersistenceService persis
         if (!isCompleted || questMeta.Completed) return;
 
         await persistenceService.AddCreditsAsync(client, quest.Reward);
-        client.CurrentServer.Broadcast(config.Translations.Quests.CompletedQuest
+
+        // Events can fire for offline clients (e.g. TopHolder when the leaderboard re-sorts
+        // after a credit change), where CurrentServer is null. Award still applies; only the
+        // broadcast needs a live server.
+        client.CurrentServer?.Broadcast(config.Translations.Quests.CompletedQuest
             .FormatExt(client.CleanedName, quest.Name, quest.Reward.ToString("N0")));
 
         if (!quest.IsPermanent) questMeta.CompletedDay = TimeProvider.System.GetLocalNow().Day;
