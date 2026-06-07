@@ -8,6 +8,7 @@ using Credify.Chat.Active.Games.Roulette.Models.BetTypes.Inside;
 using Credify.Chat.Active.Games.Roulette.Utilities;
 using Credify.Chat.Passive.Quests.Enums;
 using Credify.Configuration;
+using Credify.Games.Live;
 using Credify.Services;
 using SharedLibraryCore;
 using SharedLibraryCore.Database.Models;
@@ -24,12 +25,23 @@ public class Table(
     PersistenceService persistenceService,
     GamePlayerCommunication communication,
     IGameOutputHandler<Player> output)
-    : BaseContinuousGame<Player>(persistenceService, config, communication)
+    : BaseContinuousGame<Player>(persistenceService, config, communication), IWebObservableGame<RouletteSnapshot>
 {
     private RouletteGameState _gameState = RouletteGameState.WaitingForPlayers;
     private List<Player> _roundPlayers = [];
     private readonly StakeValidator _stakeValidator = new(persistenceService, 10);
     private CancellationTokenSource? _bettingTimeoutToken;
+
+    // ── webfront observation state ──
+    private DateTimeOffset? _bettingEndsAt;
+    private SpinResult? _lastSpin;
+    private readonly List<SpinResult> _history = [];
+    private const int HistoryLength = 14;
+
+    /// <inheritdoc />
+    public event Action? StateChanged;
+
+    private void RaiseStateChanged() => StateChanged?.Invoke();
 
     protected override int GetMinimumPlayers() => 1;
     protected override TimeSpan GetDelayBetweenRounds() => TimeSpan.Zero;
@@ -45,6 +57,8 @@ public class Table(
             player.ResetForNewRound();
         }
 
+        RaiseStateChanged();
+
         // Phase 1: Collect bets via chat
         await CollectBetsAsync(token);
 
@@ -54,17 +68,30 @@ public class Table(
         if (_roundPlayers.Count == 0)
         {
             _gameState = RouletteGameState.WaitingForPlayers;
+            RaiseStateChanged();
             return;
         }
 
         // Phase 2: Spin wheel
         _gameState = RouletteGameState.SpinningWheel;
+        _bettingEndsAt = null;
+        RaiseStateChanged();
         await SpinWheelMessage(token);
         var spinResult = SpinWheel();
 
+        // record the result for the web (history strip + landed number) before resolving
+        _lastSpin = spinResult;
+        _history.Insert(0, spinResult);
+        if (_history.Count > HistoryLength)
+        {
+            _history.RemoveRange(HistoryLength, _history.Count - HistoryLength);
+        }
+
         // Phase 3: Resolve bets
         _gameState = RouletteGameState.ResolvingBets;
+        RaiseStateChanged();
         await HandleResult(spinResult);
+        RaiseStateChanged();
 
         // Cleanup
         foreach (var player in _roundPlayers)
@@ -75,6 +102,7 @@ public class Table(
 
         await RemoveBrokePlayers();
         _gameState = RouletteGameState.WaitingForPlayers;
+        RaiseStateChanged();
     }
 
     private async Task CollectBetsAsync(CancellationToken token)
@@ -98,6 +126,8 @@ public class Table(
         _bettingTimeoutToken = new CancellationTokenSource();
 
         var bettingWindow = Config.Roulette.TimeoutForPlayerAction * 3; // 3x timeout for full bet flow
+        _bettingEndsAt = DateTimeOffset.UtcNow + bettingWindow;
+        RaiseStateChanged();
 
         // Warn still-betting players ~10s before the window closes (no visible clock in chat).
         var warnAfter = bettingWindow - TimeSpan.FromSeconds(10);
@@ -163,6 +193,8 @@ public class Table(
             // Check if all players completed
             CheckAllPlayersCompleted();
         });
+
+        RaiseStateChanged();
     }
 
     private async Task HandleStakeInputAsync(Player player, string message)
@@ -256,6 +288,8 @@ public class Table(
         if (bet is null) return false;
 
         player.CreateBet(bet);
+        player.BetDescription = betInput.Trim();
+        player.LastResult = "Pending";
         await PersistenceService.RemoveCreditsAsync(player.Client, bet.Stake);
         player.InputState = PlayerInputState.Complete;
         await output.TellPlayerAsync(player, [translations.Roulette.BetAccepted]);
@@ -330,6 +364,8 @@ public class Table(
 
         // Finalize bet
         player.CreateBet(bet);
+        player.BetDescription = message.Trim();
+        player.LastResult = "Pending";
         await PersistenceService.RemoveCreditsAsync(player.Client, bet.Stake);
         player.InputState = PlayerInputState.Complete;
         player.LastBetInput = $"{stake} {message.Trim()}"; // enables "same" next round
@@ -402,10 +438,14 @@ public class Table(
 
             if (!player.Bet.HasWon(spinResult))
             {
+                player.LastResult = "Lost";
+                player.LastNet = -player.Bet.Stake;
                 output.Tell(player, translations.Roulette.Lost.FormatExt(player.Bet.Stake.ToString("N0")));
                 continue;
             }
 
+            player.LastResult = "Won";
+            player.LastNet = player.Bet.Payout - player.Bet.Stake;
             ICredifyEventService.RaiseEvent(ObjectiveType.Baller, player.Client, player.Bet.Payout);
             output.Tell(player, translations.Roulette.Won.FormatExt((player.Bet.Payout - player.Bet.Stake).ToString("N0")));
             await PersistenceService.AddCreditsAsync(player.Client, player.Bet.Payout);
@@ -468,6 +508,7 @@ public class Table(
     {
         await PlayerJoinAsync(new Player(player));
         OnPlayerJoined();
+        RaiseStateChanged();
     }
 
     public void PlayerLeave(EFClient client)
@@ -481,6 +522,7 @@ public class Table(
         lock (_roundPlayers) _roundPlayers.RemoveAll(p => Equals(p.Client, client));
 
         ResetPlayersSignal();
+        RaiseStateChanged();
     }
 
     public bool IsPlayerInGame(EFClient client) => IsPlayerPlaying(client);
@@ -490,6 +532,115 @@ public class Table(
         PlayerLeave(player);
         OnPlayerLeft();
         return Task.CompletedTask;
+    }
+
+    #endregion
+
+    #region Web Frontend
+
+    /// <inheritdoc />
+    public RouletteSnapshot GetSnapshot()
+    {
+        var phase = _gameState switch
+        {
+            RouletteGameState.WaitingForPlayers => "WaitingForPlayers",
+            RouletteGameState.SpinningWheel => "Spinning",
+            RouletteGameState.ResolvingBets => "Resolving",
+            _ => "Betting"
+        };
+
+        var secondsRemaining = phase == "Betting" && _bettingEndsAt is { } endsAt
+            ? Math.Max(0, (endsAt - DateTimeOffset.UtcNow).TotalSeconds)
+            : 0;
+
+        var players = Players.Values
+            .Select(p => new RoulettePlayerView(
+                p.Client.ClientId,
+                p.Client.CleanedName,
+                p.Bet?.Stake ?? 0,
+                p.BetDescription,
+                p.Bet is not null,
+                p.LastResult,
+                p.LastNet))
+            .ToList();
+
+        return new RouletteSnapshot
+        {
+            Phase = phase,
+            SecondsRemaining = secondsRemaining,
+            Players = players,
+            LastSpin = _lastSpin is null ? null : ToSpinView(_lastSpin),
+            History = _history.Select(ToSpinView).ToList()
+        };
+    }
+
+    private static RouletteSpinView ToSpinView(SpinResult spin) =>
+        new(spin.Number, RouletteConstants.ToDisplayString(spin.Number), spin.Colour.ToString());
+
+    /// <summary>
+    /// Places a bet on behalf of a web participant. Runs the same validation/placement path as chat input,
+    /// under the same chat lock, so web and in-game bets are serialized together. Returns null on success or
+    /// a player-facing error string. The web sends a single-line bet (e.g. stake 100 on "red" or "17"),
+    /// bypassing the guided category/details flow.
+    /// </summary>
+    public async Task<string?> PlaceWebBetAsync(EFClient client, int stake, string betInput)
+    {
+        string? error = null;
+
+        await ExecuteUnderChatLockAsync(async () =>
+        {
+            if (!Players.TryGetValue(client, out var player))
+            {
+                error = "You're not seated at the table.";
+                return;
+            }
+
+            // only players locked into the current round may bet; mid-round joiners wait for the next one
+            bool inRound;
+            lock (_roundPlayers) inRound = _roundPlayers.Contains(player);
+            if (!inRound)
+            {
+                error = "You're in for the next round — hang tight.";
+                return;
+            }
+
+            if (_gameState is not (RouletteGameState.CollectingBets or RouletteGameState.AwaitingBetCategory
+                or RouletteGameState.AwaitingBetDetails))
+            {
+                error = "Betting is closed for this round.";
+                return;
+            }
+
+            if (player.InputState is PlayerInputState.Complete)
+            {
+                error = "You've already placed your bet this round.";
+                return;
+            }
+
+            var credits = await PersistenceService.GetClientCreditsAsync(client);
+            if (stake < 10)
+            {
+                error = "Minimum bet is 10 credits.";
+                return;
+            }
+
+            if (stake > credits)
+            {
+                error = "You don't have enough credits for that bet.";
+                return;
+            }
+
+            if (!await TryPlaceBetAsync(player, stake, betInput))
+            {
+                error = "That isn't a valid bet.";
+                return;
+            }
+
+            CheckAllPlayersCompleted();
+        });
+
+        RaiseStateChanged();
+        return error;
     }
 
     #endregion

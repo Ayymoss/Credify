@@ -56,7 +56,28 @@ public abstract class BaseContinuousGame<TPlayer>(
                 continue;
             }
 
-            await ExecuteGameRoundAsync(token);
+            try
+            {
+                await ExecuteGameRoundAsync(token);
+            }
+            catch (OperationCanceledException) when (token.IsCancellationRequested)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                // A round must never kill the loop — otherwise the table freezes mid-hand forever
+                // (e.g. an unguarded chat output on a web-only player). Log and start a fresh round.
+                Serilog.Log.Error(ex, "Credify active game round faulted; recovering and continuing the loop");
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(1), token);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+            }
 
             // Brief pause between rounds if we still have enough players
             if (Players.Count >= GetMinimumPlayers())

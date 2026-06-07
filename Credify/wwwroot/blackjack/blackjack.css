@@ -1,0 +1,205 @@
+/*
+ * Credify Blackjack table styling. Bespoke `.bj-*` classes only (no generic utility names), served as a
+ * plain stylesheet at /_content/credify/blackjack/blackjack.css — it can't collide with host CSS.
+ * Tailwind utilities used in the page come from plugin.css (the `plugins` layer). Host design tokens
+ * (--color-*) are referenced where it helps the page match the active theme.
+ */
+
+.bj-felt {
+    background:
+        radial-gradient(120% 100% at 50% 0%, #1f6b46 0%, #155235 45%, #0c3322 100%);
+    border-radius: 1rem;
+    box-shadow: inset 0 0 120px rgba(0, 0, 0, 0.45);
+}
+
+.bj-chip-stat {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.7rem;
+    border-radius: 9999px;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    font-weight: 700;
+    font-size: 0.85rem;
+}
+.bj-muted { color: rgba(255, 255, 255, 0.5); font-weight: 500; }
+
+.bj-panel {
+    background: rgba(0, 0, 0, 0.28);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0.9rem;
+    padding: 1.5rem;
+}
+
+/* ── table ─────────────────────────────────────────────────────────── */
+.bj-table {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    min-height: 22rem;
+    padding: 1.25rem 0;
+}
+
+.bj-seat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.bj-seat-head {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+.bj-seat-name {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: rgba(255, 255, 255, 0.55);
+}
+.bj-value {
+    min-width: 2.2rem;
+    text-align: center;
+    padding: 0.1rem 0.55rem;
+    border-radius: 9999px;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    font-weight: 700;
+    font-size: 0.9rem;
+}
+.bj-value-bust { color: #fb7185; border-color: rgba(251, 113, 133, 0.5); }
+
+.bj-hand {
+    display: flex;
+    gap: 0.5rem;
+    min-height: 6rem;
+    perspective: 900px;
+}
+
+/* ── cards ─────────────────────────────────────────────────────────── */
+.bj-card {
+    width: 4.25rem;
+    height: 6rem;
+    flex: 0 0 auto;
+    border-radius: 0.5rem;
+    transform-style: preserve-3d;
+}
+.bj-card img { border-radius: 0.5rem; box-shadow: 0 6px 14px rgba(0, 0, 0, 0.4); }
+
+.bj-card-face {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(180deg, #ffffff, #f3f4f6);
+    border-radius: 0.5rem;
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.4);
+    overflow: hidden;
+}
+.bj-red { color: #e11d48; }
+.bj-black { color: #18181b; }
+
+.bj-card-corner {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    line-height: 0.95;
+    font-weight: 800;
+}
+.bj-card-tl { top: 0.3rem; left: 0.4rem; }
+.bj-card-br { bottom: 0.3rem; right: 0.4rem; transform: rotate(180deg); }
+.bj-card-rank { font-size: 1rem; }
+.bj-card-suit { font-size: 0.8rem; }
+.bj-card-pip {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.4rem;
+    opacity: 0.92;
+}
+
+@keyframes bj-deal {
+    from { opacity: 0; transform: translateY(-2.4rem) scale(0.85) rotate(-4deg); }
+    to   { opacity: 1; transform: none; }
+}
+.bj-card-deal { animation: bj-deal 0.38s cubic-bezier(0.2, 0.8, 0.25, 1) both; }
+
+@keyframes bj-reveal {
+    from { transform: rotateY(90deg); opacity: 0.15; }
+    to   { transform: rotateY(0deg); opacity: 1; }
+}
+.bj-card-reveal { animation: bj-reveal 0.42s ease-out both; }
+
+/* ── result banner ─────────────────────────────────────────────────── */
+.bj-banner {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 1.1rem;
+    border-radius: 9999px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+@keyframes bj-pop {
+    0%   { transform: scale(0.6); opacity: 0; }
+    60%  { transform: scale(1.08); }
+    100% { transform: scale(1); opacity: 1; }
+}
+.bj-banner:not(.bj-banner-idle) { animation: bj-pop 0.4s ease-out both; }
+.bj-banner-net { font-variant-numeric: tabular-nums; opacity: 0.9; }
+.bj-banner-idle { background: rgba(0, 0, 0, 0.3); color: rgba(255, 255, 255, 0.6); font-weight: 600; }
+.bj-banner-win { background: rgba(16, 185, 129, 0.18); color: #6ee7b7; border-color: rgba(16, 185, 129, 0.4); }
+.bj-banner-jackpot { background: rgba(245, 158, 11, 0.2); color: #fcd34d; border-color: rgba(245, 158, 11, 0.5); }
+.bj-banner-push { background: rgba(148, 163, 184, 0.18); color: #cbd5e1; }
+.bj-banner-lose { background: rgba(244, 63, 94, 0.16); color: #fda4af; border-color: rgba(244, 63, 94, 0.4); }
+
+/* ── controls ──────────────────────────────────────────────────────── */
+.bj-controls { min-height: 4rem; }
+
+.bj-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.55rem 1.1rem;
+    border-radius: 0.7rem;
+    font-weight: 700;
+    border: 1px solid transparent;
+    transition: transform 0.08s ease, filter 0.15s ease, background 0.15s ease;
+}
+.bj-btn:not(:disabled):hover { filter: brightness(1.1); transform: translateY(-1px); }
+.bj-btn:not(:disabled):active { transform: translateY(0); }
+.bj-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.bj-btn-primary { background: var(--color-action-primary, #6366f1); color: #fff; box-shadow: 0 6px 16px rgba(99, 102, 241, 0.35); }
+.bj-btn-action {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.14);
+    color: #fff;
+}
+
+.bj-chip {
+    min-width: 3.2rem;
+    padding: 0.45rem 0.6rem;
+    border-radius: 9999px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: #fff;
+    background: radial-gradient(circle at 50% 30%, #4f46e5, #3730a3);
+    border: 2px dashed rgba(255, 255, 255, 0.45);
+    transition: transform 0.08s ease, filter 0.15s ease;
+}
+.bj-chip:not(:disabled):hover { filter: brightness(1.12); transform: translateY(-2px); }
+.bj-chip:disabled { opacity: 0.4; cursor: not-allowed; }
+.bj-chip-max { background: radial-gradient(circle at 50% 30%, #d97706, #92400e); }
+.bj-chip-clear { background: radial-gradient(circle at 50% 30%, #4b5563, #1f2937); min-width: 2.6rem; }
+
+@media (min-width: 640px) {
+    .bj-card { width: 5rem; height: 7rem; }
+    .bj-card-pip { font-size: 2.9rem; }
+    .bj-card-rank { font-size: 1.15rem; }
+}

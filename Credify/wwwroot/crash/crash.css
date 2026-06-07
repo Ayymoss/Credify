@@ -1,0 +1,162 @@
+/*
+ * Credify Crash table styling. Bespoke `.cr-*` classes, served at /_content/credify/crash/crash.css.
+ */
+
+.cr-felt {
+    background:
+        radial-gradient(130% 110% at 50% -10%, #1e2540 0%, #141a30 45%, #070a14 100%);
+    border-radius: 1rem;
+    box-shadow: inset 0 0 130px rgba(0, 0, 0, 0.55);
+}
+
+.cr-chip-stat {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.7rem;
+    border-radius: 9999px;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    font-weight: 700;
+    font-size: 0.85rem;
+}
+.cr-muted { color: rgba(255, 255, 255, 0.5); font-weight: 500; }
+
+.cr-panel {
+    background: rgba(0, 0, 0, 0.28);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0.9rem;
+    padding: 1.25rem;
+}
+
+/* ── flight stage ──────────────────────────────────────────────────── */
+.cr-stage {
+    position: relative;
+    border-radius: 0.9rem;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(0, 0, 0, 0.3));
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+    padding: 1rem;
+}
+.cr-canvas {
+    display: block;
+    width: 100%;
+    height: 16rem;
+}
+.cr-readout {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: clamp(2.5rem, 9vw, 4.5rem);
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+    color: #a1a1aa;
+    text-shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
+    pointer-events: none;
+    letter-spacing: -0.02em;
+}
+.cr-sub {
+    position: absolute;
+    bottom: 0.75rem;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.45);
+    pointer-events: none;
+}
+
+/* ── result banner ─────────────────────────────────────────────────── */
+.cr-banner {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 1.1rem;
+    border-radius: 9999px;
+    font-weight: 800;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    animation: cr-pop 0.4s ease-out both;
+}
+@keyframes cr-pop {
+    0% { transform: scale(0.6); opacity: 0; }
+    60% { transform: scale(1.08); }
+    100% { transform: scale(1); opacity: 1; }
+}
+.cr-banner-win { background: rgba(16, 185, 129, 0.18); color: #6ee7b7; border-color: rgba(16, 185, 129, 0.4); }
+.cr-banner-lose { background: rgba(244, 63, 94, 0.16); color: #fda4af; border-color: rgba(244, 63, 94, 0.4); }
+.cr-banner-net { font-variant-numeric: tabular-nums; opacity: 0.9; }
+
+/* ── controls ──────────────────────────────────────────────────────── */
+.cr-controls { min-height: 4.5rem; }
+
+.cr-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    padding: 0.7rem 1.4rem;
+    border-radius: 0.7rem;
+    font-weight: 800;
+    border: 1px solid transparent;
+    color: #fff;
+    transition: transform 0.08s ease, filter 0.15s ease, box-shadow 0.2s ease;
+}
+.cr-btn:not(:disabled):hover { filter: brightness(1.1); transform: translateY(-1px); }
+.cr-btn:not(:disabled):active { transform: translateY(0); }
+.cr-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.cr-btn-launch { background: var(--color-action-primary, #6366f1); box-shadow: 0 6px 16px rgba(99, 102, 241, 0.35); }
+.cr-btn-cash {
+    background: linear-gradient(180deg, #10b981, #047857);
+    box-shadow: 0 6px 18px rgba(16, 185, 129, 0.4);
+    font-variant-numeric: tabular-nums;
+    animation: cr-cash-pulse 1.4s ease-in-out infinite;
+}
+@keyframes cr-cash-pulse {
+    0%, 100% { box-shadow: 0 6px 18px rgba(16, 185, 129, 0.35); }
+    50% { box-shadow: 0 6px 28px rgba(16, 185, 129, 0.7); }
+}
+
+.cr-chip {
+    min-width: 3rem;
+    padding: 0.45rem 0.6rem;
+    border-radius: 9999px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: #fff;
+    background: radial-gradient(circle at 50% 30%, #4f46e5, #3730a3);
+    border: 2px dashed rgba(255, 255, 255, 0.45);
+    transition: transform 0.08s ease, filter 0.15s ease;
+}
+.cr-chip:not(:disabled):hover { filter: brightness(1.12); transform: translateY(-2px); }
+.cr-chip.cr-chip-on { box-shadow: 0 0 0 2px #fcd34d, 0 0 16px rgba(252, 211, 77, 0.5); }
+.cr-chip:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── live lobby ────────────────────────────────────────────────────── */
+.cr-live { display: flex; flex-direction: column; gap: 0.4rem; }
+.cr-live-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.6rem;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    font-size: 0.875rem;
+}
+.cr-live-you { border-color: rgba(252, 211, 77, 0.4); background: rgba(252, 211, 77, 0.06); }
+.cr-live-mult { font-variant-numeric: tabular-nums; font-weight: 700; }
+.cr-live-flying { color: #fcd34d; }
+.cr-live-cashed { color: #6ee7b7; }
+.cr-live-crashed { color: #fda4af; }
+
+.cr-toast {
+    padding: 0.5rem 0.9rem;
+    border-radius: 0.5rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    background: rgba(244, 63, 94, 0.16);
+    color: #fda4af;
+    border: 1px solid rgba(244, 63, 94, 0.4);
+}

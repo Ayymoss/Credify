@@ -45,6 +45,16 @@ public class PokerManager : IActiveGame
             actionValidator);
     }
 
+    /// <summary>Raised when the live table state changes (forwarded to the webfront).</summary>
+    public event Action? StateChanged
+    {
+        add => _table.StateChanged += value;
+        remove => _table.StateChanged -= value;
+    }
+
+    /// <summary>Per-viewer snapshot of the live table for the webfront (other hole cards redacted).</summary>
+    public PokerSnapshot GetSnapshot(int viewerClientId) => _table.GetSnapshot(viewerClientId);
+
     /// <summary>
     /// Starts the continuous poker game loop (runs in background).
     /// </summary>

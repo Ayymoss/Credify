@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 140" width="100" height="140" role="img" aria-label="Card back">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4f46e5"/>
+      <stop offset="1" stop-color="#312e81"/>
+    </linearGradient>
+    <pattern id="lattice" width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="14" height="14" fill="none"/>
+      <path d="M7 0V14M0 7H14" stroke="#ffffff" stroke-opacity="0.18" stroke-width="1.5"/>
+      <circle cx="7" cy="7" r="1.4" fill="#ffffff" fill-opacity="0.28"/>
+    </pattern>
+  </defs>
+  <rect x="1.5" y="1.5" width="97" height="137" rx="9" fill="url(#bg)"/>
+  <rect x="6" y="6" width="88" height="128" rx="6" fill="url(#lattice)"/>
+  <rect x="6" y="6" width="88" height="128" rx="6" fill="none" stroke="#ffffff" stroke-opacity="0.55" stroke-width="1.5"/>
+  <circle cx="50" cy="70" r="20" fill="#312e81" stroke="#ffffff" stroke-opacity="0.6" stroke-width="1.5"/>
+  <text x="50" y="78" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="22" font-weight="bold" fill="#ffffff" fill-opacity="0.92">C</text>
+  <rect x="1.5" y="1.5" width="97" height="137" rx="9" fill="none" stroke="#1e1b4b" stroke-width="2"/>
+</svg>

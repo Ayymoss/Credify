@@ -1,8 +1,6 @@
 using Credify.Chat.Active.Core;
 using Credify.Chat.Active.Games.Blackjack;
 using Credify.Chat.Active.Games.Blackjack.Utilities;
-using Credify.Chat.Active.Games.Crash;
-using Credify.Chat.Active.Games.Crash.Utilities;
 using Credify.Chat.Active.Games.Minefield;
 using Credify.Chat.Active.Games.Minefield.Utilities;
 using Credify.Chat.Active.Games.Poker;
@@ -41,7 +39,6 @@ public class Plugin : IPluginV2
     private readonly PokerManager _pokerManager;
     private readonly BlackjackGame _blackjackGame;
     private readonly MinefieldGame _minefieldGame;
-    private readonly CrashGame _crashGame;
     private readonly ClientKilledEventHandler _clientKilledEventHandler;
     private readonly ClientMessagedEventHandler _clientMessagedEventHandler;
     private readonly ClientStateAuthorizedEventHandler _clientStateAuthorizedEventHandler;
@@ -50,7 +47,7 @@ public class Plugin : IPluginV2
     private readonly ActiveGameTracker _activeGameTracker;
 
     public string Name => PluginConstants.PluginName;
-    public string Version => "2026-05-31";
+    public string Version => "2026-06-06";
     public string Author => "Amos";
 
     public Plugin(
@@ -62,7 +59,6 @@ public class Plugin : IPluginV2
         PokerManager pokerManager,
         BlackjackGame blackjackGame,
         MinefieldGame minefieldGame,
-        CrashGame crashGame,
         ClientKilledEventHandler clientKilledEventHandler,
         ClientMessagedEventHandler clientMessagedEventHandler,
         ClientStateAuthorizedEventHandler clientStateAuthorizedEventHandler,
@@ -79,7 +75,6 @@ public class Plugin : IPluginV2
         _pokerManager = pokerManager;
         _blackjackGame = blackjackGame;
         _minefieldGame = minefieldGame;
-        _crashGame = crashGame;
         _clientKilledEventHandler = clientKilledEventHandler;
         _clientMessagedEventHandler = clientMessagedEventHandler;
         _clientStateAuthorizedEventHandler = clientStateAuthorizedEventHandler;
@@ -123,6 +118,8 @@ public class Plugin : IPluginV2
         // Active Games Core
         serviceCollection.AddSingleton<GamePlayerCommunication>();
         serviceCollection.AddSingleton<ActiveGameTracker>();
+        serviceCollection.AddSingleton<Credify.Games.Live.CredifyWebPlayers>();
+        serviceCollection.AddSingleton<Credify.Games.Live.CrashLiveRegistry>();
         
         // Active games are registered directly as their game class (each implements
         // IActiveGame). The I/O handlers they need are constructed here in the factory,
@@ -161,15 +158,8 @@ public class Plugin : IPluginV2
             return new Table(config, translations, persistence, communication, output);
         });
 
-        // Crash
-        serviceCollection.AddSingleton(sp =>
-        {
-            var config = sp.GetRequiredService<CredifyConfiguration>();
-            var communication = sp.GetRequiredService<GamePlayerCommunication>();
-            var persistence = sp.GetRequiredService<PersistenceService>();
-            var output = new CrashHandleOutput(config.Translations.Crash, communication);
-            return new CrashGame(config, persistence, communication, output);
-        });
+        // Crash is now a web-only game (Components/Games/Crash) — no chat instance. The live-session
+        // registry that powers its "who's playing" lobby is registered with the other web services below.
 
         // Poker (keeps its manager: buy-in overload + cards/river routing)
         serviceCollection.AddSingleton<PokerManager>();
@@ -233,6 +223,12 @@ public class Plugin : IPluginV2
     private async Task OnLoad(IManager manager, CancellationToken token)
     {
         _chatUtils.SetManager(manager);
+
+        // register a single "Credify" entry in the host navbar; Credify's own pages (Credits, Blackjack, …)
+        // are switched via the plugin's in-page sub-nav (CredifyNav) so the host navbar stays uncluttered
+        // and we avoid two host links both showing active on /credify/* routes.
+        manager.GetPageList().Pages["Credify"] = "/credify";
+
         await _persistenceService.ReadStatisticsAsync();
         await _persistenceService.ReadTopScoreAsync();
         await _persistenceService.ReadBankCreditsAsync();
@@ -244,12 +240,10 @@ public class Plugin : IPluginV2
         _activeGameTracker.RegisterGame(_rouletteTable);
         _activeGameTracker.RegisterGame(_pokerManager);
         _activeGameTracker.RegisterGame(_minefieldGame);
-        _activeGameTracker.RegisterGame(_crashGame);
 
         // Continuous games run their loop in the background
         _ = Task.Run(async () => await _rouletteTable.GameLoopAsync(token), token);
         _ = Task.Run(async () => await _pokerManager.StartGameAsync(token), token);
-        _ = Task.Run(async () => await _crashGame.GameLoopAsync(token), token);
 
         _scheduleService.TriggerSchedules(manager, token);
 

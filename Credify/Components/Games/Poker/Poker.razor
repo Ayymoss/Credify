@@ -1,0 +1,204 @@
+@page "/credify/poker"
+@rendermode RenderMode.InteractiveServer
+@implements IAsyncDisposable
+
+<PageTitle>Credify · Poker</PageTitle>
+<HeadContent>
+    <link rel="stylesheet" href="/_content/credify/plugin.css"/>
+    <link rel="stylesheet" href="/_content/credify/custom.css"/>
+    <link rel="stylesheet" href="/_content/credify/blackjack/blackjack.css"/>
+    <link rel="stylesheet" href="/_content/credify/poker/poker.css"/>
+</HeadContent>
+
+<PluginPageShell FeltClass="pk-felt text-zinc-100" Menu='CredifyNav.Build("/credify/poker")'>
+
+        <!-- header -->
+        <div class="flex items-center justify-between gap-3">
+            <div class="flex items-center gap-2">
+                <i class="ph-fill ph-spade text-2xl text-[color:var(--color-action-primary,#818cf8)]"></i>
+                <h1 class="text-2xl font-bold tracking-tight">Poker</h1>
+                <span class="pk-muted text-xs">Hold'em</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <CredifyAudioControls/>
+                <span class="pk-chip-stat"><i class="ph-fill ph-coins text-amber-400"></i> @Cache.BankCredits.ToString("N0") <span class="pk-muted">bank</span></span>
+                @if (_authed)
+                {
+                    <span class="pk-chip-stat"><i class="ph-fill ph-wallet text-emerald-400"></i> @_balance.ToString("N0") <span class="pk-muted">credits</span></span>
+                }
+            </div>
+        </div>
+
+        @if (_loading)
+        {
+            <div class="flex items-center justify-center py-24 text-zinc-400">
+                <i class="ph ph-spinner animate-spin text-3xl"></i>
+            </div>
+        }
+        else
+        {
+            <!-- board -->
+            <div class="pk-board mt-5">
+                <div class="flex items-center gap-3">
+                    <span class="pk-status">@PhaseLabel</span>
+                    @if (_snapshot.ActiveClientId is not null && _snapshot.SecondsRemaining > 0)
+                    {
+                        <span class="pk-status">@ActiveName to act <span class="pk-turn-timer">@($"{_snapshot.SecondsRemaining:0}s")</span></span>
+                    }
+                </div>
+                <div class="pk-pot"><i class="ph-fill ph-coins"></i> Pot @_snapshot.Pot.ToString("N0")</div>
+                <div class="pk-community">
+                    @if (_snapshot.Community.Count == 0)
+                    {
+                        <span class="pk-community-empty">— board —</span>
+                    }
+                    else
+                    {
+                        @for (var i = 0; i < _snapshot.Community.Count; i++)
+                        {
+                            <CardView Card="_snapshot.Community[i]" Index="i"/>
+                        }
+                    }
+                </div>
+            </div>
+
+            <!-- seats -->
+            @if (_snapshot.Seats.Count == 0)
+            {
+                <p class="mt-6 text-center text-sm text-zinc-400">No one seated. Buy in to start the table (needs @Config.Poker.MinPlayers players).</p>
+            }
+            else
+            {
+                <div class="pk-seats mt-5">
+                    @foreach (var seat in _snapshot.Seats)
+                    {
+                        <div class="pk-seat @(seat.IsActiveTurn ? "pk-seat-active" : "") @(IsMe(seat) ? "pk-seat-me" : "") @(seat.IsFolded ? "pk-seat-folded" : "")">
+                            <div class="pk-seat-head">
+                                <span class="pk-seat-name">
+                                    <i class="ph-fill ph-user text-zinc-400"></i> @seat.Name
+                                    @if (IsMe(seat)) { <span class="pk-muted text-xs">you</span> }
+                                    @if (seat.IsDealer) { <span class="pk-badge pk-badge-d" title="Dealer">D</span> }
+                                    @if (seat.IsSmallBlind) { <span class="pk-badge pk-badge-sb" title="Small blind">SB</span> }
+                                    @if (seat.IsBigBlind) { <span class="pk-badge pk-badge-bb" title="Big blind">BB</span> }
+                                    @if (seat.IsAllIn) { <span class="pk-badge pk-badge-allin">ALL-IN</span> }
+                                    @if (seat.IsFolded) { <span class="pk-badge pk-badge-fold">FOLD</span> }
+                                </span>
+                                <span class="pk-seat-chips">@seat.Chips.ToString("N0")</span>
+                            </div>
+
+                            <div class="pk-seat-cards">
+                                @if (seat.HoleCards.Count > 0)
+                                {
+                                    @for (var i = 0; i < seat.HoleCards.Count; i++)
+                                    {
+                                        <CardView Card="seat.HoleCards[i]" Index="i"/>
+                                    }
+                                }
+                                else if (seat.HasHiddenCards)
+                                {
+                                    <CardView Card="_noCard" FaceDown="true" Index="0"/>
+                                    <CardView Card="_noCard" FaceDown="true" Index="1"/>
+                                }
+                                else
+                                {
+                                    <span class="pk-muted text-xs">—</span>
+                                }
+                            </div>
+
+                            <div class="flex items-center justify-between">
+                                @if (seat.CurrentBet > 0)
+                                {
+                                    <span class="pk-bet">bet @seat.CurrentBet.ToString("N0")</span>
+                                }
+                                else
+                                {
+                                    <span></span>
+                                }
+                                @if (!string.IsNullOrEmpty(seat.HandName))
+                                {
+                                    <span class="pk-hand-name">@seat.HandName</span>
+                                }
+                                else if (!string.IsNullOrEmpty(seat.LastAction))
+                                {
+                                    <span class="pk-last">@seat.LastAction</span>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+
+            <!-- my controls -->
+            <div class="pk-controls mt-5">
+                @if (!_authed)
+                {
+                    <div class="pk-panel mx-auto max-w-md text-center">
+                        <i class="ph-fill ph-sign-in text-4xl text-[color:var(--color-action-primary,#818cf8)]"></i>
+                        <h2 class="mt-2 text-lg font-bold">Sign in to play</h2>
+                        <p class="mt-1 text-sm text-zinc-400">Watch the table live. Log into IW4MAdmin to buy in and play Hold'em with the players in-game.</p>
+                    </div>
+                }
+                else if (MySeat is null)
+                {
+                    <div class="flex flex-col items-center gap-3">
+                        <label class="text-sm text-zinc-400">Buy-in (@Config.Poker.MinimumBuyIn.ToString("N0")–@Math.Min(Config.Poker.MaximumBuyIn, _balance).ToString("N0"))</label>
+                        <input type="number" class="pk-buyin" min="@Config.Poker.MinimumBuyIn" max="@Math.Min(Config.Poker.MaximumBuyIn, _balance)" step="@Config.Poker.BigBlind" @bind="_buyIn"/>
+                        <button class="pk-btn pk-btn-primary" disabled="@(_busy || _buyIn < Config.Poker.MinimumBuyIn || _buyIn > _balance)" @onclick="Join">
+                            <i class="ph-fill ph-sign-in"></i> Buy in &amp; sit
+                        </button>
+                        @if (_balance < Config.Poker.MinimumBuyIn)
+                        {
+                            <p class="text-sm text-rose-400">You need at least @Config.Poker.MinimumBuyIn.ToString("N0") credits to buy in.</p>
+                        }
+                    </div>
+                }
+                else if (_snapshot.MyActions is { } act)
+                {
+                    <div class="flex flex-col items-center gap-3">
+                        <div class="flex flex-wrap items-center justify-center gap-2">
+                            @if (act.CanFold)
+                            {
+                                <button class="pk-btn pk-btn-fold" disabled="@_busy" @onclick='() => Act("f")'><i class="ph-fill ph-x"></i> Fold</button>
+                            }
+                            @if (act.CanCheck)
+                            {
+                                <button class="pk-btn pk-btn-check" disabled="@_busy" @onclick='() => Act("c")'><i class="ph-fill ph-check"></i> Check</button>
+                            }
+                            @if (act.CanCall)
+                            {
+                                <button class="pk-btn pk-btn-call" disabled="@_busy" @onclick='() => Act("c")'><i class="ph-fill ph-hand-coins"></i> Call @act.CallAmount.ToString("N0")</button>
+                            }
+                            @if (act.CanAllIn)
+                            {
+                                <button class="pk-btn pk-btn-allin" disabled="@_busy" @onclick='() => Act("a")'><i class="ph-fill ph-fire"></i> All-in @act.MyChips.ToString("N0")</button>
+                            }
+                        </div>
+                        @if (act.CanRaise)
+                        {
+                            <div class="pk-raise-row w-full max-w-md">
+                                <input type="range" class="pk-raise-range" min="@act.MinRaise" max="@act.MaxRaise" step="@Math.Max(1, _snapshot.BigBlind)" @bind="_raise" @bind:event="oninput"/>
+                                <span class="pk-raise-val">@_raise.ToString("N0")</span>
+                                <button class="pk-btn pk-btn-raise" disabled="@_busy" @onclick='() => Act($"r {_raise}")'><i class="ph-fill ph-arrow-fat-up"></i> Raise</button>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="flex flex-col items-center gap-2">
+                        <p class="text-sm text-zinc-400">
+                            @if (MySeat.IsFolded) { <text>You folded — waiting for the hand to finish.</text> }
+                            else if (_snapshot.ActiveClientId is not null) { <text>Waiting for @ActiveName…</text> }
+                            else { <text>Next hand starting…</text> }
+                        </p>
+                        <button class="pk-btn pk-btn-ghost" disabled="@_busy" @onclick="Leave"><i class="ph ph-sign-out"></i> Cash out &amp; leave</button>
+                    </div>
+                }
+            </div>
+
+            <div class="mt-4 text-center">
+                <a href="/credify" class="text-sm text-zinc-400 hover:text-zinc-200 hover:underline">← Back to Credify</a>
+            </div>
+        }
+</PluginPageShell>
+

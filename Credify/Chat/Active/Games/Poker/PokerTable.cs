@@ -8,6 +8,7 @@ using Credify.Chat.Active.Games.Poker.Utilities;
 using Credify.Chat.Passive.Quests.Enums;
 using Credify.Configuration;
 using Credify.Configuration.Translations;
+using Credify.Games.Cards;
 using Credify.Services;
 using SharedLibraryCore;
 using SharedLibraryCore.Database.Models;
@@ -39,6 +40,12 @@ public class PokerTable(
     private int _dealerButtonPosition = -1;
     private readonly PokerTranslations _pokerTrans = translations.Poker;
 
+    // ── webfront observation state ──
+    public event Action? StateChanged;
+    private void RaiseStateChanged() => StateChanged?.Invoke();
+    private int? _activeClientId;          // whose turn it is to act
+    private DateTimeOffset? _turnEndsAt;    // when the active player's turn auto-folds
+
     /// <summary>
     /// Gets the current game state.
     /// </summary>
@@ -47,7 +54,11 @@ public class PokerTable(
     /// <summary>
     /// Transitions to a new game state.
     /// </summary>
-    private void TransitionToState(PokerGameState newState) => _stateMachine.TransitionTo(newState);
+    private void TransitionToState(PokerGameState newState)
+    {
+        _stateMachine.TransitionTo(newState);
+        RaiseStateChanged();
+    }
 
     /// <summary>
     /// Checks if currently in the specified state.
@@ -392,6 +403,11 @@ public class PokerTable(
         // Store completion source for chat handler
         _pendingActionCompletions[player.Client] = actionCompleted;
 
+        // surface the active turn + deadline to the webfront
+        _activeClientId = player.Client.ClientId;
+        _turnEndsAt = DateTimeOffset.UtcNow + Config.Poker.TimeoutForPlayerAction;
+        RaiseStateChanged();
+
         // Warn the actor ~10s before the auto-fold (no visible clock in chat).
         if (Config.Poker.TimeoutForPlayerAction > TimeSpan.FromSeconds(12))
         {
@@ -428,6 +444,9 @@ public class PokerTable(
         {
             _pendingActionPlayers.TryRemove(player.Client, out _);
             _pendingActionCompletions.TryRemove(player.Client, out _);
+            _activeClientId = null;
+            _turnEndsAt = null;
+            RaiseStateChanged();
         }
     }
 
@@ -831,6 +850,8 @@ public class PokerTable(
             await ExecuteActionAsync(player, action, raiseAmount);
             completion.TrySetResult(true);
         });
+
+        RaiseStateChanged();
     }
 
     /// <summary>
@@ -860,6 +881,7 @@ public class PokerTable(
             }
         }
 
+        RaiseStateChanged();
         return added;
     }
 
@@ -894,6 +916,7 @@ public class PokerTable(
             }
 
             ResetPlayersSignal();
+            RaiseStateChanged();
         }
     }
 
@@ -984,4 +1007,108 @@ public class PokerTable(
             await output.TellPlayerAsync(player, messages, false);
         }
     }
+
+    #region Web Frontend
+
+    private static Card ToCard(PokerCard c) => new((Suit)(int)c.CardSuit, (Rank)(int)c.CardRank);
+
+    /// <summary>
+    /// Per-viewer snapshot of the live table. Other players' hole cards are redacted (shown face-down) unless
+    /// it's showdown and they haven't folded. The viewer's own cards are always shown.
+    /// </summary>
+    public PokerSnapshot GetSnapshot(int viewerClientId)
+    {
+        var state = GameState;
+        var showdown = state == PokerGameState.Showdown;
+
+        // during a hand, _playersInHand holds positions/blinds; otherwise show the seated roster
+        var roster = _playersInHand.Count > 0 ? _playersInHand : Players.Values.ToList();
+
+        // pot shown = collected pot + chips wagered this round but not yet swept in
+        var displayedPot = _totalPot + roster.Sum(p => p.CurrentBet);
+
+        var seats = roster.Select(p => BuildSeat(p, viewerClientId, showdown)).ToList();
+
+        var secondsRemaining = _activeClientId is not null && _turnEndsAt is { } endsAt
+            ? Math.Max(0, (endsAt - DateTimeOffset.UtcNow).TotalSeconds)
+            : 0;
+
+        PokerActionsView? myActions = null;
+        if (_activeClientId == viewerClientId)
+        {
+            var me = roster.FirstOrDefault(p => p.Client.ClientId == viewerClientId);
+            if (me is not null)
+            {
+                myActions = BuildActions(me);
+            }
+        }
+
+        return new PokerSnapshot
+        {
+            Phase = state.ToString(),
+            Pot = displayedPot,
+            CurrentBet = _currentRound.CurrentBet,
+            Community = _communityCards.Select(ToCard).ToList(),
+            ActiveClientId = _activeClientId,
+            SecondsRemaining = secondsRemaining,
+            Seats = seats,
+            BigBlind = Config.Poker.BigBlind,
+            MinBuyIn = Config.Poker.MinimumBuyIn,
+            MaxBuyIn = Config.Poker.MaximumBuyIn,
+            MyActions = myActions
+        };
+    }
+
+    private PokerSeatView BuildSeat(PokerPlayer p, int viewerId, bool showdown)
+    {
+        var isViewer = p.Client.ClientId == viewerId;
+        var reveal = isViewer || (showdown && !p.IsFolded && p.HoleCards.Count > 0);
+
+        string? handName = null;
+        if (showdown && !p.IsFolded && p.HoleCards.Count == 2)
+        {
+            var hand = handEvaluator.EvaluateBestAvailable(p.HoleCards, _communityCards);
+            handName = hand is null ? null : HandRankName(hand.Rank);
+        }
+
+        return new PokerSeatView
+        {
+            ClientId = p.Client.ClientId,
+            Name = p.Client.CleanedName,
+            Chips = p.Chips,
+            CurrentBet = p.CurrentBet,
+            IsDealer = p.IsDealer,
+            IsSmallBlind = p.IsSmallBlind,
+            IsBigBlind = p.IsBigBlind,
+            IsFolded = p.IsFolded,
+            IsAllIn = p.IsAllIn,
+            IsActiveTurn = _activeClientId == p.Client.ClientId,
+            HoleCards = reveal ? p.HoleCards.Select(ToCard).ToList() : [],
+            HasHiddenCards = !reveal && p.HoleCards.Count > 0,
+            HandName = handName,
+            LastAction = p.LastAction?.ToString() ?? ""
+        };
+    }
+
+    private PokerActionsView BuildActions(PokerPlayer me)
+    {
+        var actions = actionValidator.GetAvailableActions(me, _currentRound);
+        var (minRaise, maxRaise) = actionValidator.GetRaiseRange(me, _currentRound);
+        var call = _currentRound.CurrentBet - me.CurrentBet;
+
+        return new PokerActionsView
+        {
+            CanFold = actions.Contains(PlayerAction.Fold),
+            CanCheck = actions.Contains(PlayerAction.Check),
+            CanCall = actions.Contains(PlayerAction.Call),
+            CanRaise = actions.Contains(PlayerAction.Raise),
+            CanAllIn = actions.Contains(PlayerAction.AllIn),
+            CallAmount = Math.Max(0, call),
+            MinRaise = minRaise,
+            MaxRaise = maxRaise,
+            MyChips = me.Chips
+        };
+    }
+
+    #endregion
 }

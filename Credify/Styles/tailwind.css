@@ -1,0 +1,19 @@
+/*
+ * Tailwind input for the Credify plugin's web pages.
+ *
+ * Emitted into the host's lowest-priority `plugins` cascade layer (the host declares it in app.css) so the
+ * plugin's utilities NEVER override the host's own utilities/chrome — e.g. the host sidebar/topbar use
+ * `hidden md:flex`, and without this the plugin's generic `.hidden`/`.flex` would out-order them and collapse
+ * the layout. Layering keeps plugin styling fully functional for the plugin's own markup.
+ *
+ * Preflight (Tailwind's global reset) is intentionally omitted — the host already ships one. We pull only
+ * the theme tokens and the utilities, both into layer(plugins).
+ *
+ * The build compiles this to plugin.css (purged to the classes these components use); the host serves it at
+ * /_content/credify/plugin.css.
+ */
+@import "tailwindcss/theme.css" layer(plugins);
+@import "tailwindcss/utilities.css" layer(plugins);
+
+/* scan this plugin's components so only the utilities actually used are emitted */
+@source "../Components/**/*.razor";

@@ -1,0 +1,26 @@
+@namespace Credify.Components.Games.Blackjack
+
+@* One playing card. Face-down renders the bundled card-back asset; face-up renders an HTML/CSS card.
+   `Index` staggers the deal-in animation; `Reveal` plays a flip when the dealer's hole card is turned. *@
+<div class="bj-card @(FaceDown ? "" : Reveal ? "bj-card-reveal" : "bj-card-deal")"
+     style="animation-delay:@(Index * 90)ms">
+    @if (FaceDown || Card is null)
+    {
+        <img src="/_content/credify/blackjack/card-back.svg" alt="Face-down card"
+             class="h-full w-full select-none" draggable="false"/>
+    }
+    else
+    {
+        <div class="bj-card-face @(Card.IsRed ? "bj-red" : "bj-black")">
+            <div class="bj-card-corner bj-card-tl">
+                <span class="bj-card-rank">@Card.RankLabel</span>
+                <span class="bj-card-suit">@Card.SuitGlyph</span>
+            </div>
+            <div class="bj-card-pip">@Card.SuitGlyph</div>
+            <div class="bj-card-corner bj-card-br">
+                <span class="bj-card-rank">@Card.RankLabel</span>
+                <span class="bj-card-suit">@Card.SuitGlyph</span>
+            </div>
+        </div>
+    }
+</div>

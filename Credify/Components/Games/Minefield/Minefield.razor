@@ -1,0 +1,224 @@
+@page "/credify/minefield"
+@rendermode RenderMode.InteractiveServer
+@implements IAsyncDisposable
+
+<PageTitle>Credify · Minefield</PageTitle>
+@* one HeadContent only — HeadContent is last-render-wins, so a second one would replace these links *@
+<HeadContent>
+    <link rel="stylesheet" href="/_content/credify/plugin.css"/>
+    <link rel="stylesheet" href="/_content/credify/custom.css"/>
+    <link rel="stylesheet" href="/_content/credify/minefield/minefield.css"/>
+</HeadContent>
+
+<PluginPageShell FeltClass="mf-felt text-zinc-100" Menu='CredifyNav.Build("/credify/minefield")'>
+
+        <!-- header -->
+        <div class="flex items-center justify-between gap-3">
+            <div class="flex items-center gap-2">
+                <i class="ph-fill ph-bomb text-2xl text-[color:var(--color-action-primary,#818cf8)]"></i>
+                <h1 class="text-2xl font-bold tracking-tight">Minefield</h1>
+            </div>
+            <div class="flex items-center gap-2">
+                <CredifyAudioControls/>
+                <span class="mf-chip-stat"><i class="ph-fill ph-coins text-amber-400"></i> @Cache.BankCredits.ToString("N0") <span class="mf-muted">bank</span></span>
+                @if (_authed)
+                {
+                    <span class="mf-chip-stat"><i class="ph-fill ph-wallet text-emerald-400"></i> @_balance.ToString("N0") <span class="mf-muted">credits</span></span>
+                }
+            </div>
+        </div>
+
+        @if (_loading)
+        {
+            <div class="flex items-center justify-center py-24 text-zinc-400">
+                <i class="ph ph-spinner animate-spin text-3xl"></i>
+            </div>
+        }
+        else if (!_authed)
+        {
+            <!-- anonymous: how-to + leaderboard + sign-in prompt -->
+            <div class="mt-6 grid gap-6 md:grid-cols-2">
+                <div class="mf-panel text-center">
+                    <i class="ph-fill ph-diamonds-four text-5xl text-[color:var(--color-action-primary,#818cf8)]"></i>
+                    <h2 class="mt-3 text-xl font-bold">Sign in to play</h2>
+                    <p class="mt-1 text-sm text-zinc-400">
+                        Pick your mines, dig for gems, and cash out before you hit one. Every safe tile
+                        climbs the multiplier — the more mines you arm, the faster it grows.
+                    </p>
+                    <a href="/" class="mf-btn mf-btn-primary mt-4 inline-flex"><i class="ph ph-sign-in"></i> Sign in</a>
+                </div>
+                <div class="mf-panel">
+                    <h2 class="flex items-center gap-2 text-lg font-bold"><i class="ph-fill ph-trophy text-amber-400"></i> Top credits</h2>
+                    @if (Cache.TopCredits.Count == 0)
+                    {
+                        <p class="mt-3 text-sm text-zinc-400">No credit data yet.</p>
+                    }
+                    else
+                    {
+                        <ol class="mt-3 space-y-1">
+                            @foreach (var (entry, i) in Cache.TopCredits.Take(10).Select((e, i) => (e, i)))
+                            {
+                                <li class="flex items-center justify-between rounded-md bg-black/20 px-3 py-1.5 text-sm">
+                                    <span class="flex items-center gap-2"><span class="w-5 text-right text-zinc-500">@(i + 1)</span> Client @entry.ClientId</span>
+                                    <span class="font-semibold">@entry.Credits.ToString("N0")</span>
+                                </li>
+                            }
+                        </ol>
+                    }
+                </div>
+            </div>
+        }
+        else
+        {
+            <!-- live multiplier / payout ribbon (only while a round is running or just finished) -->
+            @if (_game.Phase != MinefieldPhase.Configuring)
+            {
+                <div class="mf-ribbon mt-5">
+                    <div class="mf-ribbon-cell">
+                        <span class="mf-ribbon-label">Multiplier</span>
+                        <span class="mf-ribbon-value mf-mult @(_game.Phase == MinefieldPhase.Digging && _game.DugCount > 0 ? "mf-mult-live" : "")">
+                            @_game.CurrentMultiplier.ToString("0.00")×
+                        </span>
+                    </div>
+                    <div class="mf-ribbon-cell">
+                        <span class="mf-ribbon-label">Cash value</span>
+                        <span class="mf-ribbon-value text-amber-300">@_game.CurrentPayout.ToString("N0")</span>
+                    </div>
+                    <div class="mf-ribbon-cell">
+                        <span class="mf-ribbon-label">Gems</span>
+                        <span class="mf-ribbon-value">@_game.DugCount<span class="mf-muted">/@_game.SafeTotal</span></span>
+                    </div>
+                    <div class="mf-ribbon-cell">
+                        <span class="mf-ribbon-label">Mines</span>
+                        <span class="mf-ribbon-value text-rose-300"><i class="ph-fill ph-bomb text-base"></i> @_game.MineCount</span>
+                    </div>
+                </div>
+            }
+
+            <!-- result banner -->
+            @if (_game.Phase == MinefieldPhase.Settled && _game.Result is { } result)
+            {
+                <div class="mt-4 flex justify-center">
+                    <div class="mf-banner @BannerClass(result)">
+                        <i class="ph-fill @BannerIcon(result) text-2xl"></i>
+                        <span>@BannerText(result)</span>
+                        @if (result != MinefieldResult.Busted)
+                        {
+                            <span class="mf-banner-net">+@_game.NetResult.ToString("N0")</span>
+                        }
+                        else
+                        {
+                            <span class="mf-banner-net">@((-_game.Stake).ToString("N0"))</span>
+                        }
+                    </div>
+                </div>
+            }
+
+            <!-- the field. during configuring we render a disabled preview grid so the table never looks empty -->
+            <div class="mf-grid mt-5" style="grid-template-columns:repeat(@_cols, minmax(0, 1fr));">
+                @for (var i = 0; i < (_game.Phase == MinefieldPhase.Configuring ? _game.TotalTiles : _game.Tiles.Length); i++)
+                {
+                    var index = i;
+                    var configuring = _game.Phase == MinefieldPhase.Configuring;
+                    var tile = configuring ? TileState.Hidden : _game.Tiles[index];
+                    <button class="mf-tile @(configuring ? "mf-tile-hidden" : TileClass(index))"
+                            style="animation-delay:@(((index % _cols) + (index / _cols)) * 28)ms"
+                            disabled="@(configuring || _busy || _game.Phase != MinefieldPhase.Digging || tile != TileState.Hidden)"
+                            @onclick="() => Dig(index)">
+                        <span class="mf-tile-inner">
+                            @switch (tile)
+                            {
+                                case TileState.Gem:
+                                    <i class="ph-fill ph-diamond mf-gem-icon"></i>
+                                    break;
+                                case TileState.Mine:
+                                    <i class="ph-fill ph-bomb mf-mine-icon"></i>
+                                    break;
+                                default:
+                                    <span class="mf-tile-stud"></span>
+                                    break;
+                            }
+                        </span>
+                    </button>
+                }
+            </div>
+
+            <!-- controls -->
+            <div class="mf-controls mt-5">
+                @if (_game.Phase == MinefieldPhase.Configuring)
+                {
+                    <!-- bet -->
+                    <div class="flex flex-wrap items-center justify-center gap-2">
+                        @foreach (var chip in _chips)
+                        {
+                            <button class="mf-chip" disabled="@(_busy || _bet + chip > _balance)" @onclick="() => AddToBet(chip)">+@chip.ToString("N0")</button>
+                        }
+                        <button class="mf-chip mf-chip-max" disabled="@_busy" @onclick="BetMax">Max</button>
+                        <button class="mf-chip mf-chip-clear" disabled="@_busy" @onclick="ClearBet"><i class="ph ph-x"></i></button>
+                    </div>
+
+                    <!-- mines stepper + presets -->
+                    <div class="mt-4 flex flex-wrap items-center justify-center gap-3">
+                        <div class="mf-stepper">
+                            <button class="mf-step" disabled="@(_busy || _mines <= 1)" @onclick="() => AdjustMines(-1)"><i class="ph-bold ph-minus"></i></button>
+                            <span class="mf-step-value"><i class="ph-fill ph-bomb text-rose-400"></i> @_mines</span>
+                            <button class="mf-step" disabled="@(_busy || _mines >= _game.MaxMines)" @onclick="() => AdjustMines(1)"><i class="ph-bold ph-plus"></i></button>
+                        </div>
+                        <div class="flex items-center gap-1">
+                            @foreach (var preset in _minePresets)
+                            {
+                                <button class="mf-preset @(_mines == preset ? "mf-preset-on" : "")" disabled="@_busy" @onclick="() => SetMines(preset)">@preset</button>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- preview + deal -->
+                    <div class="mt-4 flex flex-col items-center gap-2">
+                        <p class="text-sm text-zinc-400">
+                            First gem pays <span class="font-semibold text-emerald-300">@FirstGemMultiplier.ToString("0.00")×</span>
+                            · next-tile risk <span class="font-semibold text-rose-300">@FormatPct(FirstTileRisk)</span>
+                        </p>
+                        <div class="flex items-center gap-3">
+                            <span class="text-sm text-zinc-400">Bet <span class="text-lg font-bold text-amber-300">@_bet.ToString("N0")</span></span>
+                            <button class="mf-btn mf-btn-primary" disabled="@(_busy || _bet < MinBet || _bet > _balance)" @onclick="StartGame">
+                                <i class="ph-fill ph-shovel"></i> Plant &amp; dig
+                            </button>
+                        </div>
+                        @if (_balance < MinBet)
+                        {
+                            <p class="text-sm text-rose-400">You need at least @MinBet.ToString("N0") credits to play.</p>
+                        }
+                    </div>
+                }
+                else if (_game.Phase == MinefieldPhase.Digging)
+                {
+                    <div class="flex flex-col items-center gap-3">
+                        <p class="text-sm text-zinc-400">
+                            Next gem → <span class="font-semibold text-emerald-300">@_game.NextMultiplier.ToString("0.00")×</span>
+                            (@_game.NextPayout.ToString("N0")) · mine risk
+                            <span class="font-semibold text-rose-300">@FormatPct(_game.NextTileMineChance)</span>
+                        </p>
+                        <button class="mf-btn mf-btn-cash @(_game.CanCashOut ? "mf-btn-cash-live" : "")"
+                                disabled="@(_busy || !_game.CanCashOut)" @onclick="CashOut">
+                            <i class="ph-fill ph-hand-coins"></i> Cash out @_game.CurrentPayout.ToString("N0")
+                        </button>
+                        @if (!_game.CanCashOut)
+                        {
+                            <p class="text-xs text-zinc-500">Dig at least one tile before you can cash out.</p>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="flex items-center justify-center">
+                        <button class="mf-btn mf-btn-primary" disabled="@_busy" @onclick="NewGame"><i class="ph ph-arrow-clockwise"></i> New game</button>
+                    </div>
+                }
+            </div>
+
+            <div class="mt-4 text-center">
+                <a href="/credify" class="text-sm text-zinc-400 hover:text-zinc-200 hover:underline">← Back to Credify</a>
+            </div>
+        }
+</PluginPageShell>
+

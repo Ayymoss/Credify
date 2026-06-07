@@ -1,4 +1,6 @@
 using Credify.Chat.Active.Games.Blackjack.Enums;
+using Credify.Games.Blackjack;
+using Credify.Games.Cards;
 using SharedLibraryCore.Database.Models;
 
 namespace Credify.Chat.Active.Games.Blackjack.Models;
@@ -10,7 +12,7 @@ namespace Credify.Chat.Active.Games.Blackjack.Models;
 public class BlackjackPlayer
 {
     public required EFClient Client { get; init; }
-    public List<BlackjackCard> Cards { get; set; } = [];
+    public List<Card> Cards { get; set; } = [];
     public PlayerState State { get; set; } = PlayerState.Playing;
     public GameOutcome Outcome { get; set; }
     public long? Stake { get; set; }
@@ -24,7 +26,7 @@ public class BlackjackPlayer
     public bool SittingOut { get; set; }
 
     // Split hand properties
-    public List<BlackjackCard> SplitCards { get; set; } = [];
+    public List<Card> SplitCards { get; set; } = [];
     public long? SplitStake { get; set; }
     public GameOutcome SplitOutcome { get; set; }
     public long? SplitPayout { get; set; }
@@ -39,7 +41,10 @@ public class BlackjackPlayer
     /// <summary>
     /// Checks if player can split (two cards of same rank).
     /// </summary>
-    public bool CanSplit() => Cards.Count == 2 && !HasSplit && Cards[0].CardRank == Cards[1].CardRank;
+    // Splittable when the opening two cards share a blackjack value — so any two ten-valued cards
+    // (10/J/Q/K) can be split, matching standard casino rules and the prior behaviour (the old card
+    // model collapsed J/Q/K to a single value; the rich model preserves it via the value comparison).
+    public bool CanSplit() => Cards.Count == 2 && !HasSplit && Cards[0].BlackjackValue == Cards[1].BlackjackValue;
 
     /// <summary>
     /// Checks if player can double down (initial two-card hand, not split).

@@ -49,7 +49,10 @@ public abstract class BaseGameOutputHandler<TPlayer>(GamePlayerCommunication com
     /// </summary>
     public virtual void Tell(TPlayer player, string message, bool longPrefix = false)
     {
+        var client = GetClient(player);
+        // web-only participants (no game server) render from state snapshots, not chat lines
+        if (client.CurrentServer is null) return;
         var prefix = GetPrefix(longPrefix);
-        GetClient(player).Tell($"{prefix} {message}");
+        client.Tell($"{prefix} {message}");
     }
 }

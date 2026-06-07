@@ -1,35 +1,26 @@
 using System.Collections.Concurrent;
-using Credify.Chat.Active.Games.Blackjack.Models;
+using Credify.Games;
+using Credify.Games.Cards;
 
 namespace Credify.Chat.Active.Games.Blackjack.Services;
 
 /// <summary>
-/// Service responsible for deck management in Blackjack games.
-/// Handles deck creation, shuffling, and card drawing.
+/// Service responsible for deck management in chat Blackjack games. Handles deck creation, shuffling, and
+/// card drawing. The 52-card composition and the (crypto) shuffle come from the shared card core; this
+/// service only adds the concurrent queue + reshuffle-on-empty behaviour the chat game relies on.
 /// </summary>
 public class BlackjackDeckService
 {
-    private ConcurrentQueue<BlackjackCard> _deck = new();
+    private ConcurrentQueue<Card> _deck = new();
 
     /// <summary>
     /// Creates and shuffles a new deck of cards.
     /// </summary>
-    public ConcurrentQueue<BlackjackCard> CreateShuffledDeck()
+    public ConcurrentQueue<Card> CreateShuffledDeck()
     {
-        var deck = new List<BlackjackCard>();
-        var suits = Enum.GetValues(typeof(BlackjackCard.Suit)).Cast<BlackjackCard.Suit>();
-        var ranks = Enum.GetValues(typeof(BlackjackCard.Rank)).Cast<BlackjackCard.Rank>().ToList();
-        
-        foreach (var suit in suits)
-        {
-            foreach (var rank in ranks)
-            {
-                deck.Add(new BlackjackCard(suit, rank));
-            }
-        }
-
-        var shuffledDeck = new ConcurrentQueue<BlackjackCard>(deck.OrderBy(_ => Guid.NewGuid()));
-        return shuffledDeck;
+        var deck = CardDeck.BuildStandardDeck();
+        Shuffle.InPlace(deck);
+        return new ConcurrentQueue<Card>(deck);
     }
 
     /// <summary>
@@ -49,7 +40,7 @@ public class BlackjackDeckService
     /// Draws a card from the deck. Reshuffles if needed.
     /// Throws exception if deck cannot be replenished.
     /// </summary>
-    public BlackjackCard DrawCardOrReshuffle()
+    public Card DrawCardOrReshuffle()
     {
         if (_deck.IsEmpty)
         {

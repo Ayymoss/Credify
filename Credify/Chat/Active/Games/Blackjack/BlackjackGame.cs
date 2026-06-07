@@ -8,6 +8,9 @@ using Credify.Chat.Active.Games.Blackjack.Services;
 using Credify.Chat.Active.Games.Blackjack.Utilities;
 using Credify.Chat.Passive.Quests.Enums;
 using Credify.Configuration;
+using Credify.Games.Blackjack;
+using Credify.Games.Cards;
+using Credify.Games.Live;
 using Credify.Services;
 using SharedLibraryCore;
 using SharedLibraryCore.Database.Models;
@@ -18,9 +21,17 @@ namespace Credify.Chat.Active.Games.Blackjack;
 /// Main Blackjack game class managing game flow, player actions, and payouts.
 /// Uses Core abstractions for input/output handling and stake validation.
 /// </summary>
-public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
+public class BlackjackGame : BaseActiveGame<BlackjackPlayer>, IWebObservableGame<BlackjackSnapshot>
 {
     private readonly GameStateMachine<GameState> _stateMachine;
+
+    /// <inheritdoc />
+    public event Action? StateChanged;
+
+    private void RaiseStateChanged() => StateChanged?.Invoke();
+
+    // when the current timed player window (betting / insurance / decisions) closes; null otherwise.
+    private DateTimeOffset? _phaseEndsAt;
 
     /// <summary>
     /// Gets the current game state.
@@ -30,7 +41,11 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
     /// <summary>
     /// Transitions to a new game state.
     /// </summary>
-    protected void TransitionToState(GameState newState) => _stateMachine.TransitionTo(newState);
+    protected void TransitionToState(GameState newState)
+    {
+        _stateMachine.TransitionTo(newState);
+        RaiseStateChanged();
+    }
 
     /// <summary>
     /// Checks if currently in the specified state.
@@ -41,7 +56,7 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
     /// Checks if currently in any of the specified states.
     /// </summary>
     protected bool IsInAnyState(params GameState[] states) => _stateMachine.IsInAnyState(states);
-    private List<BlackjackCard> _houseHand = [];
+    private List<Card> _houseHand = [];
     private readonly BlackjackDeckService _deckService;
     private readonly BlackjackPayoutCalculator _payoutCalculator;
     private readonly IGameInputParser<BlackjackActionResult> _inputHandler;
@@ -134,6 +149,8 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
 
         _playerStakesToken?.Dispose();
         _playerStakesToken = new CancellationTokenSource();
+        _phaseEndsAt = DateTimeOffset.UtcNow + Config.Blackjack.TimeoutForPlayerAction;
+        RaiseStateChanged();
         SharedLibraryCore.Utilities.ExecuteAfterDelay(Config.Blackjack.TimeoutForPlayerAction, DealCardsAsync,
             _playerStakesToken.Token);
         ScheduleTimeWarning(_playerStakesToken.Token, () => Players
@@ -179,7 +196,7 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
         _playerStakesToken = null;
         
         // Check if dealer shows Ace - offer insurance
-        if (_houseHand[0].CardRank == BlackjackCard.Rank.Ace)
+        if (_houseHand[0].Rank == Rank.Ace)
         {
             await OfferInsuranceAsync();
         }
@@ -223,6 +240,8 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
         // Use player action timeout for insurance window (not the tiny 2-second delay)
         _insuranceToken?.Dispose();
         _insuranceToken = new CancellationTokenSource();
+        _phaseEndsAt = DateTimeOffset.UtcNow + Config.Blackjack.TimeoutForPlayerAction;
+        RaiseStateChanged();
         SharedLibraryCore.Utilities.ExecuteAfterDelay(
             Config.Blackjack.TimeoutForPlayerAction,
             async (token) =>
@@ -289,6 +308,8 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
 
         _dealerPlaysToken?.Dispose();
         _dealerPlaysToken = new CancellationTokenSource();
+        _phaseEndsAt = DateTimeOffset.UtcNow + Config.Blackjack.TimeoutForPlayerAction;
+        RaiseStateChanged();
         SharedLibraryCore.Utilities.ExecuteAfterDelay(Config.Blackjack.TimeoutForPlayerAction, DealerPlaysAsync, _dealerPlaysToken.Token);
         ScheduleTimeWarning(_dealerPlaysToken.Token, () => ActivePlayers
             .Where(x => x.Value.State is PlayerState.Playing or PlayerState.PlayingSplitHand)
@@ -319,10 +340,10 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
             [
                 Config.Translations.Blackjack.DealerCards.FormatExt(
                     BlackjackPayoutCalculator.CalculateHandValue(_houseHand),
-                    string.Join(", ", _houseHand.Select(x => x.ToString()))),
+                    string.Join(", ", _houseHand.Select(x => x.ToChatString()))),
                 Config.Translations.Blackjack.PlayerCards.FormatExt(
                     BlackjackPayoutCalculator.CalculateHandValue(player.Cards),
-                    string.Join(", ", player.Cards.Select(x => x.ToString())))
+                    string.Join(", ", player.Cards.Select(x => x.ToChatString())))
             ]);
             
             // Show split hand if player has one
@@ -331,7 +352,7 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
                 await _outputHandler.TellPlayerAsync(player,
                     [Config.Translations.Blackjack.SplitHand.FormatExt(
                         BlackjackPayoutCalculator.CalculateHandValue(player.SplitCards),
-                        string.Join(", ", player.SplitCards.Select(x => x.ToString())))]);
+                        string.Join(", ", player.SplitCards.Select(x => x.ToChatString())))]);
             }
         }
 
@@ -542,12 +563,15 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
         {
             if (_startGameLock.CurrentCount is 0) _startGameLock.Release();
         }
+
+        RaiseStateChanged();
     }
 
     public override async Task LeaveGameAsync(EFClient client)
     {
         Players.TryRemove(client, out _);
         if (Players.IsEmpty) await EndGameAsync(CancellationToken.None);
+        RaiseStateChanged();
     }
 
     public override async Task HandleChatAsync(EFClient client, string message)
@@ -590,6 +614,8 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
                     break;
             }
         });
+
+        RaiseStateChanged();
     }
 
     #endregion
@@ -785,7 +811,7 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
             await _outputHandler.TellPlayerAsync(player,
                 [Config.Translations.Blackjack.SplitHand.FormatExt(
                     BlackjackPayoutCalculator.CalculateHandValue(player.SplitCards),
-                    string.Join(", ", player.SplitCards.Select(x => x.ToString())))]);
+                    string.Join(", ", player.SplitCards.Select(x => x.ToChatString())))]);
             await _outputHandler.TellPlayerAsync(player, [_inputHandlerConcrete.FormatAvailableActions()]);
             return; // Don't check round completion yet
         }
@@ -806,7 +832,7 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
             Config.Translations.Blackjack.DealerInitialCard.FormatExt(_houseHand[0]),
             Config.Translations.Blackjack.PlayerCards.FormatExt(
                 BlackjackPayoutCalculator.CalculateHandValue(currentCards),
-                string.Join(", ", currentCards.Select(x => x.ToString())))
+                string.Join(", ", currentCards.Select(x => x.ToChatString())))
         ]);
         
         if (player.HasSplit && !isPlayingSplit)
@@ -814,7 +840,7 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
             await _outputHandler.TellPlayerAsync(player,
                 [Config.Translations.Blackjack.SplitHand.FormatExt(
                     BlackjackPayoutCalculator.CalculateHandValue(player.SplitCards),
-                    string.Join(", ", player.SplitCards.Select(x => x.ToString())))]);
+                    string.Join(", ", player.SplitCards.Select(x => x.ToChatString())))]);
         }
     }
 
@@ -880,7 +906,7 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
             await _outputHandler.TellPlayerAsync(player,
                 [Config.Translations.Blackjack.SplitHand.FormatExt(
                     BlackjackPayoutCalculator.CalculateHandValue(player.SplitCards),
-                    string.Join(", ", player.SplitCards.Select(x => x.ToString())))]);
+                    string.Join(", ", player.SplitCards.Select(x => x.ToChatString())))]);
             await _outputHandler.TellPlayerAsync(player, [_inputHandlerConcrete.FormatAvailableActions()]);
             return;
         }
@@ -922,11 +948,11 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
         await _outputHandler.TellPlayerAsync(player,
             [Config.Translations.Blackjack.PlayerCards.FormatExt(
                 BlackjackPayoutCalculator.CalculateHandValue(player.Cards),
-                string.Join(", ", player.Cards.Select(x => x.ToString())))]);
+                string.Join(", ", player.Cards.Select(x => x.ToChatString())))]);
         await _outputHandler.TellPlayerAsync(player,
             [Config.Translations.Blackjack.SplitHand.FormatExt(
                 BlackjackPayoutCalculator.CalculateHandValue(player.SplitCards),
-                string.Join(", ", player.SplitCards.Select(x => x.ToString())))]);
+                string.Join(", ", player.SplitCards.Select(x => x.ToChatString())))]);
         await _outputHandler.TellPlayerAsync(player, [_inputHandlerConcrete.FormatAvailableActions()]);
     }
 
@@ -982,7 +1008,7 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
                 await _outputHandler.TellPlayerAsync(player,
                     [Config.Translations.Blackjack.SplitHand.FormatExt(
                         BlackjackPayoutCalculator.CalculateHandValue(player.SplitCards),
-                        string.Join(", ", player.SplitCards.Select(x => x.ToString())))]);
+                        string.Join(", ", player.SplitCards.Select(x => x.ToChatString())))]);
                 await _outputHandler.TellPlayerAsync(player, [_inputHandlerConcrete.FormatAvailableActions()]);
                 return;
             }
@@ -1012,7 +1038,7 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
                 await _outputHandler.TellPlayerAsync(player,
                     [Config.Translations.Blackjack.SplitHand.FormatExt(
                         BlackjackPayoutCalculator.CalculateHandValue(player.SplitCards),
-                        string.Join(", ", player.SplitCards.Select(x => x.ToString())))]);
+                        string.Join(", ", player.SplitCards.Select(x => x.ToChatString())))]);
                 await _outputHandler.TellPlayerAsync(player, [_inputHandlerConcrete.FormatAvailableActions()]);
                 return;
             }
@@ -1025,9 +1051,9 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
         }
     }
 
-    private string FormatCardsWithHighlight(List<BlackjackCard> cards)
+    private string FormatCardsWithHighlight(List<Card> cards)
     {
-        var cardStrings = cards.Select(x => x.ToString()).ToList();
+        var cardStrings = cards.Select(x => x.ToChatString()).ToList();
         var coloredCards = new StringBuilder();
 
         for (var i = 0; i < cardStrings.Count; i++)
@@ -1077,8 +1103,8 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
     private string BuildHandSummary(BlackjackPlayer player) =>
         Config.Translations.Blackjack.HandSummary.FormatExt(
             BlackjackPayoutCalculator.CalculateHandValue(player.Cards),
-            string.Join(", ", player.Cards.Select(c => c.ToString())),
-            _houseHand[0].ToString());
+            string.Join(", ", player.Cards.Select(c => c.ToChatString())),
+            _houseHand[0].ToChatString());
 
     /// <summary>
     /// Sends a "10s left" nudge ~10s before a phase timeout (no visible clock in chat).
@@ -1103,6 +1129,105 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>
         .Where(x => x.Value.State is PlayerState.Playing or PlayerState.PlayingSplitHand)
         .Select(x => x.Key)
         .ToList();
+
+    #endregion
+
+    #region Web Frontend
+
+    /// <inheritdoc />
+    public BlackjackSnapshot GetSnapshot()
+    {
+        var state = GameState;
+        var revealed = state is GameState.DealerPlays or GameState.Payout;
+
+        var phase = state switch
+        {
+            GameState.WaitingForPlayers or GameState.SettingUpGame => "Waiting",
+            GameState.RequestPlayerStakes => "Betting",
+            GameState.DealCards => "Dealing",
+            GameState.OfferingInsurance => "Insurance",
+            GameState.RequestPlayerDecisions => "Decisions",
+            GameState.DealerPlays => "DealerPlaying",
+            GameState.Payout => "Payout",
+            _ => "Waiting"
+        };
+
+        var secondsRemaining = (phase is "Betting" or "Insurance" or "Decisions") && _phaseEndsAt is { } endsAt
+            ? Math.Max(0, (endsAt - DateTimeOffset.UtcNow).TotalSeconds)
+            : 0;
+
+        var dealerCards = _houseHand.Count == 0
+            ? new List<Card>()
+            : revealed ? _houseHand.ToList() : _houseHand.Take(1).ToList();
+        var dealerValue = _houseHand.Count == 0
+            ? 0
+            : revealed ? BlackjackRules.HandValue(_houseHand) : _houseHand[0].BlackjackValue;
+
+        var seats = Players.Values.Select(p => BuildSeat(p, state, revealed)).ToList();
+
+        return new BlackjackSnapshot
+        {
+            Phase = phase,
+            SecondsRemaining = secondsRemaining,
+            DealerCards = dealerCards,
+            DealerHasHole = !revealed && _houseHand.Count > 1,
+            DealerValue = dealerValue,
+            Seats = seats
+        };
+    }
+
+    private BlackjackSeatView BuildSeat(BlackjackPlayer p, GameState state, bool settled)
+    {
+        var seatState =
+            p.Queued ? "Waiting" :
+            p.SittingOut ? "SittingOut" :
+            state == GameState.RequestPlayerStakes && p.Stake is null ? "Betting" :
+            p.State switch
+            {
+                PlayerState.Playing => "Playing",
+                PlayerState.PlayingSplitHand => "PlayingSplit",
+                PlayerState.Stand => "Stand",
+                PlayerState.Busted => "Busted",
+                _ => "Playing"
+            };
+
+        var net = settled && p.Stake is not null ? (p.Payout ?? 0) - p.Stake.Value : 0;
+        if (settled && p.HasSplit)
+        {
+            net += (p.SplitPayout ?? 0) - (p.SplitStake ?? 0);
+        }
+
+        return new BlackjackSeatView
+        {
+            ClientId = p.Client.ClientId,
+            Name = p.Client.CleanedName,
+            Stake = p.Stake,
+            Cards = p.Cards.ToList(),
+            Value = BlackjackRules.HandValue(p.Cards),
+            IsSoft = BlackjackRules.HasSoftAce(p.Cards),
+            IsBlackjack = BlackjackRules.IsBlackjack(p.Cards),
+            Busted = BlackjackRules.IsBusted(p.Cards),
+            State = seatState,
+            Outcome = settled && p.Stake is not null ? OutcomeString(p.Outcome) : "",
+            Net = net,
+            HasSplit = p.HasSplit,
+            SplitCards = p.SplitCards.ToList(),
+            SplitValue = BlackjackRules.HandValue(p.SplitCards),
+            SplitOutcome = settled && p.HasSplit ? OutcomeString(p.SplitOutcome) : "",
+            HasInsurance = p.HasInsurance,
+            CanDouble = p.CanDouble(),
+            CanSplit = p.CanSplit(),
+            InsuranceEligible = state == GameState.OfferingInsurance && !p.HasInsurance && p.Cards.Count == 2 && !p.HasSplit
+        };
+    }
+
+    private static string OutcomeString(GameOutcome outcome) => outcome switch
+    {
+        GameOutcome.Blackjack => "Blackjack",
+        GameOutcome.Win => "Win",
+        GameOutcome.Push => "Push",
+        _ => "Lose"
+    };
 
     #endregion
 }

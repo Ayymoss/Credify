@@ -1,0 +1,7 @@
+@* Injects the plugin's stylesheets into the host <head> via HeadOutlet. The host serves these from its
+   in-memory asset store at /_content/credify/. Shared by every Credify page so the links live in one place.
+   Both the Tailwind output and the hand-written CSS are included. *@
+<HeadContent>
+    <link rel="stylesheet" href="/_content/credify/plugin.css"/>
+    <link rel="stylesheet" href="/_content/credify/custom.css"/>
+</HeadContent>

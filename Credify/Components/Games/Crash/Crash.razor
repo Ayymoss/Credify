@@ -1,0 +1,159 @@
+@page "/credify/crash"
+@rendermode RenderMode.InteractiveServer
+@implements IAsyncDisposable
+
+<PageTitle>Credify · Crash</PageTitle>
+<HeadContent>
+    <link rel="stylesheet" href="/_content/credify/plugin.css"/>
+    <link rel="stylesheet" href="/_content/credify/custom.css"/>
+    <link rel="stylesheet" href="/_content/credify/crash/crash.css"/>
+</HeadContent>
+
+<PluginPageShell FeltClass="cr-felt text-zinc-100" Menu='CredifyNav.Build("/credify/crash")'>
+
+        <!-- header -->
+        <div class="flex items-center justify-between gap-3">
+            <div class="flex items-center gap-2">
+                <i class="ph-fill ph-rocket-launch text-2xl text-[color:var(--color-action-primary,#818cf8)]"></i>
+                <h1 class="text-2xl font-bold tracking-tight">Crash</h1>
+            </div>
+            <div class="flex items-center gap-2">
+                <CredifyAudioControls/>
+                <span class="cr-chip-stat"><i class="ph-fill ph-coins text-amber-400"></i> @Cache.BankCredits.ToString("N0") <span class="cr-muted">bank</span></span>
+                @if (_authed)
+                {
+                    <span class="cr-chip-stat"><i class="ph-fill ph-wallet text-emerald-400"></i> @_balance.ToString("N0") <span class="cr-muted">credits</span></span>
+                }
+            </div>
+        </div>
+
+        @if (_loading)
+        {
+            <div class="flex items-center justify-center py-24 text-zinc-400">
+                <i class="ph ph-spinner animate-spin text-3xl"></i>
+            </div>
+        }
+        else
+        {
+            <div class="mt-5 grid gap-6 lg:grid-cols-3">
+
+                <!-- LEFT (wide): the flight stage + controls -->
+                <div class="lg:col-span-2 flex flex-col gap-4">
+                    <div class="cr-stage">
+                        <canvas @ref="_canvasRef" class="cr-canvas"></canvas>
+                        <div @ref="_readoutRef" class="cr-readout">1.00×</div>
+                        <div class="cr-sub">
+                            @switch (_game.Phase)
+                            {
+                                case CrashPhase.Flying: <text>Cash out before it crashes!</text> break;
+                                case CrashPhase.Settled when _game.Outcome == CrashOutcome.Crashed: <text>Crashed at @_game.CrashPoint.ToString("0.00")×</text> break;
+                                case CrashPhase.Settled: <text>Banked @_game.CashedMultiplier.ToString("0.00")×</text> break;
+                                default: <text>Set your stake and launch</text> break;
+                            }
+                        </div>
+                    </div>
+
+                    @if (!_authed)
+                    {
+                        <div class="cr-panel text-center">
+                            <i class="ph-fill ph-sign-in text-4xl text-[color:var(--color-action-primary,#818cf8)]"></i>
+                            <h2 class="mt-2 text-lg font-bold">Sign in to play</h2>
+                            <p class="mt-1 text-sm text-zinc-400">Watch live rounds on the right. Log into IW4MAdmin to launch your own and cash out before the crash.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="cr-controls flex flex-col items-center gap-3">
+                            @if (_game.Phase == CrashPhase.Idle)
+                            {
+                                <div class="flex flex-wrap items-center justify-center gap-2">
+                                    @foreach (var chip in _chips)
+                                    {
+                                        <button class="cr-chip @(_stake == chip ? "cr-chip-on" : "")"
+                                                disabled="@(_busy || chip > _balance)" @onclick="() => _stake = chip">@chip.ToString("N0")</button>
+                                    }
+                                    <span class="text-sm text-zinc-400">Stake <span class="text-base font-bold text-amber-300">@_stake.ToString("N0")</span></span>
+                                </div>
+                                <button class="cr-btn cr-btn-launch" disabled="@(_busy || _stake < Config.Crash.MinBet || _stake > _balance)" @onclick="Launch">
+                                    <i class="ph-fill ph-rocket-launch"></i> Launch
+                                </button>
+                                @if (_balance < Config.Crash.MinBet)
+                                {
+                                    <p class="text-sm text-rose-400">You need at least @Config.Crash.MinBet.ToString("N0") credits to play.</p>
+                                }
+                            }
+                            else if (_game.Phase == CrashPhase.Flying)
+                            {
+                                <button class="cr-btn cr-btn-cash" disabled="@_busy" @onclick="CashOut">
+                                    <i class="ph-fill ph-hand-coins"></i> Cash out @_game.CurrentPayout.ToString("N0")
+                                </button>
+                            }
+                            else
+                            {
+                                <div class="flex flex-col items-center gap-2">
+                                    @if (_game.Outcome == CrashOutcome.CashedOut)
+                                    {
+                                        <div class="cr-banner cr-banner-win">
+                                            <i class="ph-fill ph-hand-coins text-xl"></i> Cashed @_game.CashedMultiplier.ToString("0.00")×
+                                            <span class="cr-banner-net">+@_game.NetResult.ToString("N0")</span>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="cr-banner cr-banner-lose">
+                                            <i class="ph-fill ph-rocket text-xl"></i> Crashed @_game.CrashPoint.ToString("0.00")×
+                                            <span class="cr-banner-net">@((-_game.Stake).ToString("N0"))</span>
+                                        </div>
+                                    }
+                                    <button class="cr-btn cr-btn-launch" disabled="@_busy" @onclick="NewRound"><i class="ph ph-arrow-clockwise"></i> New round</button>
+                                </div>
+                            }
+
+                            @if (_error is not null)
+                            {
+                                <div class="cr-toast">@_error</div>
+                            }
+                        </div>
+                    }
+                </div>
+
+                <!-- RIGHT: live lobby (everyone playing right now) -->
+                <div class="flex flex-col gap-4">
+                    <div class="cr-panel">
+                        <h2 class="flex items-center gap-2 text-base font-bold">
+                            <i class="ph-fill ph-broadcast text-[color:var(--color-action-primary,#818cf8)]"></i>
+                            Live rounds <span class="cr-muted text-sm font-normal">(@_live.Count)</span>
+                        </h2>
+                        @if (_live.Count == 0)
+                        {
+                            <p class="mt-2 text-sm text-zinc-400">No one is flying right now. Launch the first rocket.</p>
+                        }
+                        else
+                        {
+                            <div class="cr-live mt-3">
+                                @foreach (var e in _live)
+                                {
+                                    <div class="cr-live-row @(IsMe(e) ? "cr-live-you" : "")">
+                                        <span class="flex items-center gap-2 truncate">
+                                            <i class="ph-fill ph-user text-zinc-400"></i>
+                                            <span class="truncate">@e.Name</span>
+                                            @if (IsMe(e))
+                                            {
+                                                <span class="cr-muted text-xs">you</span>
+                                            }
+                                        </span>
+                                        <span class="cr-live-mult @StatusClass(e.Status)">@LiveMultiplier(e)</span>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+
+                    <div class="text-center">
+                        <a href="/credify" class="text-sm text-zinc-400 hover:text-zinc-200 hover:underline">← Back to Credify</a>
+                    </div>
+                </div>
+            </div>
+        }
+</PluginPageShell>
+

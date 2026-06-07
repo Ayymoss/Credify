@@ -2,8 +2,8 @@ using Credify.Chat.Active.Core;
 using Credify.Chat.Active.Core.Interfaces;
 using Credify.Chat.Active.Games.Minefield.Enums;
 using Credify.Chat.Active.Games.Minefield.Models;
-using Credify.Chat.Active.Games.Minefield.Services;
 using Credify.Chat.Active.Games.Minefield.Utilities;
+using Credify.Games.Minefield;
 using Credify.Chat.Passive.Quests.Enums;
 using Credify.Configuration;
 using Credify.Configuration.Translations;
@@ -141,7 +141,7 @@ public class MinefieldGame(
             return;
         }
 
-        player.Field = BuildShuffledField(Settings.TotalTiles, player.MineCount);
+        player.Field = MinefieldField.Build(Settings.TotalTiles, player.MineCount);
         player.DugCount = 0;
         player.State = SessionState.Digging;
 
@@ -281,21 +281,6 @@ public class MinefieldGame(
 
     /// <summary>Maximum mines allowed: at least one tile must stay safe.</summary>
     private int MaxMines => Settings.TotalTiles - 1;
-
-    private static bool[] BuildShuffledField(int totalTiles, int mines)
-    {
-        var field = new bool[totalTiles];
-        for (var i = 0; i < mines; i++) field[i] = true;
-
-        // Fisher-Yates shuffle.
-        for (var i = totalTiles - 1; i > 0; i--)
-        {
-            var j = Random.Shared.Next(i + 1);
-            (field[i], field[j]) = (field[j], field[i]);
-        }
-
-        return field;
-    }
 
     private string BuildStatusLine(MinefieldPlayer player)
     {

@@ -23,9 +23,17 @@ public class Player(EFClient client)
     /// </summary>
     public string? LastBetInput { get; set; }
 
+    // ── webfront display state (ignored by chat; surfaced in the web snapshot) ──
+    /// <summary>Human label of the current round's bet (e.g. "red", "17", "1-12"). Null when none placed.</summary>
+    public string? BetDescription { get; set; }
+    /// <summary>"None" | "Pending" (bet placed, awaiting spin) | "Won" | "Lost". Kept until the next bet.</summary>
+    public string LastResult { get; set; } = "None";
+    /// <summary>Net credits from the last settled bet (+win / -stake). Kept until the next bet.</summary>
+    public long LastNet { get; set; }
+
     public void CreateBet(BaseBet bet) => Bet = bet;
     public void ClearBet() => Bet = null;
-    
+
     /// <summary>
     /// Resets player state for a new betting round.
     /// </summary>
@@ -35,5 +43,8 @@ public class Player(EFClient client)
         InputState = PlayerInputState.WaitingForStake;
         PendingStake = null;
         SelectedCategory = null;
+        BetDescription = null;
+        // LastResult / LastNet intentionally kept so the web can show the previous outcome until the
+        // player places a new bet.
     }
 }

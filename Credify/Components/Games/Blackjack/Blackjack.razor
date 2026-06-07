@@ -1,0 +1,213 @@
+@page "/credify/blackjack"
+@rendermode RenderMode.InteractiveServer
+@namespace Credify.Components.Games.Blackjack
+@implements IAsyncDisposable
+
+<PageTitle>Credify · Blackjack</PageTitle>
+<HeadContent>
+    <link rel="stylesheet" href="/_content/credify/plugin.css"/>
+    <link rel="stylesheet" href="/_content/credify/custom.css"/>
+    <link rel="stylesheet" href="/_content/credify/blackjack/blackjack.css"/>
+</HeadContent>
+
+<PluginPageShell FeltClass="bj-felt text-zinc-100" Menu='CredifyNav.Build("/credify/blackjack")'>
+
+        <!-- header -->
+        <div class="flex items-center justify-between gap-3">
+            <div class="flex items-center gap-2">
+                <i class="ph-fill ph-cards-three text-2xl text-[color:var(--color-action-primary,#818cf8)]"></i>
+                <h1 class="text-2xl font-bold tracking-tight">Blackjack</h1>
+            </div>
+            <div class="flex items-center gap-2">
+                <CredifyAudioControls/>
+                <span class="bj-chip-stat"><i class="ph-fill ph-coins text-amber-400"></i> @Cache.BankCredits.ToString("N0") <span class="bj-muted">bank</span></span>
+                @if (_authed)
+                {
+                    <span class="bj-chip-stat"><i class="ph-fill ph-wallet text-emerald-400"></i> @_balance.ToString("N0") <span class="bj-muted">credits</span></span>
+                }
+            </div>
+        </div>
+
+        @if (_loading)
+        {
+            <div class="flex items-center justify-center py-24 text-zinc-400">
+                <i class="ph ph-spinner animate-spin text-3xl"></i>
+            </div>
+        }
+        else
+        {
+            <!-- status -->
+            <div class="mt-5 flex justify-center">
+                <div class="@StatusClass">
+                    <i class="@StatusIcon"></i>
+                    <span>@StatusText</span>
+                    @if (StatusShowsTimer)
+                    {
+                        <span class="bj-banner-net">@($"{_snapshot.SecondsRemaining:0}s")</span>
+                    }
+                </div>
+            </div>
+
+            <!-- dealer -->
+            <div class="bj-table mt-4">
+                <div class="bj-seat">
+                    <div class="bj-seat-head">
+                        <span class="bj-seat-name">Dealer</span>
+                        @if (_snapshot.DealerCards.Count > 0)
+                        {
+                            <span class="bj-value">@_snapshot.DealerValue@(_snapshot.DealerHasHole ? " +" : "")</span>
+                        }
+                    </div>
+                    <div class="bj-hand">
+                        @for (var i = 0; i < _snapshot.DealerCards.Count; i++)
+                        {
+                            <CardView Card="_snapshot.DealerCards[i]" Index="i"/>
+                        }
+                        @if (_snapshot.DealerHasHole)
+                        {
+                            <CardView Card="_noCard" FaceDown="true" Index="_snapshot.DealerCards.Count"/>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- seats -->
+            @if (_snapshot.Seats.Count == 0)
+            {
+                <p class="mt-6 text-center text-sm text-zinc-400">No one seated. Take a seat to start a round.</p>
+            }
+            else
+            {
+                <div class="mt-5 grid gap-3 sm:grid-cols-2">
+                    @foreach (var seat in _snapshot.Seats)
+                    {
+                        <div class="bj-panel @(IsMe(seat) ? "ring-2 ring-amber-400/40" : "")">
+                            <div class="flex items-center justify-between">
+                                <span class="flex items-center gap-2 font-semibold">
+                                    <i class="ph-fill ph-user text-zinc-400"></i> @seat.Name
+                                    @if (IsMe(seat)) { <span class="bj-muted text-xs">you</span> }
+                                </span>
+                                <span class="@SeatStateClass(seat)">@SeatStateLabel(seat)</span>
+                            </div>
+
+                            @if (seat.Cards.Count > 0)
+                            {
+                                <div class="mt-2 flex items-end gap-3">
+                                    <div class="bj-hand">
+                                        @for (var i = 0; i < seat.Cards.Count; i++)
+                                        {
+                                            <CardView Card="seat.Cards[i]" Index="i"/>
+                                        }
+                                    </div>
+                                    <span class="bj-value @(seat.Busted ? "bj-value-bust" : "")">@seat.Value@(seat.IsSoft && !seat.Busted ? " (soft)" : "")</span>
+                                </div>
+
+                                @if (seat.HasSplit)
+                                {
+                                    <div class="mt-2 flex items-end gap-3">
+                                        <span class="bj-muted text-xs">split</span>
+                                        <div class="bj-hand">
+                                            @for (var i = 0; i < seat.SplitCards.Count; i++)
+                                            {
+                                                <CardView Card="seat.SplitCards[i]" Index="i"/>
+                                            }
+                                        </div>
+                                        <span class="bj-value">@seat.SplitValue</span>
+                                    </div>
+                                }
+                            }
+                            else if (seat.Stake is { } s)
+                            {
+                                <p class="mt-2 text-sm text-zinc-400">Bet <span class="font-semibold text-amber-300">@s.ToString("N0")</span></p>
+                            }
+
+                            @if (!string.IsNullOrEmpty(seat.Outcome))
+                            {
+                                <div class="mt-2 flex items-center gap-2">
+                                    <span class="@OutcomeClass(seat.Outcome)">@OutcomeLabel(seat.Outcome)</span>
+                                    @if (seat.Net != 0)
+                                    {
+                                        <span class="bj-banner-net @(seat.Net > 0 ? "text-emerald-300" : "text-rose-300")">@(seat.Net > 0 ? "+" : "")@seat.Net.ToString("N0")</span>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+
+            <!-- my controls -->
+            <div class="bj-controls mt-5">
+                @if (!_authed)
+                {
+                    <div class="bj-panel mx-auto max-w-md text-center">
+                        <i class="ph-fill ph-sign-in text-4xl text-[color:var(--color-action-primary,#818cf8)]"></i>
+                        <h2 class="mt-2 text-lg font-bold">Sign in to play</h2>
+                        <p class="mt-1 text-sm text-zinc-400">Watch the table live. Log into IW4MAdmin to take a seat alongside the players in-game.</p>
+                    </div>
+                }
+                else if (MySeat is null)
+                {
+                    <div class="flex flex-col items-center gap-2">
+                        <button class="bj-btn bj-btn-primary" disabled="@_busy" @onclick="Join"><i class="ph-fill ph-armchair"></i> Take a seat</button>
+                        @if (_balance < 10)
+                        {
+                            <p class="text-sm text-rose-400">You need at least 10 credits to play.</p>
+                        }
+                    </div>
+                }
+                else
+                {
+                    var seat = MySeat;
+                    @if (_snapshot.Phase == "Betting" && seat.Stake is null && seat.State != "SittingOut")
+                    {
+                        <div class="flex flex-col items-center gap-3">
+                            <div class="flex flex-wrap items-center justify-center gap-2">
+                                @foreach (var chip in _chips)
+                                {
+                                    <button class="bj-chip" disabled="@(_busy || chip > _balance)" @onclick="() => _stake = chip">+@chip.ToString("N0")</button>
+                                }
+                                <span class="text-sm text-zinc-400">Bet <span class="text-lg font-bold text-amber-300">@_stake.ToString("N0")</span></span>
+                                <button class="bj-chip bj-chip-clear" disabled="@_busy" @onclick="() => _stake = 10"><i class="ph ph-x"></i></button>
+                            </div>
+                            <button class="bj-btn bj-btn-primary" disabled="@(_busy || _stake < 10 || _stake > _balance)" @onclick="PlaceBet">
+                                <i class="ph-fill ph-check"></i> Bet @_stake.ToString("N0")
+                            </button>
+                        </div>
+                    }
+                    else if (_snapshot.Phase == "Insurance" && seat.InsuranceEligible)
+                    {
+                        <div class="flex items-center justify-center gap-2">
+                            <button class="bj-btn bj-btn-action" disabled="@_busy" @onclick='() => Act("insurance")'><i class="ph-fill ph-shield-check"></i> Insurance</button>
+                            <span class="text-sm text-zinc-400">or wait to decline</span>
+                        </div>
+                    }
+                    else if (_snapshot.Phase == "Decisions" && seat.State is "Playing" or "PlayingSplit")
+                    {
+                        <div class="flex flex-wrap items-center justify-center gap-2">
+                            @if (seat.State == "PlayingSplit") { <span class="bj-muted text-xs">split hand</span> }
+                            <button class="bj-btn bj-btn-action" disabled="@_busy" @onclick='() => Act("hit")'><i class="ph-fill ph-plus"></i> Hit</button>
+                            <button class="bj-btn bj-btn-action" disabled="@_busy" @onclick='() => Act("stand")'><i class="ph-fill ph-hand-palm"></i> Stand</button>
+                            @if (seat.CanDouble)
+                            {
+                                <button class="bj-btn bj-btn-action" disabled="@(_busy || _balance < (seat.Stake ?? 0))" @onclick='() => Act("double")'><i class="ph-fill ph-coins"></i> Double</button>
+                            }
+                            @if (seat.CanSplit)
+                            {
+                                <button class="bj-btn bj-btn-action" disabled="@(_busy || _balance < (seat.Stake ?? 0))" @onclick='() => Act("split")'><i class="ph-fill ph-arrows-out-line-horizontal"></i> Split</button>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="text-center text-sm text-zinc-400">@WaitingText(seat)</p>
+                    }
+                }
+            </div>
+
+            <div class="mt-4 text-center">
+                <a href="/credify" class="text-sm text-zinc-400 hover:text-zinc-200 hover:underline">← Back to Credify</a>
+            </div>
+        }
+</PluginPageShell>
+

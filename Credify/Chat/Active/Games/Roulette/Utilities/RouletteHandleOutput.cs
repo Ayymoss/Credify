@@ -21,8 +21,13 @@ public class RouletteHandleOutput(TranslationsRoot translations, GamePlayerCommu
     /// </summary>
     public override void Tell(Player player, string message, bool longPrefix = false)
     {
-        var prefixedMessage = longPrefix 
-            ? translations.Roulette.LongPrefix(message) 
+        // web-only participants have no game server (CurrentServer is null); they render from state
+        // snapshots, so chat output is skipped. Without this guard EFClient.Tell NREs and, because it runs
+        // on the background game loop, kills the round mid-resolve (table freezes on "Round over").
+        if (player.Client.CurrentServer is null) return;
+
+        var prefixedMessage = longPrefix
+            ? translations.Roulette.LongPrefix(message)
             : translations.Roulette.Prefix(message);
         player.Client.Tell(prefixedMessage);
     }

@@ -1,0 +1,107 @@
+@namespace Credify.Components.Shared
+@rendermode RenderMode.InteractiveServer
+@implements IAsyncDisposable
+
+@* Dev tool: live-tune the win/money sound. Drives audio.js previewMoney() with the same engine real wins
+   use. Logic in the code-behind. *@
+<div class="mt-8 rounded-xl border border-white/10 bg-black/25 p-5 text-zinc-100">
+    <div class="flex items-center justify-between gap-3">
+        <h2 class="flex items-center gap-2 text-lg font-bold">
+            <i class="ph-fill ph-flask text-[color:var(--color-action-primary,#818cf8)]"></i> Money sound tester
+        </h2>
+        <CredifyAudioControls/>
+    </div>
+    <p class="mt-1 text-xs text-zinc-500">
+        <span class="font-semibold text-zinc-300">@EffectivePlays</span> taps
+        (≈ <span class="font-semibold text-zinc-300">@MoneyPerTap.ToString("N0")</span>/tap) ·
+        length ≈ <span class="font-semibold text-zinc-300">@LengthMs ms</span> ·
+        reaches <span class="font-semibold text-zinc-300">@CurveReachPct%</span> of the pitch curve.
+    </p>
+
+    <div class="mt-4 grid gap-4 sm:grid-cols-2">
+        <label class="flex flex-col gap-1 text-sm">
+            <span class="flex justify-between text-zinc-400">Amount <span class="font-semibold text-amber-300">@_amount.ToString("N0")</span></span>
+            <input type="range" min="10" max="50000" step="10" class="w-full accent-indigo-400" @bind="_amount" @bind:event="oninput"/>
+        </label>
+
+        @if (_autoPlays)
+        {
+            <label class="flex flex-col gap-1 text-sm">
+                <span class="flex justify-between text-zinc-400">Credits / tap <span class="font-semibold text-zinc-200">@_perPlay</span></span>
+                <input type="range" min="1" max="500" step="1" class="w-full accent-indigo-400" @bind="_perPlay" @bind:event="oninput"/>
+            </label>
+            <label class="flex flex-col gap-1 text-sm">
+                <span class="flex justify-between text-zinc-400">Min taps <span class="font-semibold text-zinc-200">@_minPlays</span></span>
+                <input type="range" min="1" max="20" step="1" class="w-full accent-indigo-400" @bind="_minPlays" @bind:event="oninput"/>
+            </label>
+            <label class="flex flex-col gap-1 text-sm">
+                <span class="flex justify-between text-zinc-400">Max taps <span class="font-semibold text-zinc-200">@_maxPlays</span></span>
+                <input type="range" min="10" max="300" step="5" class="w-full accent-indigo-400" @bind="_maxPlays" @bind:event="oninput"/>
+            </label>
+        }
+        else
+        {
+            <label class="flex flex-col gap-1 text-sm">
+                <span class="flex justify-between text-zinc-400">Taps <span class="font-semibold text-zinc-200">@_plays</span></span>
+                <input type="range" min="1" max="300" step="1" class="w-full accent-indigo-400" @bind="_plays" @bind:event="oninput"/>
+            </label>
+        }
+
+        <label class="flex flex-col gap-1 text-sm">
+            <span class="flex justify-between text-zinc-400">Interval <span class="font-semibold text-zinc-200">@_interval ms</span></span>
+            <input type="range" min="10" max="200" step="1" class="w-full accent-indigo-400" @bind="_interval" @bind:event="oninput"/>
+        </label>
+
+        <label class="flex flex-col gap-1 text-sm">
+            <span class="flex justify-between text-zinc-400">Start delay <span class="font-semibold text-zinc-200">@_startDelay ms</span></span>
+            <input type="range" min="0" max="500" step="5" class="w-full accent-indigo-400" @bind="_startDelay" @bind:event="oninput"/>
+        </label>
+
+        <label class="flex flex-col gap-1 text-sm">
+            <span class="flex justify-between text-zinc-400">Start pitch <span class="font-semibold text-emerald-300">@_startRate.ToString("0.00")×</span></span>
+            <input type="range" min="0.5" max="2.5" step="0.01" class="w-full accent-indigo-400" @bind="_startRate" @bind:event="oninput"/>
+        </label>
+
+        <label class="flex flex-col gap-1 text-sm">
+            <span class="flex justify-between text-zinc-400">End pitch <span class="font-semibold text-rose-300">@_endRate.ToString("0.00")×</span></span>
+            <input type="range" min="0.2" max="1.5" step="0.01" class="w-full accent-indigo-400" @bind="_endRate" @bind:event="oninput"/>
+        </label>
+
+        <label class="flex flex-col gap-1 text-sm">
+            <span class="flex justify-between text-zinc-400">Pitch curve <span class="font-semibold text-zinc-200">@_curve.ToString("0.00")</span></span>
+            <input type="range" min="0.2" max="4" step="0.05" class="w-full accent-indigo-400" @bind="_curve" @bind:event="oninput"/>
+        </label>
+
+        <label class="flex flex-col gap-1 text-sm">
+            <span class="flex justify-between text-zinc-400">Curve duration <span class="font-semibold text-zinc-200">@_curveDuration ms</span></span>
+            <input type="range" min="200" max="8000" step="50" class="w-full accent-indigo-400" @bind="_curveDuration" @bind:event="oninput"/>
+        </label>
+
+        <label class="flex flex-col gap-1 text-sm">
+            <span class="flex justify-between text-zinc-400">Achievement at <span class="font-semibold text-amber-300">@(_achievementAt == 0 ? "off" : _achievementAt.ToString("N0"))</span></span>
+            <input type="range" min="0" max="50000" step="500" class="w-full accent-indigo-400" @bind="_achievementAt" @bind:event="oninput"/>
+        </label>
+
+        <label class="flex flex-col gap-1 text-sm">
+            <span class="text-zinc-400">Achievement timing</span>
+            <select class="rounded-md border border-white/10 bg-black/30 px-2 py-1.5 text-zinc-100 accent-indigo-400" @bind="_achievementMode">
+                <option value="start">At start (with first tap)</option>
+                <option value="threshold">At threshold mark</option>
+                <option value="after">After the count</option>
+            </select>
+        </label>
+    </div>
+
+    <div class="mt-4 flex flex-wrap items-center gap-4">
+        <label class="flex items-center gap-2 text-sm text-zinc-400">
+            <input type="checkbox" class="accent-indigo-400" @bind="_autoPlays"/> Auto taps from amount
+        </label>
+        <label class="flex items-center gap-2 text-sm text-zinc-400">
+            <input type="checkbox" class="accent-indigo-400" @bind="_counter"/> Show counter
+        </label>
+        <button class="ml-auto inline-flex items-center gap-2 rounded-lg bg-[color:var(--color-action-primary,#6366f1)] px-4 py-2 font-bold text-white transition hover:brightness-110"
+                @onclick="Play">
+            <i class="ph-fill ph-play"></i> Play
+        </button>
+    </div>
+</div>

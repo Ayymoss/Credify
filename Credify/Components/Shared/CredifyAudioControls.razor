@@ -1,0 +1,12 @@
+@namespace Credify.Components.Shared
+@implements IAsyncDisposable
+
+@* Volume control for the synthesized game sounds. Imports the shared audio module (one instance is shared
+   across the page via the browser's ES-module cache), reads the persisted volume (default 20%) and writes
+   changes back. Place this in an interactive page's header. Logic in the code-behind. *@
+<div class="credify-audio" title="Sound volume">
+    <button class="credify-audio-btn" @onclick="ToggleMute" type="button" aria-label="Mute">
+        <i class="@MuteIcon"></i>
+    </button>
+    <input type="range" min="0" max="100" step="1" value="@Pct" @oninput="OnInput" class="credify-audio-range"/>
+</div>
