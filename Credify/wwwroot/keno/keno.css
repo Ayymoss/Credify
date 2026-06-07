@@ -1,0 +1,92 @@
+/* Credify Keno — an 80-cell pick board with a staggered reveal of the 20 drawn numbers. Layout/chrome come
+   from the host via PluginPageShell; these are the game-specific bits. */
+
+.kn-felt {
+    background: radial-gradient(130% 110% at 50% -10%, #11302a 0%, #0d211d 45%, #060f0d 100%);
+}
+
+.kn-muted { color: var(--color-subtle, #a1a1aa); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; }
+.kn-chip-stat {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    padding: 0.35rem 0.7rem; border-radius: 0.6rem;
+    background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.08);
+    font-weight: 700; font-size: 0.85rem;
+}
+.kn-panel { border-radius: 1rem; padding: 1.25rem; background: rgba(0, 0, 0, 0.28); border: 1px solid rgba(255, 255, 255, 0.08); }
+.kn-status {
+    display: inline-flex; align-items: center; gap: 0.4rem; font-weight: 700;
+    padding: 0.35rem 0.8rem; border-radius: 0.6rem;
+    background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* ── board ───────────────────────────────────────────────────────────── */
+.kn-board {
+    max-width: 34rem; margin-inline: auto;
+    display: grid; grid-template-columns: repeat(10, 1fr); gap: 0.3rem;
+}
+.kn-cell {
+    aspect-ratio: 1; border-radius: 0.45rem;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: clamp(0.6rem, 2.6vw, 0.85rem);
+    color: #d4d4d8; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.08);
+    transition: background 0.12s ease, transform 0.05s ease, color 0.12s ease;
+}
+.kn-cell:hover:not(:disabled) { background: rgba(255, 255, 255, 0.12); }
+.kn-cell:active:not(:disabled) { transform: scale(0.92); }
+.kn-cell:disabled { cursor: not-allowed; }
+
+/* player's picks */
+.kn-cell.kn-pick {
+    color: #fff; background: var(--color-action-primary, #6366f1);
+    border-color: color-mix(in srgb, var(--color-action-primary, #6366f1) 60%, white);
+    box-shadow: 0 2px 8px color-mix(in srgb, var(--color-action-primary, #6366f1) 40%, transparent);
+}
+
+/* drawn-but-not-picked: a faded marker that pops in on its turn */
+.kn-cell.kn-drawn {
+    color: #a1a1aa; background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.25);
+    animation: kn-reveal 0.35s ease both;
+}
+/* picked AND drawn: a hit — gold, pops in */
+.kn-cell.kn-hit {
+    color: #1a1022; font-weight: 900;
+    background: radial-gradient(circle at 50% 35%, #fde68a, #fbbf24);
+    border-color: #f59e0b;
+    box-shadow: 0 0 14px rgba(251, 191, 36, 0.55);
+    animation: kn-reveal 0.4s cubic-bezier(0.18, 1.4, 0.4, 1) both;
+}
+@keyframes kn-reveal {
+    0% { transform: scale(0.55); opacity: 0.25; }
+    60% { transform: scale(1.12); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* ── controls ────────────────────────────────────────────────────────── */
+.kn-btn {
+    display: inline-flex; align-items: center; gap: 0.45rem;
+    padding: 0.5rem 1rem; border-radius: 0.7rem; font-weight: 700; font-size: 0.9rem;
+    transition: filter 0.15s ease, background 0.15s ease, transform 0.05s ease;
+}
+.kn-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.kn-btn-ghost { background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.12); color: #e4e4e7; }
+.kn-btn-ghost:hover:not(:disabled) { background: rgba(255, 255, 255, 0.12); }
+.kn-btn-play {
+    padding-inline: 1.8rem; font-size: 1.05rem; font-weight: 800; color: #fff;
+    background: linear-gradient(180deg, #10b981, #047857); box-shadow: 0 8px 20px rgba(4, 120, 87, 0.4);
+}
+.kn-btn-play:hover:not(:disabled) { filter: brightness(1.1); }
+.kn-btn-play:active:not(:disabled) { transform: translateY(1px); }
+
+/* ── paytable ────────────────────────────────────────────────────────── */
+.kn-paytable {
+    max-width: 20rem; margin-inline: auto;
+    border-radius: 0.8rem; padding: 0.5rem 0.8rem;
+    background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(255, 255, 255, 0.07);
+}
+.kn-paytable-head { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: #a1a1aa; margin-bottom: 0.25rem; }
+.kn-paytable-row { display: flex; align-items: center; justify-content: space-between; padding: 0.2rem 0.3rem; border-radius: 0.4rem; font-size: 0.85rem; }
+.kn-paytable-row.kn-paytable-hit { background: rgba(251, 191, 36, 0.16); }
+.kn-pt-hits { color: #a1a1aa; }
+.kn-paytable-hit .kn-pt-hits { color: #fcd34d; font-weight: 700; }
+.kn-pt-mult { font-weight: 800; color: #fcd34d; font-variant-numeric: tabular-nums; }

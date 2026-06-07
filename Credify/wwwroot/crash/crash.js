@@ -1,7 +1,8 @@
 // Credify Crash — bundled ES module (import("/_content/credify/crash/crash.js")). Animates the rising
 // multiplier curve on a canvas and the big multiplier readout, smoothly via requestAnimationFrame. The
 // client never learns the crash point: it just renders multiplier = growth^(elapsed/tick) until the server
-// (authoritative) tells it the round crashed or was cashed out. Self-contained, no dependencies.
+// (authoritative) tells it the round crashed or was cashed out. Drives the shared rocket-thrust sound.
+import { rocketStart, rocketSet, rocketStop } from '../audio.js';
 
 let canvas = null, ctx = null, readout = null;
 let raf = 0;
@@ -15,6 +16,7 @@ export function mount(canvasEl, readoutEl) {
     ctx = canvas.getContext('2d');
     resize();
     draw(1, 0, '#52525b');
+    window.addEventListener('resize', onResize);
 }
 
 function resize() {
@@ -24,6 +26,14 @@ function resize() {
     canvas.width = Math.max(1, rect.width * dpr);
     canvas.height = Math.max(1, rect.height * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+// re-measure and repaint when the canvas changes size (e.g. the session-history drawer pushes the
+// layout). A flying round repaints itself on the next animation frame, so only static frames need it.
+function onResize() {
+    resize();
+    if (mode === 'idle') draw(1, 0, '#52525b');
+    else if (mode === 'done') draw(frozenMult, (Date.now() - startMs) / 1000, frozenColor);
 }
 
 function multAt(elapsed) { return Math.pow(growth, elapsed / tickSec); }
@@ -40,6 +50,7 @@ export function fly(startEpochMs, tickIntervalSec, growthPerTick) {
     tickSec = tickIntervalSec;
     growth = growthPerTick;
     mode = 'fly';
+    rocketStart();
     if (!raf) raf = requestAnimationFrame(loop);
 }
 
@@ -48,6 +59,7 @@ function loop() {
         const elapsed = (Date.now() - startMs) / 1000;
         const m = multAt(elapsed);
         render(m, elapsed, colorFor(m));
+        rocketSet(m); // thrust pitch/intensity tracks the live multiplier
         raf = requestAnimationFrame(loop);
     } else {
         raf = 0;
@@ -133,6 +145,7 @@ function hexA(hex, a) {
 
 export function crash(atMult) {
     mode = 'done';
+    rocketStop();
     frozenMult = atMult;
     frozenColor = '#f87171';
     if (readout) { readout.textContent = atMult.toFixed(2) + '× BUST'; readout.style.color = frozenColor; }
@@ -143,6 +156,7 @@ export function crash(atMult) {
 
 export function cashOut(atMult) {
     mode = 'done';
+    rocketStop();
     frozenMult = atMult;
     frozenColor = '#6ee7b7';
     if (readout) { readout.textContent = atMult.toFixed(2) + '×'; readout.style.color = frozenColor; }
@@ -162,14 +176,17 @@ function flash(color) {
 }
 
 export function reset() {
+    rocketStop();
     mode = 'idle';
     if (readout) { readout.textContent = '1.00×'; readout.style.color = '#a1a1aa'; }
     draw(1, 0, '#52525b');
 }
 
 export function dispose() {
+    rocketStop();
     if (raf) cancelAnimationFrame(raf);
     raf = 0;
     mode = 'idle';
+    window.removeEventListener('resize', onResize);
     canvas = ctx = readout = null;
 }

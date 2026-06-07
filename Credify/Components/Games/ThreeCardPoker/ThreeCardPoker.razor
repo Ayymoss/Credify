@@ -1,0 +1,212 @@
+@page "/credify/threecardpoker"
+@rendermode RenderMode.InteractiveServer
+@implements IAsyncDisposable
+@using Credify.Games.ThreeCardPoker
+
+<PageTitle>Credify · Three-Card Poker</PageTitle>
+<HeadContent>
+    <link rel="stylesheet" href="/_content/credify/plugin.css"/>
+    <link rel="stylesheet" href="/_content/credify/custom.css"/>
+    <link rel="stylesheet" href="/_content/credify/blackjack/blackjack.css"/>
+    <link rel="stylesheet" href="/_content/credify/threecard/threecard.css"/>
+</HeadContent>
+
+<PluginPageShell BackgroundClass="tcp-felt text-zinc-100" Menu='CredifyNav.Build("/credify/threecardpoker")'>
+
+    <!-- header -->
+    <div class="flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+            <i class="ph-fill ph-cards text-2xl text-[color:var(--color-action-primary,#818cf8)]"></i>
+            <h1 class="text-2xl font-bold tracking-tight">Three-Card Poker</h1>
+        </div>
+        <div class="flex items-center gap-2">
+            <CredifyAudioControls/>
+            <span class="tcp-chip-stat"><i class="ph-fill ph-coins text-amber-400"></i> @Cache.BankCredits.ToString("N0") <span class="tcp-muted">bank</span></span>
+            @if (_authed)
+            {
+                <span class="tcp-chip-stat"><i class="ph-fill ph-wallet text-emerald-400"></i> @_balance.ToString("N0") <span class="tcp-muted">credits</span></span>
+            }
+        </div>
+    </div>
+
+    <GameHistoryPanel ClientId="_client?.ClientId"/>
+
+    @if (_loading)
+    {
+        <div class="flex items-center justify-center py-24 text-zinc-400"><i class="ph ph-spinner animate-spin text-3xl"></i></div>
+    }
+    else if (!_authed)
+    {
+        <div class="mt-6 grid gap-6 md:grid-cols-2">
+            <JoinTablePanel Icon="ph-fill ph-cards" Title="Sign in to play"
+                            Description="Ante up, see your three cards, then Play or Fold against the dealer. Add a Pair Plus side bet for big-hand payouts.">
+                <a href="/" class="credify-join-btn"><i class="ph ph-sign-in"></i> Sign in</a>
+            </JoinTablePanel>
+            @RenderPaytable()
+        </div>
+    }
+    else
+    {
+        <GameResultToast Toast="_toast"/>
+
+        <!-- table -->
+        <div class="tcp-table mt-5">
+            <!-- dealer -->
+            <div class="tcp-seat">
+                <div class="tcp-seat-head">
+                    <span class="tcp-seat-name"><i class="ph-fill ph-user-circle text-zinc-400"></i> Dealer</span>
+                    @if (_phase == Phase.Settle && _dealerHand is not null)
+                    {
+                        <span class="tcp-hand-name @(_outcome is { DealerQualified: false } ? "text-zinc-500" : "")">
+                            @_dealerHand.Name @(_outcome is { DealerQualified: false } ? "· didn't qualify" : "")
+                        </span>
+                    }
+                </div>
+                <div class="tcp-hand">
+                    @if (_phase == Phase.Betting)
+                    {
+                        <span class="tcp-empty">—</span>
+                    }
+                    else if (_phase == Phase.Decision)
+                    {
+                        @for (var i = 0; i < 3; i++)
+                        {
+                            <CardView Card="_noCard" FaceDown="true" Index="i"/>
+                        }
+                    }
+                    else
+                    {
+                        @for (var i = 0; i < _dealerCards.Count; i++)
+                        {
+                            <CardView Card="_dealerCards[i]" Index="i"/>
+                        }
+                    }
+                </div>
+            </div>
+
+            <!-- player -->
+            <div class="tcp-seat tcp-seat-me">
+                <div class="tcp-seat-head">
+                    <span class="tcp-seat-name"><i class="ph-fill ph-user text-emerald-400"></i> You</span>
+                    @if (_playerHand is not null)
+                    {
+                        <span class="tcp-hand-name text-amber-300">@_playerHand.Name</span>
+                    }
+                </div>
+                <div class="tcp-hand">
+                    @if (_playerCards.Count == 0)
+                    {
+                        <span class="tcp-empty">—</span>
+                    }
+                    else
+                    {
+                        @for (var i = 0; i < _playerCards.Count; i++)
+                        {
+                            <CardView Card="_playerCards[i]" Index="i"/>
+                        }
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- settle breakdown -->
+        @if (_phase == Phase.Settle && _outcome is { } outcome)
+        {
+            <div class="tcp-breakdown mt-4">
+                @if (outcome.AntePlayReturn > 0 || outcome.Result is "Win" or "Push")
+                {
+                    <div class="tcp-bd-row"><span>Ante + Play</span><span>@outcome.AntePlayReturn.ToString("N0")</span></div>
+                }
+                @if (outcome.AnteBonus > 0)
+                {
+                    <div class="tcp-bd-row"><span>Ante bonus</span><span class="text-emerald-300">+@outcome.AnteBonus.ToString("N0")</span></div>
+                }
+                @if (_pairPlusOn)
+                {
+                    <div class="tcp-bd-row">
+                        <span>Pair Plus</span>
+                        <span class="@(outcome.PairPlusReturn > 0 ? "text-emerald-300" : "text-rose-400")">
+                            @(outcome.PairPlusReturn > 0 ? "+" + outcome.PairPlusReturn.ToString("N0") : "lost")
+                        </span>
+                    </div>
+                }
+                <div class="tcp-bd-row tcp-bd-net">
+                    <span>Net</span>
+                    <span class="@(outcome.Net >= 0 ? "text-emerald-300" : "text-rose-400")">@(outcome.Net >= 0 ? "+" : "")@outcome.Net.ToString("N0")</span>
+                </div>
+            </div>
+        }
+
+        <!-- controls -->
+        <div class="tcp-controls mt-5">
+            @switch (_phase)
+            {
+                case Phase.Betting:
+                    <div class="flex flex-col items-center gap-3">
+                        <BetControl @bind-Value="_ante" Balance="_balance" Min="MinBet" Disabled="_busy" Label="Ante"/>
+                        <button class="tcp-pp @(_pairPlusOn ? "tcp-pp-on" : "")" disabled="@_busy" @onclick="() => _pairPlusOn = !_pairPlusOn">
+                            <i class="ph-fill @(_pairPlusOn ? "ph-check-square" : "ph-square")"></i>
+                            Pair Plus side bet <span class="tcp-muted">(+@_ante.ToString("N0"))</span>
+                        </button>
+                        <button class="tcp-btn tcp-btn-primary" disabled="@(!CanDeal)" @onclick="Deal">
+                            <i class="ph-fill ph-cards"></i> Deal (@DealCost.ToString("N0"))
+                        </button>
+                        @if (_balance < DealCost)
+                        {
+                            <p class="text-sm text-rose-400">Not enough credits for that ante.</p>
+                        }
+                    </div>
+                    break;
+
+                case Phase.Decision:
+                    <div class="flex flex-col items-center gap-2">
+                        <p class="text-sm text-zinc-400">Play matches your ante (@_ante.ToString("N0")), or fold and forfeit it.</p>
+                        <div class="flex items-center justify-center gap-2">
+                            <button class="tcp-btn tcp-btn-play" disabled="@(!CanPlay)" @onclick="Play"><i class="ph-fill ph-check"></i> Play @_ante.ToString("N0")</button>
+                            <button class="tcp-btn tcp-btn-fold" disabled="@_busy" @onclick="Fold"><i class="ph-fill ph-x"></i> Fold</button>
+                        </div>
+                        @if (!CanPlay)
+                        {
+                            <p class="text-xs text-rose-400">Not enough to match — you can only fold.</p>
+                        }
+                    </div>
+                    break;
+
+                default:
+                    <div class="flex justify-center">
+                        <button class="tcp-btn tcp-btn-primary" disabled="@_busy" @onclick="NewHand"><i class="ph ph-arrow-clockwise"></i> New hand</button>
+                    </div>
+                    break;
+            }
+
+            @RenderPaytable()
+        </div>
+
+        <div class="mt-4 text-center">
+            <a href="/credify" class="text-sm text-zinc-400 hover:text-zinc-200 hover:underline">← Back to Credify</a>
+        </div>
+    }
+</PluginPageShell>
+
+@code {
+    private RenderFragment RenderPaytable() => __builder =>
+    {
+        <div class="tcp-paytable mt-5">
+            <div class="tcp-pt-col">
+                <div class="tcp-pt-head">Pair Plus</div>
+                <div class="tcp-pt-row"><span>Straight flush</span><span>40×</span></div>
+                <div class="tcp-pt-row"><span>Three of a kind</span><span>30×</span></div>
+                <div class="tcp-pt-row"><span>Straight</span><span>6×</span></div>
+                <div class="tcp-pt-row"><span>Flush</span><span>3×</span></div>
+                <div class="tcp-pt-row"><span>Pair</span><span>1×</span></div>
+            </div>
+            <div class="tcp-pt-col">
+                <div class="tcp-pt-head">Ante bonus</div>
+                <div class="tcp-pt-row"><span>Straight flush</span><span>5×</span></div>
+                <div class="tcp-pt-row"><span>Three of a kind</span><span>4×</span></div>
+                <div class="tcp-pt-row"><span>Straight</span><span>1×</span></div>
+                <div class="tcp-pt-note">Dealer qualifies Q-high+</div>
+            </div>
+        </div>
+    };
+}

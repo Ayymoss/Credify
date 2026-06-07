@@ -3,6 +3,10 @@ using Credify.Chat.Active.Games.Blackjack;
 using Credify.Chat.Active.Games.Blackjack.Utilities;
 using Credify.Chat.Active.Games.Minefield;
 using Credify.Chat.Active.Games.Minefield.Utilities;
+using Credify.Chat.Active.Games.ThreeCardPoker;
+using Credify.Chat.Active.Games.ThreeCardPoker.Utilities;
+using Credify.Chat.Active.Games.CasinoHoldem;
+using Credify.Chat.Active.Games.CasinoHoldem.Utilities;
 using Credify.Chat.Active.Games.Poker;
 using Credify.Chat.Active.Games.Roulette;
 using Credify.Chat.Active.Games.Roulette.Utilities;
@@ -39,6 +43,8 @@ public class Plugin : IPluginV2
     private readonly PokerManager _pokerManager;
     private readonly BlackjackGame _blackjackGame;
     private readonly MinefieldGame _minefieldGame;
+    private readonly ThreeCardPokerGame _threeCardPokerGame;
+    private readonly CasinoHoldemGame _casinoHoldemGame;
     private readonly ClientKilledEventHandler _clientKilledEventHandler;
     private readonly ClientMessagedEventHandler _clientMessagedEventHandler;
     private readonly ClientStateAuthorizedEventHandler _clientStateAuthorizedEventHandler;
@@ -59,6 +65,8 @@ public class Plugin : IPluginV2
         PokerManager pokerManager,
         BlackjackGame blackjackGame,
         MinefieldGame minefieldGame,
+        ThreeCardPokerGame threeCardPokerGame,
+        CasinoHoldemGame casinoHoldemGame,
         ClientKilledEventHandler clientKilledEventHandler,
         ClientMessagedEventHandler clientMessagedEventHandler,
         ClientStateAuthorizedEventHandler clientStateAuthorizedEventHandler,
@@ -75,6 +83,8 @@ public class Plugin : IPluginV2
         _pokerManager = pokerManager;
         _blackjackGame = blackjackGame;
         _minefieldGame = minefieldGame;
+        _threeCardPokerGame = threeCardPokerGame;
+        _casinoHoldemGame = casinoHoldemGame;
         _clientKilledEventHandler = clientKilledEventHandler;
         _clientMessagedEventHandler = clientMessagedEventHandler;
         _clientStateAuthorizedEventHandler = clientStateAuthorizedEventHandler;
@@ -114,6 +124,9 @@ public class Plugin : IPluginV2
         serviceCollection.AddSingleton<TranslationsRoot>();
         serviceCollection.AddSingleton<ScheduleService>();
         serviceCollection.AddSingleton<CommandDiscoveryService>();
+        serviceCollection.AddSingleton<SlotsService>(); // atomic spin: shared by chat command + web page
+        serviceCollection.AddSingleton<PlinkoService>(); // atomic drop: webfront-only game
+        serviceCollection.AddSingleton<GameHistoryService>(); // per-client session log for the web games
 
         // Active Games Core
         serviceCollection.AddSingleton<GamePlayerCommunication>();
@@ -158,6 +171,26 @@ public class Plugin : IPluginV2
             return new Table(config, translations, persistence, communication, output);
         });
 
+        // Three-Card Poker (vs-house, reuses the shared ThreeCardRules core)
+        serviceCollection.AddSingleton(sp =>
+        {
+            var config = sp.GetRequiredService<CredifyConfiguration>();
+            var communication = sp.GetRequiredService<GamePlayerCommunication>();
+            var persistence = sp.GetRequiredService<PersistenceService>();
+            var output = new ThreeCardHandleOutput(config.Translations.ThreeCard, communication);
+            return new ThreeCardPokerGame(persistence, config, communication, output);
+        });
+
+        // Casino Hold'em (vs-house, reuses the poker evaluator + the shared CasinoHoldemRules core)
+        serviceCollection.AddSingleton(sp =>
+        {
+            var config = sp.GetRequiredService<CredifyConfiguration>();
+            var communication = sp.GetRequiredService<GamePlayerCommunication>();
+            var persistence = sp.GetRequiredService<PersistenceService>();
+            var output = new CasinoHoldemHandleOutput(config.Translations.CasinoHoldem, communication);
+            return new CasinoHoldemGame(persistence, config, communication, output);
+        });
+
         // Crash is now a web-only game (Components/Games/Crash) — no chat instance. The live-session
         // registry that powers its "who's playing" lobby is registered with the other web services below.
 
@@ -197,7 +230,17 @@ public class Plugin : IPluginV2
 
     private async void OnCredifyEvent(ObjectiveType objective, EFClient client, object? data)
     {
-        await _credifyEventHandler.HandleAsync(objective, client, data);
+        // This is an async void fired synchronously from game services that may run on a Blazor
+        // circuit's SynchronizationContext. An unhandled exception here would post back to that
+        // context and terminate the circuit (killing the websocket), so swallow and log instead.
+        try
+        {
+            await _credifyEventHandler.HandleAsync(objective, client, data);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[{Name}] error handling {objective} event for {client.CleanedName}: {ex}");
+        }
     }
 
     private async Task OnClientMessaged(ClientMessageEvent messageEvent, CancellationToken token)
@@ -240,6 +283,8 @@ public class Plugin : IPluginV2
         _activeGameTracker.RegisterGame(_rouletteTable);
         _activeGameTracker.RegisterGame(_pokerManager);
         _activeGameTracker.RegisterGame(_minefieldGame);
+        _activeGameTracker.RegisterGame(_threeCardPokerGame);
+        _activeGameTracker.RegisterGame(_casinoHoldemGame);
 
         // Continuous games run their loop in the background
         _ = Task.Run(async () => await _rouletteTable.GameLoopAsync(token), token);

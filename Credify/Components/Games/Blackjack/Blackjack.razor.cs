@@ -24,8 +24,9 @@ public partial class Blackjack
     [Inject] public required IEntityService<EFClient> ClientService { get; set; }
     [Inject] public required CredifyWebPlayers WebPlayers { get; set; }
     [Inject] public required IJSRuntime JS { get; set; }
+    [Inject] public required GameHistoryService GameHistory { get; set; }
+    [Inject] public required Credify.Configuration.CredifyConfiguration Config { get; set; }
 
-    private static readonly long[] _chips = [10, 50, 100, 500];
     private readonly Card? _noCard = null; // typed null for the dealer's face-down hole card
 
     private BlackjackSnapshot _snapshot = new();
@@ -36,7 +37,6 @@ public partial class Blackjack
     private bool _loading = true;
     private bool _busy;
 
-    private IJSObjectReference? _jsModule;
     private IJSObjectReference? _audio;
 
     private string _lastPhase = "";
@@ -83,6 +83,8 @@ public partial class Blackjack
 
     private bool StatusShowsTimer => _snapshot.Phase is "Betting" or "Insurance" or "Decisions";
 
+    private double ActionWindow => Config.Blackjack.TimeoutForPlayerAction.TotalSeconds;
+
     protected override async Task OnInitializedAsync()
     {
         if (AuthState is not null)
@@ -122,7 +124,9 @@ public partial class Blackjack
         return resolved is null ? null : WebPlayers.GetOrAdd(clientId, () => resolved);
     }
 
-    private void OnStateChanged() => _ = RefreshAsync();
+    // marshal onto the renderer's context so this never races the timer-loop RefreshAsync (a concurrent
+    // run could pass the outcome-changed check twice and double-record the round to the history rail)
+    private void OnStateChanged() => _ = InvokeAsync(RefreshAsync);
 
     private async Task LoopAsync(CancellationToken token)
     {
@@ -161,11 +165,27 @@ public partial class Blackjack
             if (myOutcome != _lastMyOutcome)
             {
                 _lastMyOutcome = myOutcome;
-                if (myOutcome is "Win" or "Blackjack")
+
+                // log the settled round to the session history rail (skip pushes — a net-zero entry is noise)
+                if (myOutcome is "Win" or "Blackjack" or "Lose" && _client is not null && MySeat is { } seat)
                 {
-                    if (_client is not null) _balance = await Persistence.GetClientCreditsAsync(_client);
-                    if (_audio is not null) { try { await _audio.InvokeVoidAsync("win", Math.Max(0, MySeat!.Net), myOutcome == "Blackjack"); } catch { } }
-                    if (_jsModule is not null) { try { await _jsModule.InvokeVoidAsync("celebrate", myOutcome == "Blackjack"); } catch { } }
+                    GameHistory.Record(_client.ClientId, new GameHistoryEntry(
+                        "Blackjack", "ph-cards-three", OutcomeLabel(myOutcome), seat.Net, DateTimeOffset.UtcNow));
+                }
+
+                // refresh the balance whenever a round settles for me
+                if (_client is not null && myOutcome is "Win" or "Blackjack" or "Lose" or "Push")
+                {
+                    _balance = await Persistence.GetClientCreditsAsync(_client);
+                }
+
+                // the coin/money count plays ONLY on a genuine positive net. A split can settle with a
+                // "Win" primary hand while the round nets a loss — that must never trigger the win sound.
+                var net = MySeat?.Net ?? 0;
+                if (net > 0)
+                {
+                    var stake = MySeat?.Stake ?? 0;
+                    if (_audio is not null) { try { await _audio.InvokeVoidAsync("win", net, stake); } catch { } }
                 }
                 else if (myOutcome == "Lose")
                 {
@@ -190,7 +210,6 @@ public partial class Blackjack
         if (firstRender)
         {
             _audio = await JS.InvokeAsync<IJSObjectReference>("import", "/_content/credify/audio.js");
-            _jsModule = await JS.InvokeAsync<IJSObjectReference>("import", "/_content/credify/blackjack/blackjack.js");
         }
     }
 
@@ -304,7 +323,7 @@ public partial class Blackjack
             _loopCts.Dispose();
         }
 
-        foreach (var module in new[] { _jsModule, _audio })
+        foreach (var module in new[] { _audio })
         {
             if (module is null)
             {

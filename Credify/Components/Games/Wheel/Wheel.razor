@@ -1,0 +1,117 @@
+@page "/credify/wheel"
+@rendermode RenderMode.InteractiveServer
+@implements IAsyncDisposable
+
+<PageTitle>Credify · Wheel</PageTitle>
+<HeadContent>
+    <link rel="stylesheet" href="/_content/credify/plugin.css"/>
+    <link rel="stylesheet" href="/_content/credify/custom.css"/>
+    <link rel="stylesheet" href="/_content/credify/wheel/wheel.css"/>
+</HeadContent>
+
+<PluginPageShell BackgroundClass="wh-felt text-zinc-100" Menu='CredifyNav.Build("/credify/wheel")'>
+
+    <!-- header -->
+    <div class="flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+            <i class="ph-fill ph-circle-half text-2xl text-[color:var(--color-action-primary,#818cf8)]"></i>
+            <h1 class="text-2xl font-bold tracking-tight">Wheel</h1>
+        </div>
+        <div class="flex items-center gap-2">
+            <CredifyAudioControls/>
+            <span class="wh-chip-stat"><i class="ph-fill ph-coins text-amber-400"></i> @Cache.BankCredits.ToString("N0") <span class="wh-muted">bank</span></span>
+            @if (_authed)
+            {
+                <span class="wh-chip-stat"><i class="ph-fill ph-wallet text-emerald-400"></i> @_balance.ToString("N0") <span class="wh-muted">credits</span></span>
+            }
+        </div>
+    </div>
+
+    <GameHistoryPanel ClientId="_client?.ClientId"/>
+
+    @if (_loading)
+    {
+        <div class="flex items-center justify-center py-24 text-zinc-400"><i class="ph ph-spinner animate-spin text-3xl"></i></div>
+    }
+    else if (!_authed)
+    {
+        <div class="mt-6 grid gap-6 md:grid-cols-2">
+            <JoinTablePanel Icon="ph-fill ph-circle-half" Title="Sign in to spin"
+                            Description="Drop a bet and spin the money wheel. Every spin pays a multiplier — land the gold sliver for 50×.">
+                <a href="/" class="credify-join-btn"><i class="ph ph-sign-in"></i> Sign in</a>
+            </JoinTablePanel>
+            <div class="wh-panel">
+                <h2 class="flex items-center gap-2 text-lg font-bold"><i class="ph-fill ph-trophy text-amber-400"></i> Top credits</h2>
+                @if (Cache.TopCredits.Count == 0)
+                {
+                    <p class="mt-3 text-sm text-zinc-400">No credit data yet.</p>
+                }
+                else
+                {
+                    <ol class="mt-3 space-y-1">
+                        @foreach (var (entry, i) in Cache.TopCredits.Take(10).Select((e, i) => (e, i)))
+                        {
+                            <li class="flex items-center justify-between rounded-md bg-black/20 px-3 py-1.5 text-sm">
+                                <span class="flex items-center gap-2"><span class="w-5 text-right text-zinc-500">@(i + 1)</span> Client @entry.ClientId</span>
+                                <span class="font-semibold">@entry.Credits.ToString("N0")</span>
+                            </li>
+                        }
+                    </ol>
+                }
+            </div>
+        </div>
+    }
+    else
+    {
+        <GameResultToast Toast="_toast"/>
+
+        <div class="wh-stage mt-6">
+            <div class="wh-wheel" id="wh-wheel">
+                <div class="wh-rotor" style="background:@ConicCss"></div>
+                <div class="wh-pointer"></div>
+                <div class="wh-hub"><span class="wh-hub-val">@(_busy ? "" : _resultLabel)</span></div>
+            </div>
+        </div>
+
+        <div class="wh-controls mt-5">
+            <BetControl @bind-Value="_bet" Balance="_balance" Min="MinBet" Disabled="_busy"/>
+            <div class="mt-4 flex flex-col items-center gap-2">
+                <button class="wh-btn wh-btn-spin" disabled="@(!CanSpin)" @onclick="Spin">
+                    @if (_busy)
+                    {
+                        <i class="ph ph-spinner animate-spin"></i> <span>Spinning…</span>
+                    }
+                    else
+                    {
+                        <i class="ph-fill ph-arrow-clockwise"></i> <span>Spin</span>
+                    }
+                </button>
+                @if (_balance < MinBet)
+                {
+                    <p class="text-sm text-rose-400">You need at least @MinBet.ToString("N0") credits to play.</p>
+                }
+            </div>
+            @RenderPaytable()
+        </div>
+
+        <div class="mt-4 text-center">
+            <a href="/credify" class="text-sm text-zinc-400 hover:text-zinc-200 hover:underline">← Back to Credify</a>
+        </div>
+    }
+</PluginPageShell>
+
+@code {
+    private RenderFragment RenderPaytable() => __builder =>
+    {
+        <div class="wh-paytable mt-5">
+            @foreach (var slice in Segments)
+            {
+                <div class="wh-paytable-row">
+                    <span class="wh-swatch" style="background:@slice.Color"></span>
+                    <span class="wh-pt-mult">@Mult(slice)</span>
+                    <span class="wh-pt-chance">@Chance(slice)</span>
+                </div>
+            }
+        </div>
+    };
+}

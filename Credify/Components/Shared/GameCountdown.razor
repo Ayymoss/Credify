@@ -1,0 +1,34 @@
+@namespace Credify.Components.Shared
+
+@* Consistent betting/turn countdown across every game: a labelled header with the seconds remaining and a
+   draining progress bar. Drive it from the snapshot's SecondsRemaining with the phase's total window. *@
+<div class="credify-countdown @CssClass">
+    <div class="credify-countdown-head">
+        @if (!string.IsNullOrEmpty(Icon))
+        {
+            <i class="@Icon"></i>
+        }
+        <span class="credify-countdown-label">@Label</span>
+        <span class="credify-countdown-secs">@($"{Seconds:0}")s</span>
+    </div>
+    <div class="credify-countdown-bar">
+        <div class="credify-countdown-fill" style="width:@PctCss%"></div>
+    </div>
+</div>
+
+@code {
+    /// <summary>Seconds remaining (from the snapshot).</summary>
+    [Parameter] public double Seconds { get; set; }
+
+    /// <summary>The full length of the window, used to scale the bar.</summary>
+    [Parameter] public double Total { get; set; }
+
+    [Parameter] public string Label { get; set; } = "Place your bets";
+    [Parameter] public string? Icon { get; set; } = "ph-fill ph-timer";
+
+    /// <summary>Extra classes on the root (e.g. a game accent).</summary>
+    [Parameter] public string? CssClass { get; set; }
+
+    private string PctCss => (Total <= 0 ? 0 : Math.Clamp(Seconds / Total * 100, 0, 100))
+        .ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+}

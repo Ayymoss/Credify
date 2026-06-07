@@ -26,8 +26,8 @@ public partial class Roulette
     [Inject] public required CredifyWebPlayers WebPlayers { get; set; }
     [Inject] public required IJSRuntime JS { get; set; }
     [Inject] public required CredifyConfiguration Config { get; set; }
+    [Inject] public required GameHistoryService GameHistory { get; set; }
 
-    private static readonly long[] _chips = [10, 50, 100, 500];
     private static readonly HashSet<int> _redNumbers =
         [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
 
@@ -35,6 +35,11 @@ public partial class Roulette
     private EFClient? _client;
     private long _balance;
     private long _stake = 50;
+
+    // bets the player is building this round, committed together via PlaceBets()
+    private readonly List<PendingBet> _pendingBets = [];
+
+    private sealed record PendingBet(string Input, string Label, long Stake);
     private bool _authed;
     private bool _loading = true;
     private bool _busy;
@@ -65,15 +70,8 @@ public partial class Roulette
         _ => "rl-status-idle"
     };
 
-    // betting window is TimeoutForPlayerAction*3; show remaining as a bar
-    private double BettingBarPct
-    {
-        get
-        {
-            var window = Config.Roulette.TimeoutForPlayerAction.TotalSeconds * 3;
-            return window <= 0 ? 0 : Math.Clamp(_snapshot.SecondsRemaining / window * 100, 0, 100);
-        }
-    }
+    // betting window is TimeoutForPlayerAction*3; GameCountdown scales the bar against this
+    private double BettingWindow => Config.Roulette.TimeoutForPlayerAction.TotalSeconds * 3;
 
     private static bool IsRed(int n) => _redNumbers.Contains(n);
 
@@ -125,7 +123,8 @@ public partial class Roulette
         return resolved is null ? null : WebPlayers.GetOrAdd(clientId, () => resolved);
     }
 
-    private void OnStateChanged() => _ = RefreshAsync();
+    // marshal onto the renderer's context so this never races the timer-loop RefreshAsync
+    private void OnStateChanged() => _ = InvokeAsync(RefreshAsync);
 
     private async Task RefreshLoopAsync(CancellationToken token)
     {
@@ -210,11 +209,21 @@ public partial class Roulette
         if (MyView is { } me && me.Outcome != _lastOutcome)
         {
             _lastOutcome = me.Outcome;
+
+            // log the settled spin to the session history rail (labelled with the number it landed on)
+            if (me.Outcome is "Won" or "Lost" && _client is not null)
+            {
+                var label = _lastLandedDisplay is { } d ? $"#{d}" : (me.Outcome == "Won" ? "Won" : "Lost");
+                GameHistory.Record(_client.ClientId, new GameHistoryEntry(
+                    "Roulette", "ph-circle-half", label, me.Net, DateTimeOffset.UtcNow));
+                _balance = await Persistence.GetClientCreditsAsync(_client);
+            }
+
             if (_audio is not null)
             {
                 try
                 {
-                    if (me.Outcome == "Won") await _audio.InvokeVoidAsync("win", me.Net, me.Net >= 1000);
+                    if (me.Outcome == "Won") await _audio.InvokeVoidAsync("win", me.Net, me.TotalStake);
                     else if (me.Outcome == "Lost") await _audio.InvokeVoidAsync("play", "lose");
                 }
                 catch { }
@@ -251,23 +260,54 @@ public partial class Roulette
         await RefreshAsync();
     }
 
-    private async Task PlaceBet(string betInput)
+    // ── building & committing a batch of bets ──────────────────────────────────
+    private long PendingTotal => _pendingBets.Sum(bet => bet.Stake);
+    private bool CanBet => _snapshot.Phase == "Betting" && Seated && MyView is { HasBet: false } && !_busy;
+    private bool CanAdd => CanBet && _stake >= 10 && _stake <= _balance - PendingTotal;
+
+    private void AddPending(string input, string label)
     {
-        if (_busy || _client is null)
+        if (!CanAdd)
+        {
+            return;
+        }
+
+        _pendingBets.Add(new PendingBet(input, label, _stake));
+        _error = null;
+    }
+
+    private void RemovePending(int index)
+    {
+        if (index >= 0 && index < _pendingBets.Count)
+        {
+            _pendingBets.RemoveAt(index);
+        }
+    }
+
+    private void ClearPending() => _pendingBets.Clear();
+
+    private async Task PlaceBets()
+    {
+        if (_busy || _client is null || _pendingBets.Count == 0)
         {
             return;
         }
 
         _busy = true;
         _error = null;
-        var err = await RouletteTable.PlaceWebBetAsync(_client, (int)_stake, betInput);
+        var batch = _pendingBets.Select(bet => ((int)bet.Stake, bet.Input)).ToList();
+        var err = await RouletteTable.PlaceWebBetsAsync(_client, batch);
         if (err is not null)
         {
             _error = err;
         }
-        else if (_audio is not null)
+        else
         {
-            try { await _audio.InvokeVoidAsync("play", "bet"); } catch { }
+            _pendingBets.Clear();
+            if (_audio is not null)
+            {
+                try { await _audio.InvokeVoidAsync("play", "bet"); } catch { }
+            }
         }
 
         _balance = await Persistence.GetClientCreditsAsync(_client);

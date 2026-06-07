@@ -1,0 +1,163 @@
+@page "/credify/plinko"
+@rendermode RenderMode.InteractiveServer
+@implements IAsyncDisposable
+@using Credify.Games.Plinko
+
+<PageTitle>Credify · Plinko</PageTitle>
+<HeadContent>
+    <link rel="stylesheet" href="/_content/credify/plugin.css"/>
+    <link rel="stylesheet" href="/_content/credify/custom.css"/>
+    <link rel="stylesheet" href="/_content/credify/plinko/plinko.css"/>
+</HeadContent>
+
+<PluginPageShell BackgroundClass="pk-felt text-zinc-100" Menu='CredifyNav.Build("/credify/plinko")'>
+
+    <!-- header -->
+    <div class="flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+            <i class="ph-fill ph-circles-three text-2xl text-[color:var(--color-action-primary,#818cf8)]"></i>
+            <h1 class="text-2xl font-bold tracking-tight">Plinko</h1>
+        </div>
+        <div class="flex items-center gap-2">
+            <CredifyAudioControls/>
+            <span class="pk-chip-stat"><i class="ph-fill ph-coins text-amber-400"></i> @Cache.BankCredits.ToString("N0") <span class="pk-muted">bank</span></span>
+            @if (_authed)
+            {
+                <span class="pk-chip-stat"><i class="ph-fill ph-wallet text-emerald-400"></i> @_balance.ToString("N0") <span class="pk-muted">credits</span></span>
+            }
+        </div>
+    </div>
+
+    <GameHistoryPanel ClientId="_client?.ClientId"/>
+
+    @if (_loading)
+    {
+        <div class="flex items-center justify-center py-24 text-zinc-400">
+            <i class="ph ph-spinner animate-spin text-3xl"></i>
+        </div>
+    }
+    else if (!_authed)
+    {
+        <!-- anonymous: how-to + leaderboard -->
+        <div class="mt-6 grid gap-6 md:grid-cols-2">
+            <div class="pk-panel text-center">
+                <i class="ph-fill ph-circles-three text-5xl text-[color:var(--color-action-primary,#818cf8)]"></i>
+                <h2 class="mt-3 text-xl font-bold">Sign in to play</h2>
+                <p class="mt-1 text-sm text-zinc-400">
+                    Drop a ball through the pegs and watch it bounce into a multiplier. The rare outer
+                    buckets pay the biggest — pick your risk and let it fall.
+                </p>
+                <a href="/" class="pk-btn pk-btn-primary mt-4 inline-flex"><i class="ph ph-sign-in"></i> Sign in</a>
+            </div>
+            <div class="pk-panel">
+                <h2 class="flex items-center gap-2 text-lg font-bold"><i class="ph-fill ph-trophy text-amber-400"></i> Top credits</h2>
+                @if (Cache.TopCredits.Count == 0)
+                {
+                    <p class="mt-3 text-sm text-zinc-400">No credit data yet.</p>
+                }
+                else
+                {
+                    <ol class="mt-3 space-y-1">
+                        @foreach (var (entry, i) in Cache.TopCredits.Take(10).Select((e, i) => (e, i)))
+                        {
+                            <li class="flex items-center justify-between rounded-md bg-black/20 px-3 py-1.5 text-sm">
+                                <span class="flex items-center gap-2"><span class="w-5 text-right text-zinc-500">@(i + 1)</span> Client @entry.ClientId</span>
+                                <span class="font-semibold">@entry.Credits.ToString("N0")</span>
+                            </li>
+                        }
+                    </ol>
+                }
+            </div>
+        </div>
+    }
+    else
+    {
+        <GameResultToast Toast="_toast"/>
+
+        <!-- the board: JS-owned canvas (pegs + ball) above the multiplier bucket strip -->
+        <div class="pk-board mt-5">
+            <canvas @ref="_canvasRef" class="pk-canvas"></canvas>
+            <div class="pk-buckets" style="grid-template-columns:repeat(@(_multipliers.Count), minmax(0, 1fr));">
+                @for (var i = 0; i < _multipliers.Count; i++)
+                {
+                    var hits = _bucketHits.GetValueOrDefault(i);
+                    var landed = hits > 0 && !_busy;
+                    <div class="pk-bucket @BucketClass(_multipliers[i]) @(landed ? "pk-bucket-landed" : "")">
+                        @FormatMultiplier(_multipliers[i])
+                        @if (landed && hits > 1)
+                        {
+                            <span class="pk-bucket-count">@hits</span>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- controls -->
+        <div class="pk-controls mt-5">
+            <!-- risk + rows selectors -->
+            <div class="flex flex-wrap items-center justify-center gap-x-6 gap-y-3">
+                <div class="pk-field">
+                    <span class="pk-field-label">Risk</span>
+                    <div class="pk-segment">
+                        @foreach (var risk in Risks)
+                        {
+                            <button class="pk-seg @(_risk == risk ? "pk-seg-on" : "")" disabled="@_busy" @onclick="() => SetRisk(risk)">@RiskLabel(risk)</button>
+                        }
+                    </div>
+                </div>
+                <div class="pk-field">
+                    <span class="pk-field-label">Rows</span>
+                    <div class="pk-segment">
+                        @foreach (var rows in RowPresets)
+                        {
+                            <button class="pk-seg @(_rows == rows ? "pk-seg-on" : "")" disabled="@_busy" @onclick="() => SetRows(rows)">@rows</button>
+                        }
+                    </div>
+                </div>
+                <div class="pk-field">
+                    <span class="pk-field-label">Balls</span>
+                    <div class="pk-segment">
+                        @foreach (var count in BallPresets)
+                        {
+                            <button class="pk-seg @(_balls == count ? "pk-seg-on" : "")" disabled="@_busy" @onclick="() => SetBalls(count)">@count</button>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <BetControl @bind-Value="_bet" Balance="_balance" Min="MinBet" Max="MaxBet" Disabled="_busy"/>
+            </div>
+
+            <div class="mt-4 flex flex-col items-center gap-2">
+                <button class="pk-btn pk-btn-drop" disabled="@(!CanDrop)" @onclick="Drop">
+                    @if (_busy)
+                    {
+                        <i class="ph ph-spinner animate-spin"></i> <span>Dropping…</span>
+                    }
+                    else if (_balls > 1)
+                    {
+                        <i class="ph-fill ph-circles-three"></i> <span>Drop @_balls balls · @TotalCost.ToString("N0")</span>
+                    }
+                    else
+                    {
+                        <i class="ph-fill ph-circle"></i> <span>Drop ball · @_bet.ToString("N0")</span>
+                    }
+                </button>
+                @if (_balance < MinBet)
+                {
+                    <p class="text-sm text-rose-400">You need at least @MinBet.ToString("N0") credits to play.</p>
+                }
+                else if (TotalCost > _balance)
+                {
+                    <p class="text-sm text-rose-400">@_balls balls costs @TotalCost.ToString("N0") — more than your balance.</p>
+                }
+            </div>
+        </div>
+
+        <div class="mt-4 text-center">
+            <a href="/credify" class="text-sm text-zinc-400 hover:text-zinc-200 hover:underline">← Back to Credify</a>
+        </div>
+    }
+</PluginPageShell>

@@ -1,0 +1,33 @@
+@namespace Credify.Components.Shared
+
+@* Fixed-position win/loss notification shared by the single-player games. It lives outside the document flow
+   (position: fixed) so showing a result never shifts the page. The toast pops in, holds, then auto-dismisses
+   via a CSS animation; keying on Toast.Sequence remounts the element so each new result replays it. Styling
+   lives in custom.css (linked by every game page) as `.credify-toast*`. *@
+
+@if (Toast is { } toast)
+{
+    <div class="credify-toast-host" aria-live="polite">
+        <div class="credify-toast credify-toast--@VariantClass(toast.Variant)" @key="toast.Sequence">
+            <i class="ph-fill @toast.Icon credify-toast-icon"></i>
+            <div class="credify-toast-text">
+                <span class="credify-toast-title">@toast.Title</span>
+                @if (!string.IsNullOrEmpty(toast.Amount))
+                {
+                    <span class="credify-toast-amount">@toast.Amount</span>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public GameToast? Toast { get; set; }
+
+    private static string VariantClass(GameToastVariant variant) => variant switch
+    {
+        GameToastVariant.Win => "win",
+        GameToastVariant.Jackpot => "jackpot",
+        _ => "lose"
+    };
+}

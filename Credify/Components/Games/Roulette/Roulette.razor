@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="/_content/credify/roulette/roulette.css"/>
 </HeadContent>
 
-<PluginPageShell FeltClass="rl-felt text-zinc-100" Menu='CredifyNav.Build("/credify/roulette")'>
+<PluginPageShell BackgroundClass="rl-felt text-zinc-100" Menu='CredifyNav.Build("/credify/roulette")'>
 
         <!-- header -->
         <div class="flex items-center justify-between gap-3">
@@ -28,6 +28,8 @@
             </div>
         </div>
 
+        <GameHistoryPanel ClientId="_client?.ClientId"/>
+
         @if (_loading)
         {
             <div class="flex items-center justify-center py-24 text-zinc-400">
@@ -40,33 +42,28 @@
 
                 <!-- LEFT: wheel + status + history -->
                 <div class="flex flex-col items-center gap-4">
-                    <div class="@StatusClass">
-                        @switch (_snapshot.Phase)
-                        {
-                            case "Betting":
-                                <i class="ph-fill ph-timer"></i>
-                                <span>Place your bets</span>
-                                <span class="rl-countdown">@($"{_snapshot.SecondsRemaining:0}s")</span>
-                                break;
-                            case "Spinning":
-                                <i class="ph ph-spinner animate-spin"></i>
-                                <span>No more bets — spinning…</span>
-                                break;
-                            case "Resolving":
-                                <i class="ph-fill ph-flag-checkered"></i>
-                                <span>Round over</span>
-                                break;
-                            default:
-                                <i class="ph-fill ph-users"></i>
-                                <span>Waiting for players</span>
-                                break;
-                        }
-                    </div>
-
                     @if (_snapshot.Phase == "Betting")
                     {
-                        <div class="w-48 rl-countbar">
-                            <div class="rl-countbar-fill" style="width:@(BettingBarPct)%"></div>
+                        <GameCountdown Seconds="_snapshot.SecondsRemaining" Total="BettingWindow" Label="Place your bets"/>
+                    }
+                    else
+                    {
+                        <div class="@StatusClass">
+                            @switch (_snapshot.Phase)
+                            {
+                                case "Spinning":
+                                    <i class="ph ph-spinner animate-spin"></i>
+                                    <span>No more bets — spinning…</span>
+                                    break;
+                                case "Resolving":
+                                    <i class="ph-fill ph-flag-checkered"></i>
+                                    <span>Round over</span>
+                                    break;
+                                default:
+                                    <i class="ph-fill ph-users"></i>
+                                    <span>Waiting for players</span>
+                                    break;
+                            }
                         </div>
                     }
 
@@ -104,91 +101,114 @@
 
                     @if (!_authed)
                     {
-                        <div class="rl-panel text-center">
-                            <i class="ph-fill ph-sign-in text-4xl text-[color:var(--color-action-primary,#818cf8)]"></i>
-                            <h2 class="mt-2 text-lg font-bold">Sign in to play</h2>
-                            <p class="mt-1 text-sm text-zinc-400">Watch the table live below. Log into IW4MAdmin to take a seat and bet your credits.</p>
-                        </div>
+                        <JoinTablePanel Icon="ph-fill ph-sign-in" Title="Sign in to play"
+                                        Description="Watch the table live below. Log into IW4MAdmin to take a seat and bet your credits.">
+                            <a href="/" class="credify-join-btn"><i class="ph ph-sign-in"></i> Sign in</a>
+                        </JoinTablePanel>
                     }
                     else if (!Seated)
                     {
-                        <div class="rl-panel text-center">
-                            <h2 class="text-lg font-bold">Join the table</h2>
-                            <p class="mt-1 text-sm text-zinc-400">Take a seat to bet alongside the players in-game. You'll be in for the next round.</p>
-                            <button class="rl-btn rl-btn-primary mt-3 inline-flex" disabled="@_busy" @onclick="TakeSeat">
+                        <JoinTablePanel Icon="ph-fill ph-armchair" Title="Join the table"
+                                        Description="Take a seat to bet alongside the players in-game. You'll be in for the next round.">
+                            <button class="credify-join-btn" disabled="@_busy" @onclick="TakeSeat">
                                 <i class="ph-fill ph-armchair"></i> Take a seat
                             </button>
                             @if (_balance < 10)
                             {
-                                <p class="mt-2 text-sm text-rose-400">You need at least 10 credits to play.</p>
+                                <p class="text-sm text-rose-400">You need at least 10 credits to play.</p>
                             }
-                        </div>
+                        </JoinTablePanel>
                     }
                     else
                     {
-                        <!-- seated: stake + board (active only during betting & before I've bet) -->
+                        <!-- seated: build a slip of bets, then commit them together -->
                         <div class="rl-panel">
-                            @{
-                                var canBet = _snapshot.Phase == "Betting" && MyView is not null && !MyView.HasBet && !_busy;
-                            }
                             <div class="flex items-center justify-between">
-                                <h2 class="text-base font-bold">Your bet</h2>
+                                <h2 class="text-base font-bold">Your bets</h2>
                                 <button class="text-xs text-zinc-400 hover:text-zinc-200 hover:underline" @onclick="LeaveSeat">Leave table</button>
                             </div>
 
-                            @if (MyView is { HasBet: true })
+                            @if (MyView is { HasBet: true } placed)
                             {
-                                <p class="mt-2 text-sm">
-                                    <span class="text-zinc-400">Placed:</span>
-                                    <span class="font-semibold text-amber-300">@MyView.Stake.ToString("N0")</span>
-                                    on <span class="font-semibold">@MyView.BetLabel</span> — waiting for the spin.
+                                <!-- already committed this round -->
+                                <div class="rl-placed mt-2">
+                                    @foreach (var b in placed.Bets)
+                                    {
+                                        <span class="rl-placed-chip">@b.Label <span class="text-amber-300">@b.Stake.ToString("N0")</span></span>
+                                    }
+                                </div>
+                                <p class="mt-2 text-sm text-zinc-400">
+                                    Total <span class="font-semibold text-amber-300">@placed.TotalStake.ToString("N0")</span> — waiting for the spin.
                                 </p>
                             }
-                            else if (_snapshot.Phase != "Betting")
+                            else
                             {
-                                <p class="mt-2 text-sm text-zinc-400">Betting opens at the start of the next round.</p>
+                                @if (_snapshot.Phase != "Betting")
+                                {
+                                    <p class="mt-2 text-sm text-zinc-400">Betting opens at the start of the next round.</p>
+                                }
+
+                                <!-- stake per chip -->
+                                <div class="mt-3">
+                                    <BetControl @bind-Value="_stake" Balance="_balance" Disabled="@(!CanBet)" Label="Chip"/>
+                                </div>
+
+                                <!-- bet slip -->
+                                @if (_pendingBets.Count > 0)
+                                {
+                                    <div class="rl-slip mt-3">
+                                        @for (var i = 0; i < _pendingBets.Count; i++)
+                                        {
+                                            var idx = i;
+                                            <button class="rl-slip-chip" disabled="@_busy" @onclick="() => RemovePending(idx)" title="Remove bet">
+                                                @_pendingBets[idx].Label <span class="text-amber-300">@_pendingBets[idx].Stake.ToString("N0")</span> <i class="ph ph-x"></i>
+                                            </button>
+                                        }
+                                    </div>
+                                    <div class="mt-2 flex flex-wrap items-center justify-center gap-3">
+                                        <span class="text-sm text-zinc-400">Total <span class="text-base font-bold text-amber-300">@PendingTotal.ToString("N0")</span></span>
+                                        <button class="rl-btn rl-btn-primary" disabled="@(_busy || !CanBet)" @onclick="PlaceBets">
+                                            <i class="ph-fill ph-check"></i> Place @_pendingBets.Count bet@(_pendingBets.Count == 1 ? "" : "s")
+                                        </button>
+                                        <button class="rl-btn" disabled="@_busy" @onclick="ClearPending">Clear</button>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <p class="mt-3 text-center text-xs text-zinc-500">Tap the board to add bets, then place them. Mix as many as you like.</p>
+                                }
+
+                                <!-- outside bets -->
+                                <div class="rl-outside mt-3">
+                                    <button class="rl-bet rl-bet-red" disabled="@(!CanAdd)" @onclick='() => AddPending("red", "Red")'>Red</button>
+                                    <button class="rl-bet rl-bet-black" disabled="@(!CanAdd)" @onclick='() => AddPending("black", "Black")'>Black</button>
+                                    <button class="rl-bet" disabled="@(!CanAdd)" @onclick='() => AddPending("even", "Even")'>Even</button>
+                                    <button class="rl-bet" disabled="@(!CanAdd)" @onclick='() => AddPending("odd", "Odd")'>Odd</button>
+                                    <button class="rl-bet" disabled="@(!CanAdd)" @onclick='() => AddPending("low", "1–18")'>1–18</button>
+                                    <button class="rl-bet" disabled="@(!CanAdd)" @onclick='() => AddPending("high", "19–36")'>19–36</button>
+                                    <button class="rl-bet" disabled="@(!CanAdd)" @onclick='() => AddPending("d1", "1st 12")'>1st 12</button>
+                                    <button class="rl-bet" disabled="@(!CanAdd)" @onclick='() => AddPending("d2", "2nd 12")'>2nd 12</button>
+                                    <button class="rl-bet" disabled="@(!CanAdd)" @onclick='() => AddPending("d3", "3rd 12")'>3rd 12</button>
+                                    <button class="rl-bet" disabled="@(!CanAdd)" @onclick='() => AddPending("c1", "Col 1")'>Col 1</button>
+                                    <button class="rl-bet" disabled="@(!CanAdd)" @onclick='() => AddPending("c2", "Col 2")'>Col 2</button>
+                                    <button class="rl-bet" disabled="@(!CanAdd)" @onclick='() => AddPending("c3", "Col 3")'>Col 3</button>
+                                </div>
+
+                                <!-- straight-up numbers -->
+                                <p class="mt-3 mb-1 text-xs uppercase tracking-wide text-zinc-500">Straight up (36×)</p>
+                                <div class="rl-zero-row mb-1">
+                                    <button class="rl-cell rl-green" disabled="@(!CanAdd)" @onclick='() => AddPending("0", "0")'>0</button>
+                                    <button class="rl-cell rl-green" disabled="@(!CanAdd)" @onclick='() => AddPending("00", "00")'>00</button>
+                                </div>
+                                <div class="rl-grid">
+                                    @for (var n = 1; n <= 36; n++)
+                                    {
+                                        var num = n;
+                                        <button class="rl-cell @(IsRed(num) ? "rl-red" : "rl-black")"
+                                                disabled="@(!CanAdd)" @onclick="() => AddPending(num.ToString(), num.ToString())">@num</button>
+                                    }
+                                </div>
                             }
-
-                            <!-- stake chips -->
-                            <div class="mt-3 flex flex-wrap items-center gap-2">
-                                @foreach (var chip in _chips)
-                                {
-                                    <button class="rl-chip @(_stake == chip ? "rl-chip-on" : "")"
-                                            disabled="@(_busy || chip > _balance)" @onclick="() => _stake = chip">@chip.ToString("N0")</button>
-                                }
-                                <span class="text-sm text-zinc-400">Stake <span class="text-base font-bold text-amber-300">@_stake.ToString("N0")</span></span>
-                            </div>
-
-                            <!-- outside bets -->
-                            <div class="rl-outside mt-3">
-                                <button class="rl-bet rl-bet-red" disabled="@(!canBet)" @onclick='() => PlaceBet("red")'>Red</button>
-                                <button class="rl-bet rl-bet-black" disabled="@(!canBet)" @onclick='() => PlaceBet("black")'>Black</button>
-                                <button class="rl-bet" disabled="@(!canBet)" @onclick='() => PlaceBet("even")'>Even</button>
-                                <button class="rl-bet" disabled="@(!canBet)" @onclick='() => PlaceBet("odd")'>Odd</button>
-                                <button class="rl-bet" disabled="@(!canBet)" @onclick='() => PlaceBet("low")'>1–18</button>
-                                <button class="rl-bet" disabled="@(!canBet)" @onclick='() => PlaceBet("high")'>19–36</button>
-                                <button class="rl-bet" disabled="@(!canBet)" @onclick='() => PlaceBet("d1")'>1st 12</button>
-                                <button class="rl-bet" disabled="@(!canBet)" @onclick='() => PlaceBet("d2")'>2nd 12</button>
-                                <button class="rl-bet" disabled="@(!canBet)" @onclick='() => PlaceBet("d3")'>3rd 12</button>
-                                <button class="rl-bet" disabled="@(!canBet)" @onclick='() => PlaceBet("c1")'>Col 1</button>
-                                <button class="rl-bet" disabled="@(!canBet)" @onclick='() => PlaceBet("c2")'>Col 2</button>
-                                <button class="rl-bet" disabled="@(!canBet)" @onclick='() => PlaceBet("c3")'>Col 3</button>
-                            </div>
-
-                            <!-- straight-up numbers -->
-                            <p class="mt-3 mb-1 text-xs uppercase tracking-wide text-zinc-500">Straight up (36×)</p>
-                            <div class="rl-zero-row mb-1">
-                                <button class="rl-cell rl-green" disabled="@(!canBet)" @onclick='() => PlaceBet("0")'>0</button>
-                                <button class="rl-cell rl-green" disabled="@(!canBet)" @onclick='() => PlaceBet("00")'>00</button>
-                            </div>
-                            <div class="rl-grid">
-                                @for (var n = 1; n <= 36; n++)
-                                {
-                                    var num = n;
-                                    <button class="rl-cell @(IsRed(num) ? "rl-red" : "rl-black")"
-                                            disabled="@(!canBet)" @onclick="() => PlaceBet(num.ToString())">@num</button>
-                                }
-                            </div>
 
                             @if (_error is not null)
                             {
@@ -224,7 +244,7 @@
                                         <span class="text-right">
                                             @if (p.HasBet)
                                             {
-                                                <span class="rl-seat-bet">@p.Stake.ToString("N0") · @p.BetLabel</span>
+                                                <span class="rl-seat-bet">@p.TotalStake.ToString("N0") · @p.Bets.Count bet@(p.Bets.Count == 1 ? "" : "s")</span>
                                             }
                                             else if (p.Outcome == "Won")
                                             {

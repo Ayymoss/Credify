@@ -21,15 +21,18 @@ public sealed record RouletteSnapshot
     public IReadOnlyList<RouletteSpinView> History { get; init; } = [];
 }
 
-/// <summary>A seat at the table as the web should render it.</summary>
+/// <summary>A seat at the table as the web should render it. A player may hold several bets in a round.</summary>
 public sealed record RoulettePlayerView(
     int ClientId,
     string Name,
-    long Stake,
-    string? BetLabel,
+    IReadOnlyList<RouletteBetView> Bets,
+    long TotalStake,
     bool HasBet,
     string Outcome, // "None" | "Pending" | "Won" | "Lost"
     long Net);
+
+/// <summary>A single placed bet: what it's on and for how much.</summary>
+public sealed record RouletteBetView(string Label, long Stake);
 
 /// <summary>A wheel result. Colour is "Red" | "Black" | "Green".</summary>
 public sealed record RouletteSpinView(int Number, string Display, string Colour);

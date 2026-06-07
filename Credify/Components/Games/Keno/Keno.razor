@@ -1,0 +1,143 @@
+@page "/credify/keno"
+@rendermode RenderMode.InteractiveServer
+@implements IAsyncDisposable
+@using Credify.Games.Keno
+
+<PageTitle>Credify · Keno</PageTitle>
+<HeadContent>
+    <link rel="stylesheet" href="/_content/credify/plugin.css"/>
+    <link rel="stylesheet" href="/_content/credify/custom.css"/>
+    <link rel="stylesheet" href="/_content/credify/keno/keno.css"/>
+</HeadContent>
+
+<PluginPageShell BackgroundClass="kn-felt text-zinc-100" Menu='CredifyNav.Build("/credify/keno")'>
+
+    <!-- header -->
+    <div class="flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+            <i class="ph-fill ph-grid-four text-2xl text-[color:var(--color-action-primary,#818cf8)]"></i>
+            <h1 class="text-2xl font-bold tracking-tight">Keno</h1>
+        </div>
+        <div class="flex items-center gap-2">
+            <CredifyAudioControls/>
+            <span class="kn-chip-stat"><i class="ph-fill ph-coins text-amber-400"></i> @Cache.BankCredits.ToString("N0") <span class="kn-muted">bank</span></span>
+            @if (_authed)
+            {
+                <span class="kn-chip-stat"><i class="ph-fill ph-wallet text-emerald-400"></i> @_balance.ToString("N0") <span class="kn-muted">credits</span></span>
+            }
+        </div>
+    </div>
+
+    <GameHistoryPanel ClientId="_client?.ClientId"/>
+
+    @if (_loading)
+    {
+        <div class="flex items-center justify-center py-24 text-zinc-400"><i class="ph ph-spinner animate-spin text-3xl"></i></div>
+    }
+    else if (!_authed)
+    {
+        <div class="mt-6 grid gap-6 md:grid-cols-2">
+            <JoinTablePanel Icon="ph-fill ph-grid-four" Title="Sign in to play"
+                            Description="Pick up to 10 numbers, then 20 are drawn from 80 — the more of yours that hit, the bigger the payout.">
+                <a href="/" class="credify-join-btn"><i class="ph ph-sign-in"></i> Sign in</a>
+            </JoinTablePanel>
+            <div class="kn-panel">
+                <h2 class="flex items-center gap-2 text-lg font-bold"><i class="ph-fill ph-trophy text-amber-400"></i> Top credits</h2>
+                @if (Cache.TopCredits.Count == 0)
+                {
+                    <p class="mt-3 text-sm text-zinc-400">No credit data yet.</p>
+                }
+                else
+                {
+                    <ol class="mt-3 space-y-1">
+                        @foreach (var (entry, i) in Cache.TopCredits.Take(10).Select((e, i) => (e, i)))
+                        {
+                            <li class="flex items-center justify-between rounded-md bg-black/20 px-3 py-1.5 text-sm">
+                                <span class="flex items-center gap-2"><span class="w-5 text-right text-zinc-500">@(i + 1)</span> Client @entry.ClientId</span>
+                                <span class="font-semibold">@entry.Credits.ToString("N0")</span>
+                            </li>
+                        }
+                    </ol>
+                }
+            </div>
+        </div>
+    }
+    else
+    {
+        <GameResultToast Toast="_toast"/>
+
+        <!-- status -->
+        <div class="mt-5 flex items-center justify-center gap-3 text-sm">
+            @if (HasResult)
+            {
+                <span class="kn-status"><i class="ph-fill ph-target text-amber-300"></i> @_hits.Count / @Spots hits</span>
+            }
+            else
+            {
+                <span class="kn-status"><i class="ph-fill ph-hand-pointing text-[color:var(--color-action-primary,#818cf8)]"></i> @Spots / @KenoPayouts.MaxSpots spots picked</span>
+            }
+        </div>
+
+        <!-- 1..80 board -->
+        <div class="kn-board mt-4">
+            @for (var n = 1; n <= KenoPayouts.PoolSize; n++)
+            {
+                var num = n;
+                <button class="@CellClass(num)" style="@CellStyle(num)"
+                        disabled="@(_busy || (!_picks.Contains(num) && Spots >= KenoPayouts.MaxSpots && !HasResult))"
+                        @onclick="() => Toggle(num)">@num</button>
+            }
+        </div>
+
+        <!-- controls -->
+        <div class="kn-controls mt-5">
+            <div class="flex flex-wrap items-center justify-center gap-2">
+                <button class="kn-btn kn-btn-ghost" disabled="@_busy" @onclick="QuickPick"><i class="ph-fill ph-shuffle"></i> Quick pick</button>
+                <button class="kn-btn kn-btn-ghost" disabled="@(_busy || Spots == 0)" @onclick="Clear"><i class="ph ph-x"></i> Clear</button>
+            </div>
+
+            <div class="mt-3">
+                <BetControl @bind-Value="_bet" Balance="_balance" Min="MinBet" Max="MaxBet" Disabled="_busy"/>
+            </div>
+
+            <div class="mt-4 flex flex-col items-center gap-2">
+                <button class="kn-btn kn-btn-play" disabled="@(!CanPlay)" @onclick="Play">
+                    @if (_busy)
+                    {
+                        <i class="ph ph-spinner animate-spin"></i> <span>Drawing…</span>
+                    }
+                    else
+                    {
+                        <i class="ph-fill ph-play"></i> <span>Play @Spots spot@(Spots == 1 ? "" : "s")</span>
+                    }
+                </button>
+                @if (Spots == 0)
+                {
+                    <p class="text-xs text-zinc-500">Pick at least one number to play.</p>
+                }
+                else if (_balance < MinBet)
+                {
+                    <p class="text-sm text-rose-400">You need at least @MinBet.ToString("N0") credits to play.</p>
+                }
+            </div>
+
+            @if (Spots > 0)
+            {
+                <div class="kn-paytable mt-5">
+                    <div class="kn-paytable-head">@Spots-spot payouts</div>
+                    @foreach (var (hits, mult) in KenoPayouts.Rows(Spots))
+                    {
+                        <div class="kn-paytable-row @(HasResult && _hits.Count == hits ? "kn-paytable-hit" : "")">
+                            <span class="kn-pt-hits">@hits hits</span>
+                            <span class="kn-pt-mult">@Mult(mult)</span>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
+        <div class="mt-4 text-center">
+            <a href="/credify" class="text-sm text-zinc-400 hover:text-zinc-200 hover:underline">← Back to Credify</a>
+        </div>
+    }
+</PluginPageShell>

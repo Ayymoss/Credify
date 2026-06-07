@@ -95,7 +95,9 @@ public class AchievementManager(
                 progress.Unlocked.Add(achievement.Id);
                 if (achievement.Reward > 0) await persistenceService.AddCreditsAsync(client, achievement.Reward);
 
-                if (config.Achievement.AnnounceUnlocks)
+                // CurrentServer is null for web-only players (resolved from the DB, not connected in-game),
+                // so guard the announce — an unlock earned on the webfront must never crash the circuit.
+                if (config.Achievement.AnnounceUnlocks && client.CurrentServer is not null)
                 {
                     client.CurrentServer.Broadcast(config.Translations.Achievements.Unlocked
                         .FormatExt(client.CleanedName, achievement.Name, achievement.Reward.ToString("N0")));

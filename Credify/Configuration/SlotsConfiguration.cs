@@ -1,3 +1,5 @@
+using Credify.Games.Slots;
+
 namespace Credify.Configuration;
 
 public class SlotsConfiguration
@@ -48,12 +50,4 @@ public class SlotsConfiguration
 
     /// <summary>Three jackpot symbols (7 7 7). Rare (~1 in 8000) so it can pay big.</summary>
     public double JackpotMultiplier { get; set; } = 300.0;
-}
-
-public class SlotSymbol
-{
-    public string Name { get; set; } = "";
-    public string Display { get; set; } = "";
-    public int Weight { get; set; } = 10;
-    public bool IsJackpot { get; set; } = false;
 }

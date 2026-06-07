@@ -4,6 +4,7 @@ using System.Linq;
 using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
+using Credify.Components.Shared;
 using Credify.Configuration;
 using Credify.Games.Crash;
 using Credify.Games.Live;
@@ -19,6 +20,7 @@ namespace Credify.Components.Games.Crash;
 public partial class Crash
 {
     [Inject] public required CrashLiveRegistry Registry { get; set; }
+    [Inject] public required GameHistoryService GameHistory { get; set; }
     [Inject] public required PersistenceService Persistence { get; set; }
     [Inject] public required CredifyCache Cache { get; set; }
     [Inject] public required CredifyConfiguration Config { get; set; }
@@ -27,10 +29,10 @@ public partial class Crash
     [Inject] public required CredifyWebPlayers WebPlayers { get; set; }
     [Inject] public required IJSRuntime JS { get; set; }
 
-    private static readonly long[] _chips = [10, 50, 100, 500];
-
     private CrashWebGame _game = null!;
     private EFClient? _client;
+    private GameToast? _toast;
+    private int _toastSeq;
     private long _balance;
     private long _stake = 50;
     private bool _authed;
@@ -191,6 +193,12 @@ public partial class Crash
 
             Registry.Settle(_client!.ClientId, cashed: true, _game.CashedMultiplier);
 
+            _toast = new GameToast(++_toastSeq,
+                _game.CashedMultiplier >= 5d ? GameToastVariant.Jackpot : GameToastVariant.Win,
+                $"Cashed {_game.CashedMultiplier:0.00}×", $"+{_game.NetResult:N0}", "ph-hand-coins");
+            GameHistory.Record(_client!.ClientId, new GameHistoryEntry(
+                "Crash", "ph-rocket-launch", $"{_game.CashedMultiplier:0.00}×", _game.NetResult, DateTimeOffset.UtcNow));
+
             if (_jsModule is not null)
             {
                 await _jsModule.InvokeVoidAsync("cashOut", _game.CashedMultiplier);
@@ -215,7 +223,12 @@ public partial class Crash
         if (_client is not null)
         {
             Registry.Settle(_client.ClientId, cashed: false, _game.CrashPoint);
+            GameHistory.Record(_client.ClientId, new GameHistoryEntry(
+                "Crash", "ph-rocket-launch", "Bust", -_game.Stake, DateTimeOffset.UtcNow));
         }
+
+        _toast = new GameToast(++_toastSeq, GameToastVariant.Lose,
+            $"Crashed {_game.CrashPoint:0.00}×", (-_game.Stake).ToString("N0"), "ph-rocket");
 
         if (_jsModule is not null)
         {

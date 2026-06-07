@@ -1,0 +1,94 @@
+@namespace Credify.Components.Shared
+@implements IAsyncDisposable
+@inject GameHistoryService History
+@inject IJSRuntime JS
+
+@* A collapsible, fixed left-edge log of the player's session results across all web games — a fallback for a
+   missed toast. Fixed-position so it never shifts the page; the card slides out over the (centred) game content
+   and can be closed back to a slim tab. Styling lives in custom.css (`.credify-history*`). Renders only for a
+   signed-in client. It re-reads the singleton log on every render, so new results appear as the page updates. *@
+
+@if (ClientId is { } clientId)
+{
+    var entries = History.Recent(clientId);
+    <div class="credify-history @(_open ? "credify-history--open" : "")">
+        @if (!_open)
+        {
+            <button class="credify-history-tab" @onclick="() => SetOpen(true)" title="Session history">
+                <i class="ph-fill ph-clock-counter-clockwise"></i>
+                <span class="credify-history-tab-text">Session</span>
+            </button>
+        }
+
+        <div class="credify-history-card">
+            <div class="credify-history-head">
+                <span class="credify-history-title"><i class="ph-fill ph-clock-counter-clockwise"></i> Session</span>
+                <button class="credify-history-close" @onclick="() => SetOpen(false)" aria-label="Hide session history"><i class="ph ph-caret-left"></i></button>
+            </div>
+
+            @if (entries.Count == 0)
+            {
+                <p class="credify-history-empty">No plays yet this session.</p>
+            }
+            else
+            {
+                <ul class="credify-history-list">
+                    @foreach (var entry in entries)
+                    {
+                        <li class="credify-history-row">
+                            <span class="credify-history-game" title="@entry.Game"><i class="ph-fill @entry.Icon"></i></span>
+                            <span class="credify-history-label">@entry.Label</span>
+                            <span class="credify-history-net @NetClass(entry.Net)">@FormatNet(entry.Net)</span>
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int? ClientId { get; set; }
+
+    private bool _open = true;
+    private IJSObjectReference? _mod;
+
+    protected override void OnInitialized() => History.Changed += OnHistoryChanged;
+
+    // refresh the rail the moment a result is recorded for this client (from any game/thread)
+    private void OnHistoryChanged(int clientId)
+    {
+        if (clientId == ClientId)
+        {
+            _ = InvokeAsync(StateHasChanged);
+        }
+    }
+
+    // toggle the drawer, then nudge canvas games to re-measure into the content width the CSS push changes
+    private async Task SetOpen(bool open)
+    {
+        _open = open;
+        try
+        {
+            _mod ??= await JS.InvokeAsync<IJSObjectReference>("import", "/_content/credify/shared/history.js");
+            await _mod.InvokeVoidAsync("nudge");
+        }
+        catch
+        {
+            // JS/circuit unavailable — the drawer still toggles, just without the resize nudge
+        }
+    }
+
+    private static string NetClass(long net) => net > 0 ? "pos" : net < 0 ? "neg" : "";
+    private static string FormatNet(long net) => net > 0 ? $"+{net:N0}" : net.ToString("N0");
+
+    public async ValueTask DisposeAsync()
+    {
+        History.Changed -= OnHistoryChanged;
+        if (_mod is not null)
+        {
+            try { await _mod.DisposeAsync(); }
+            catch (JSDisconnectedException) { }
+        }
+    }
+}

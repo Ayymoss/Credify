@@ -1,0 +1,144 @@
+@page "/credify/slots"
+@rendermode RenderMode.InteractiveServer
+@implements IAsyncDisposable
+
+<PageTitle>Credify · Slots</PageTitle>
+<HeadContent>
+    <link rel="stylesheet" href="/_content/credify/plugin.css"/>
+    <link rel="stylesheet" href="/_content/credify/custom.css"/>
+    <link rel="stylesheet" href="/_content/credify/slots/slots.css"/>
+</HeadContent>
+
+<PluginPageShell BackgroundClass="sl-felt text-zinc-100" Menu='CredifyNav.Build("/credify/slots")'>
+
+    <!-- header -->
+    <div class="flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+            <i class="ph-fill ph-cherries text-2xl text-[color:var(--color-action-primary,#818cf8)]"></i>
+            <h1 class="text-2xl font-bold tracking-tight">Slots</h1>
+        </div>
+        <div class="flex items-center gap-2">
+            <CredifyAudioControls/>
+            <span class="sl-chip-stat"><i class="ph-fill ph-coins text-amber-400"></i> @Cache.BankCredits.ToString("N0") <span class="sl-muted">bank</span></span>
+            @if (_authed)
+            {
+                <span class="sl-chip-stat"><i class="ph-fill ph-wallet text-emerald-400"></i> @_balance.ToString("N0") <span class="sl-muted">credits</span></span>
+            }
+        </div>
+    </div>
+
+    <GameHistoryPanel ClientId="_client?.ClientId"/>
+
+    @if (_loading)
+    {
+        <div class="flex items-center justify-center py-24 text-zinc-400">
+            <i class="ph ph-spinner animate-spin text-3xl"></i>
+        </div>
+    }
+    else if (!_authed)
+    {
+        <!-- anonymous: how-to + paytable + leaderboard -->
+        <div class="mt-6 grid gap-6 md:grid-cols-2">
+            <div class="sl-panel text-center">
+                <i class="ph-fill ph-cherries text-5xl text-[color:var(--color-action-primary,#818cf8)]"></i>
+                <h2 class="mt-3 text-xl font-bold">Sign in to play</h2>
+                <p class="mt-1 text-sm text-zinc-400">
+                    Drop a bet and pull the lever. Match three to win — line up three
+                    <span class="font-semibold text-amber-300">7</span>s for the jackpot.
+                </p>
+                <a href="/" class="sl-btn sl-btn-primary mt-4 inline-flex"><i class="ph ph-sign-in"></i> Sign in</a>
+                @RenderPaytable()
+            </div>
+            <div class="sl-panel">
+                <h2 class="flex items-center gap-2 text-lg font-bold"><i class="ph-fill ph-trophy text-amber-400"></i> Top credits</h2>
+                @if (Cache.TopCredits.Count == 0)
+                {
+                    <p class="mt-3 text-sm text-zinc-400">No credit data yet.</p>
+                }
+                else
+                {
+                    <ol class="mt-3 space-y-1">
+                        @foreach (var (entry, i) in Cache.TopCredits.Take(10).Select((e, i) => (e, i)))
+                        {
+                            <li class="flex items-center justify-between rounded-md bg-black/20 px-3 py-1.5 text-sm">
+                                <span class="flex items-center gap-2"><span class="w-5 text-right text-zinc-500">@(i + 1)</span> Client @entry.ClientId</span>
+                                <span class="font-semibold">@entry.Credits.ToString("N0")</span>
+                            </li>
+                        }
+                    </ol>
+                }
+            </div>
+        </div>
+    }
+    else
+    {
+        <GameResultToast Toast="_toast"/>
+
+        <!-- the machine -->
+        <div class="sl-machine mt-6" id="sl-machine">
+            <div class="sl-reels @(_busy ? "sl-reels-spinning" : "")">
+                @for (var i = 0; i < _reels.Length; i++)
+                {
+                    <div class="sl-reel">
+                        <div class="sl-reel-glyph">@_reels[i]</div>
+                    </div>
+                }
+            </div>
+            <div class="sl-payline"></div>
+        </div>
+
+        <!-- controls -->
+        <div class="sl-controls mt-5">
+            <BetControl @bind-Value="_bet" Balance="_balance" Min="MinBet" Max="MaxBet" Disabled="_busy"/>
+
+            <div class="mt-4 flex flex-col items-center gap-2">
+                <button class="sl-btn sl-btn-lever" disabled="@(!CanSpin)" @onclick="Spin">
+                    @if (_busy)
+                    {
+                        <i class="ph ph-spinner animate-spin"></i> <span>Spinning…</span>
+                    }
+                    else
+                    {
+                        <i class="ph-fill ph-arrow-fat-line-down"></i> <span>Spin</span>
+                    }
+                </button>
+                @if (_balance < MinBet)
+                {
+                    <p class="text-sm text-rose-400">You need at least @MinBet.ToString("N0") credits to play.</p>
+                }
+            </div>
+
+            @RenderPaytable()
+        </div>
+
+        <div class="mt-4 text-center">
+            <a href="/credify" class="text-sm text-zinc-400 hover:text-zinc-200 hover:underline">← Back to Credify</a>
+        </div>
+    }
+</PluginPageShell>
+
+@code {
+    private RenderFragment RenderPaytable() => __builder =>
+    {
+        <div class="sl-paytable mt-5">
+            <div class="sl-paytable-row">
+                <span class="sl-paytable-combo"><span class="sl-pt-glyph text-amber-300">7</span><span class="sl-pt-glyph text-amber-300">7</span><span class="sl-pt-glyph text-amber-300">7</span></span>
+                <span class="sl-paytable-label">Jackpot</span>
+                <span class="sl-paytable-mult">@Config.Slots.JackpotMultiplier.ToString("0.##")×</span>
+            </div>
+            <div class="sl-paytable-row">
+                <span class="sl-paytable-combo"><span class="sl-pt-glyph">🍒</span><span class="sl-pt-glyph">🍒</span><span class="sl-pt-glyph">🍒</span></span>
+                <span class="sl-paytable-label">Three of a kind</span>
+                <span class="sl-paytable-mult">@Config.Slots.ThreeMatchMultiplier.ToString("0.##")×</span>
+            </div>
+            @if (Config.Slots.TwoMatchMultiplier > 0)
+            {
+                <div class="sl-paytable-row">
+                    <span class="sl-paytable-combo"><span class="sl-pt-glyph">🍋</span><span class="sl-pt-glyph">🍋</span><span class="sl-pt-glyph sl-pt-dim">·</span></span>
+                    <span class="sl-paytable-label">Two of a kind</span>
+                    <span class="sl-paytable-mult">@Config.Slots.TwoMatchMultiplier.ToString("0.##")×</span>
+                </div>
+            }
+        </div>
+    };
+}

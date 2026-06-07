@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="/_content/credify/blackjack/blackjack.css"/>
 </HeadContent>
 
-<PluginPageShell FeltClass="bj-felt text-zinc-100" Menu='CredifyNav.Build("/credify/blackjack")'>
+<PluginPageShell BackgroundClass="bj-felt text-zinc-100" Menu='CredifyNav.Build("/credify/blackjack")'>
 
         <!-- header -->
         <div class="flex items-center justify-between gap-3">
@@ -28,6 +28,8 @@
             </div>
         </div>
 
+        <GameHistoryPanel ClientId="_client?.ClientId"/>
+
         @if (_loading)
         {
             <div class="flex items-center justify-center py-24 text-zinc-400">
@@ -38,14 +40,17 @@
         {
             <!-- status -->
             <div class="mt-5 flex justify-center">
-                <div class="@StatusClass">
-                    <i class="@StatusIcon"></i>
-                    <span>@StatusText</span>
-                    @if (StatusShowsTimer)
-                    {
-                        <span class="bj-banner-net">@($"{_snapshot.SecondsRemaining:0}s")</span>
-                    }
-                </div>
+                @if (StatusShowsTimer)
+                {
+                    <GameCountdown Seconds="_snapshot.SecondsRemaining" Total="ActionWindow" Label="@StatusText" Icon="@StatusIcon"/>
+                }
+                else
+                {
+                    <div class="@StatusClass">
+                        <i class="@StatusIcon"></i>
+                        <span>@StatusText</span>
+                    </div>
+                }
             </div>
 
             <!-- dealer -->
@@ -140,21 +145,21 @@
             <div class="bj-controls mt-5">
                 @if (!_authed)
                 {
-                    <div class="bj-panel mx-auto max-w-md text-center">
-                        <i class="ph-fill ph-sign-in text-4xl text-[color:var(--color-action-primary,#818cf8)]"></i>
-                        <h2 class="mt-2 text-lg font-bold">Sign in to play</h2>
-                        <p class="mt-1 text-sm text-zinc-400">Watch the table live. Log into IW4MAdmin to take a seat alongside the players in-game.</p>
-                    </div>
+                    <JoinTablePanel Icon="ph-fill ph-sign-in" Title="Sign in to play"
+                                    Description="Watch the table live. Log into IW4MAdmin to take a seat alongside the players in-game.">
+                        <a href="/" class="credify-join-btn"><i class="ph ph-sign-in"></i> Sign in</a>
+                    </JoinTablePanel>
                 }
                 else if (MySeat is null)
                 {
-                    <div class="flex flex-col items-center gap-2">
-                        <button class="bj-btn bj-btn-primary" disabled="@_busy" @onclick="Join"><i class="ph-fill ph-armchair"></i> Take a seat</button>
+                    <JoinTablePanel Icon="ph-fill ph-armchair" Title="Join the table"
+                                    Description="Take a seat to play Blackjack alongside the players in-game.">
+                        <button class="credify-join-btn" disabled="@_busy" @onclick="Join"><i class="ph-fill ph-armchair"></i> Take a seat</button>
                         @if (_balance < 10)
                         {
                             <p class="text-sm text-rose-400">You need at least 10 credits to play.</p>
                         }
-                    </div>
+                    </JoinTablePanel>
                 }
                 else
                 {
@@ -162,14 +167,7 @@
                     @if (_snapshot.Phase == "Betting" && seat.Stake is null && seat.State != "SittingOut")
                     {
                         <div class="flex flex-col items-center gap-3">
-                            <div class="flex flex-wrap items-center justify-center gap-2">
-                                @foreach (var chip in _chips)
-                                {
-                                    <button class="bj-chip" disabled="@(_busy || chip > _balance)" @onclick="() => _stake = chip">+@chip.ToString("N0")</button>
-                                }
-                                <span class="text-sm text-zinc-400">Bet <span class="text-lg font-bold text-amber-300">@_stake.ToString("N0")</span></span>
-                                <button class="bj-chip bj-chip-clear" disabled="@_busy" @onclick="() => _stake = 10"><i class="ph ph-x"></i></button>
-                            </div>
+                            <BetControl @bind-Value="_stake" Balance="_balance" Disabled="_busy"/>
                             <button class="bj-btn bj-btn-primary" disabled="@(_busy || _stake < 10 || _stake > _balance)" @onclick="PlaceBet">
                                 <i class="ph-fill ph-check"></i> Bet @_stake.ToString("N0")
                             </button>

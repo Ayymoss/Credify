@@ -121,3 +121,241 @@
     border-radius: 1rem;
     box-shadow: inset 0 0 130px rgba(0, 0, 0, 0.5);
 }
+
+/* ── shared countdown (GameCountdown.razor) ── */
+.credify-countdown { width: 100%; max-width: 22rem; margin-inline: auto; }
+.credify-countdown-head {
+    display: flex; align-items: center; gap: 0.5rem;
+    font-weight: 700; font-size: 0.9rem; color: #e4e4e7;
+    padding: 0.4rem 0.7rem; border-radius: 0.7rem 0.7rem 0 0;
+    background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.08); border-bottom: none;
+}
+.credify-countdown-label { flex: 1; }
+.credify-countdown-secs { font-variant-numeric: tabular-nums; color: #fcd34d; }
+.credify-countdown-bar {
+    height: 6px; border-radius: 0 0 0.7rem 0.7rem; overflow: hidden;
+    background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(255, 255, 255, 0.08); border-top: none;
+}
+.credify-countdown-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--color-action-primary, #6366f1), #fcd34d);
+    transition: width 0.25s linear;
+}
+
+/* ── shared table card (JoinTablePanel.razor) — sign-in / join / buy-in ── */
+.credify-join {
+    text-align: center; border-radius: 1rem; padding: 1.5rem 1.25rem;
+    background: rgba(0, 0, 0, 0.28); border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+.credify-join-icon { font-size: 2.75rem; color: var(--color-action-primary, #818cf8); }
+.credify-join-title { margin-top: 0.6rem; font-size: 1.15rem; font-weight: 800; }
+.credify-join-desc { margin-top: 0.35rem; font-size: 0.875rem; color: var(--color-subtle, #a1a1aa); }
+.credify-join-action { margin-top: 1rem; display: flex; flex-direction: column; align-items: center; gap: 0.75rem; }
+.credify-join-btn {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    padding: 0.6rem 1.4rem; border-radius: 0.8rem; font-weight: 800; color: #fff;
+    background: var(--color-action-primary, #6366f1); transition: filter 0.15s ease, transform 0.05s ease;
+}
+.credify-join-btn:hover:not(:disabled) { filter: brightness(1.1); }
+.credify-join-btn:active:not(:disabled) { transform: translateY(1px); }
+.credify-join-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── shared stake selector (BetControl.razor) — identical across every single-bet game ── */
+.credify-bet { display: flex; flex-direction: column; align-items: center; gap: 0.75rem; }
+.credify-bet-chips { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0.4rem; }
+.credify-bet-chip {
+    min-width: 3.2rem; padding: 0.45rem 0.7rem; border-radius: 0.6rem;
+    font-weight: 700; font-size: 0.85rem; color: #e4e4e7;
+    background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.12);
+    transition: background 0.15s ease, transform 0.05s ease;
+}
+.credify-bet-chip:hover:not(:disabled) { background: rgba(255, 255, 255, 0.13); }
+.credify-bet-chip:active:not(:disabled) { transform: translateY(1px); }
+.credify-bet-chip:disabled { opacity: 0.4; cursor: not-allowed; }
+.credify-bet-chip--max { color: #fcd34d; }
+.credify-bet-chip--clear { color: #fda4af; min-width: 2.4rem; }
+
+.credify-bet-entry { display: flex; align-items: center; gap: 0.55rem; }
+.credify-bet-label { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--color-subtle, #a1a1aa); }
+.credify-bet-input {
+    width: 8.5rem; padding: 0.45rem 0.6rem; border-radius: 0.6rem;
+    font-size: 1.05rem; font-weight: 800; text-align: right; font-variant-numeric: tabular-nums;
+    color: #fcd34d; background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(255, 255, 255, 0.12);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.credify-bet-input:focus {
+    outline: none; border-color: var(--color-action-primary, #818cf8);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-action-primary, #818cf8) 30%, transparent);
+}
+.credify-bet-input:disabled { opacity: 0.5; cursor: not-allowed; }
+.credify-bet-cap { font-size: 0.7rem; color: var(--color-subtle, #a1a1aa); }
+.credify-bet--disabled { opacity: 0.85; }
+
+/* ── shared win/loss toast (GameResultToast.razor) ── */
+/* Fixed, out-of-flow notification so a result never reflows the game page. Pops in, holds, auto-dismisses. */
+.credify-toast-host {
+    position: fixed;
+    top: 4.75rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+    pointer-events: none;
+    width: max-content;
+    max-width: min(92vw, 26rem);
+}
+.credify-toast {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.65rem 1.15rem;
+    border-radius: 0.85rem;
+    border: 1px solid transparent;
+    backdrop-filter: blur(6px);
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5);
+    animation: credify-toast 4.2s cubic-bezier(0.2, 0.9, 0.25, 1) forwards;
+}
+.credify-toast-icon { font-size: 1.6rem; flex: 0 0 auto; }
+.credify-toast-text { display: flex; align-items: baseline; gap: 0.6rem; min-width: 0; }
+.credify-toast-title { font-weight: 800; letter-spacing: 0.01em; white-space: nowrap; }
+.credify-toast-amount { font-weight: 800; font-variant-numeric: tabular-nums; opacity: 0.95; white-space: nowrap; }
+
+.credify-toast--win {
+    background: rgba(16, 185, 129, 0.18);
+    border-color: rgba(16, 185, 129, 0.45);
+    color: #6ee7b7;
+}
+.credify-toast--lose {
+    background: rgba(244, 63, 94, 0.16);
+    border-color: rgba(244, 63, 94, 0.4);
+    color: #fda4af;
+}
+.credify-toast--jackpot {
+    background: rgba(251, 191, 36, 0.2);
+    border-color: rgba(251, 191, 36, 0.55);
+    color: #fcd34d;
+}
+
+@keyframes credify-toast {
+    0%   { opacity: 0; transform: translateY(-14px) scale(0.92); }
+    7%   { opacity: 1; transform: translateY(0) scale(1); }
+    11%  { transform: translateY(0) scale(1.04); }
+    16%  { transform: translateY(0) scale(1); }
+    84%  { opacity: 1; transform: translateY(0) scale(1); }
+    100% { opacity: 0; transform: translateY(-10px) scale(0.98); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .credify-toast { animation: credify-toast-fade 4.2s ease forwards; }
+    @keyframes credify-toast-fade { 0% { opacity: 0; } 6% { opacity: 1; } 86% { opacity: 1; } 100% { opacity: 0; } }
+}
+
+/* ── session history rail (GameHistoryPanel.razor) ── */
+/* Anchored with position:absolute so it pins to the host's content area (the <main> element is
+   position:relative) instead of the viewport — that keeps it inside the body the page renders in,
+   clear of the host top bar and left sidebar nav, without reflowing the centred game content. The
+   card slides out over the game content and collapses to a slim tab. */
+.credify-history { /* logical wrapper only — children are absolutely-positioned */ }
+
+/* Push the page content aside so the rail never sits over the game (desktop only). The :has() targets
+   the host content column (the rail is its grandchild): a slim left gutter reserves room for the
+   collapsed tab, a wider one for the open drawer. Canvas games get a JS resize nudge on toggle
+   (GameHistoryPanel -> shared/history.js) so their canvas re-measures into the new width. */
+@media (min-width: 1024px) {
+    *:has(> * > .credify-history) {
+        padding-left: 2.75rem;
+        transition: padding-left 0.25s cubic-bezier(0.2, 0.9, 0.25, 1);
+    }
+    *:has(> * > .credify-history--open) {
+        padding-left: 15rem;
+    }
+}
+
+.credify-history-tab,
+.credify-history-card {
+    position: absolute;
+    left: 0;
+    top: 4.75rem; /* clear the page title/header row */
+}
+
+.credify-history-tab {
+    z-index: 9996;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.55rem 0.6rem;
+    border-radius: 0 0.7rem 0.7rem 0;
+    background: rgba(10, 12, 20, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-left: none;
+    color: var(--color-subtle, #a1a1aa);
+    font-weight: 700;
+    font-size: 0.8rem;
+    writing-mode: vertical-rl;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    transition: color 0.15s ease, background 0.15s ease;
+}
+.credify-history-tab:hover { color: #fff; background: rgba(20, 24, 36, 0.96); }
+.credify-history-tab-text { letter-spacing: 0.08em; text-transform: uppercase; }
+
+.credify-history-card {
+    z-index: 9997;
+    width: 14rem;
+    max-height: calc(100% - 6rem);
+    overflow-y: auto;
+    padding: 0.6rem;
+    border-radius: 0 0.85rem 0.85rem 0;
+    background: rgba(10, 12, 20, 0.94);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-left: none;
+    box-shadow: 0 14px 44px rgba(0, 0, 0, 0.5);
+    transform: translateX(-110%);
+    transition: transform 0.25s cubic-bezier(0.2, 0.9, 0.25, 1);
+}
+.credify-history--open .credify-history-card { transform: translateX(0); }
+
+.credify-history-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.15rem 0.15rem 0.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.credify-history-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-weight: 800;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-subtle, #a1a1aa);
+}
+.credify-history-close {
+    display: inline-flex;
+    color: var(--color-subtle, #a1a1aa);
+    padding: 0.1rem 0.25rem;
+    border-radius: 0.4rem;
+    transition: color 0.15s ease, background 0.15s ease;
+}
+.credify-history-close:hover { color: #fff; background: rgba(255, 255, 255, 0.08); }
+
+.credify-history-empty { padding: 0.8rem 0.3rem; font-size: 0.8rem; color: var(--color-subtle, #a1a1aa); text-align: center; }
+
+.credify-history-list { display: flex; flex-direction: column; gap: 0.2rem; margin-top: 0.4rem; }
+.credify-history-row {
+    display: grid;
+    grid-template-columns: 1.4rem 1fr auto;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0.4rem;
+    border-radius: 0.5rem;
+    background: rgba(255, 255, 255, 0.03);
+    font-size: 0.82rem;
+}
+.credify-history-game { color: var(--color-subtle, #a1a1aa); text-align: center; }
+.credify-history-label { color: #d4d4d8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.credify-history-net { font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.credify-history-net.pos { color: #6ee7b7; }
+.credify-history-net.neg { color: #fda4af; }

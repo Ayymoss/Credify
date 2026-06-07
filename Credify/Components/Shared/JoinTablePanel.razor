@@ -1,0 +1,28 @@
+@namespace Credify.Components.Shared
+
+@* The standard Credify table card — an icon, a title, a blurb, and a slot for the call to action. Used for
+   both the signed-out "sign in to play" prompt and the signed-in "join the table / buy in" panel, so every
+   game's entry point looks the same (modelled on Roulette's card). *@
+<div class="credify-join @CssClass">
+    <i class="@Icon credify-join-icon"></i>
+    <h2 class="credify-join-title">@Title</h2>
+    @if (!string.IsNullOrEmpty(Description))
+    {
+        <p class="credify-join-desc">@Description</p>
+    }
+    @if (ChildContent is not null)
+    {
+        <div class="credify-join-action">@ChildContent</div>
+    }
+</div>
+
+@code {
+    [Parameter] public string Icon { get; set; } = "ph-fill ph-sign-in";
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public string? Description { get; set; }
+
+    /// <summary>The call-to-action (a sign-in link, a "take a seat" button, a buy-in control, …).</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    [Parameter] public string? CssClass { get; set; }
+}

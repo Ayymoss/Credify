@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="/_content/credify/crash/crash.css"/>
 </HeadContent>
 
-<PluginPageShell FeltClass="cr-felt text-zinc-100" Menu='CredifyNav.Build("/credify/crash")'>
+<PluginPageShell BackgroundClass="cr-felt text-zinc-100" Menu='CredifyNav.Build("/credify/crash")'>
 
         <!-- header -->
         <div class="flex items-center justify-between gap-3">
@@ -27,6 +27,8 @@
             </div>
         </div>
 
+        <GameHistoryPanel ClientId="_client?.ClientId"/>
+
         @if (_loading)
         {
             <div class="flex items-center justify-center py-24 text-zinc-400">
@@ -35,6 +37,8 @@
         }
         else
         {
+            <GameResultToast Toast="_toast"/>
+
             <div class="mt-5 grid gap-6 lg:grid-cols-3">
 
                 <!-- LEFT (wide): the flight stage + controls -->
@@ -66,14 +70,7 @@
                         <div class="cr-controls flex flex-col items-center gap-3">
                             @if (_game.Phase == CrashPhase.Idle)
                             {
-                                <div class="flex flex-wrap items-center justify-center gap-2">
-                                    @foreach (var chip in _chips)
-                                    {
-                                        <button class="cr-chip @(_stake == chip ? "cr-chip-on" : "")"
-                                                disabled="@(_busy || chip > _balance)" @onclick="() => _stake = chip">@chip.ToString("N0")</button>
-                                    }
-                                    <span class="text-sm text-zinc-400">Stake <span class="text-base font-bold text-amber-300">@_stake.ToString("N0")</span></span>
-                                </div>
+                                <BetControl @bind-Value="_stake" Balance="_balance" Min="Config.Crash.MinBet" Disabled="_busy" Label="Stake"/>
                                 <button class="cr-btn cr-btn-launch" disabled="@(_busy || _stake < Config.Crash.MinBet || _stake > _balance)" @onclick="Launch">
                                     <i class="ph-fill ph-rocket-launch"></i> Launch
                                 </button>
@@ -91,20 +88,6 @@
                             else
                             {
                                 <div class="flex flex-col items-center gap-2">
-                                    @if (_game.Outcome == CrashOutcome.CashedOut)
-                                    {
-                                        <div class="cr-banner cr-banner-win">
-                                            <i class="ph-fill ph-hand-coins text-xl"></i> Cashed @_game.CashedMultiplier.ToString("0.00")×
-                                            <span class="cr-banner-net">+@_game.NetResult.ToString("N0")</span>
-                                        </div>
-                                    }
-                                    else
-                                    {
-                                        <div class="cr-banner cr-banner-lose">
-                                            <i class="ph-fill ph-rocket text-xl"></i> Crashed @_game.CrashPoint.ToString("0.00")×
-                                            <span class="cr-banner-net">@((-_game.Stake).ToString("N0"))</span>
-                                        </div>
-                                    }
                                     <button class="cr-btn cr-btn-launch" disabled="@_busy" @onclick="NewRound"><i class="ph ph-arrow-clockwise"></i> New round</button>
                                 </div>
                             }

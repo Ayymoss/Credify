@@ -96,7 +96,7 @@ public class Table(
         // Cleanup
         foreach (var player in _roundPlayers)
         {
-            player.ClearBet();
+            player.ClearBets();
             ICredifyEventService.RaiseEvent(ObjectiveType.Roulette, player.Client);
         }
 
@@ -270,25 +270,25 @@ public class Table(
     /// keywords first (single word), then inside-bet numbers (1-6). Returns false if
     /// neither parser accepts the input (caller reports the error).
     /// </summary>
-    private async Task<bool> TryPlaceBetAsync(Player player, int stake, string betInput)
+    /// <summary>Parse a raw bet token into a bet without any side effects (outside keywords, then inside numbers).</summary>
+    private BaseBet? ParseBet(int stake, string betInput)
     {
-        BaseBet? bet = null;
-
         var outside = new RouletteOutsideBetParser(stake, translations.Roulette).Parse(betInput);
         if (outside is { IsValid: true, Result: not null })
         {
-            bet = outside.Result;
-        }
-        else
-        {
-            var inside = new RouletteInsideBetParser(stake, translations.Roulette).Parse(betInput);
-            if (inside is { IsValid: true, Result: not null }) bet = inside.Result;
+            return outside.Result;
         }
 
+        var inside = new RouletteInsideBetParser(stake, translations.Roulette).Parse(betInput);
+        return inside is { IsValid: true, Result: not null } ? inside.Result : null;
+    }
+
+    private async Task<bool> TryPlaceBetAsync(Player player, int stake, string betInput)
+    {
+        var bet = ParseBet(stake, betInput);
         if (bet is null) return false;
 
-        player.CreateBet(bet);
-        player.BetDescription = betInput.Trim();
+        player.AddBet(bet, betInput.Trim());
         player.LastResult = "Pending";
         await PersistenceService.RemoveCreditsAsync(player.Client, bet.Stake);
         player.InputState = PlayerInputState.Complete;
@@ -363,8 +363,7 @@ public class Table(
         if (bet is null) return;
 
         // Finalize bet
-        player.CreateBet(bet);
-        player.BetDescription = message.Trim();
+        player.AddBet(bet, message.Trim());
         player.LastResult = "Pending";
         await PersistenceService.RemoveCreditsAsync(player.Client, bet.Stake);
         player.InputState = PlayerInputState.Complete;
@@ -434,30 +433,45 @@ public class Table(
     {
         foreach (var player in _roundPlayers)
         {
-            if (player.Bet is null) continue;
+            if (!player.HasBet) continue;
 
-            if (!player.Bet.HasWon(spinResult))
+            long totalStaked = 0;
+            long totalWinnings = 0; // gross payout from the winning bets (stake was already debited on placement)
+
+            foreach (var placed in player.Bets)
             {
-                player.LastResult = "Lost";
-                player.LastNet = -player.Bet.Stake;
-                output.Tell(player, translations.Roulette.Lost.FormatExt(player.Bet.Stake.ToString("N0")));
-                continue;
+                var bet = placed.Bet;
+                totalStaked += bet.Stake;
+
+                if (!bet.HasWon(spinResult))
+                {
+                    output.Tell(player, translations.Roulette.Lost.FormatExt(bet.Stake.ToString("N0")));
+                    continue;
+                }
+
+                totalWinnings += bet.Payout;
+                output.Tell(player, translations.Roulette.Won.FormatExt((bet.Payout - bet.Stake).ToString("N0")));
+
+                if (Config.Roulette.AnnounceMaxPayoutWinners && bet is StraightUpBet straightUpBet)
+                {
+                    await output.BroadcastToAllServersAsync(player,
+                    [
+                        translations.Roulette.LongPrefix(translations.Roulette.HouseWin.FormatExt(player.Client.CleanedName,
+                            (bet.Payout - bet.Stake).ToString("N0"), straightUpBet.Number))
+                    ]);
+                }
             }
 
-            player.LastResult = "Won";
-            player.LastNet = player.Bet.Payout - player.Bet.Stake;
-            ICredifyEventService.RaiseEvent(ObjectiveType.Baller, player.Client, player.Bet.Payout);
-            output.Tell(player, translations.Roulette.Won.FormatExt((player.Bet.Payout - player.Bet.Stake).ToString("N0")));
-            await PersistenceService.AddCreditsAsync(player.Client, player.Bet.Payout);
+            // round net = winnings credited back minus everything staked; the web "Won" signal (and its coin
+            // sound) keys off a genuine positive net, so winning one bet but netting a loss never reads as a win.
+            player.LastNet = totalWinnings - totalStaked;
+            player.LastResult = player.LastNet > 0 ? "Won" : "Lost";
 
-            if (!Config.Roulette.AnnounceMaxPayoutWinners) continue;
-            if (player.Bet is not StraightUpBet straightUpBet) continue;
-
-            await output.BroadcastToAllServersAsync(player,
-            [
-                translations.Roulette.LongPrefix(translations.Roulette.HouseWin.FormatExt(player.Client.CleanedName,
-                    (player.Bet.Payout - player.Bet.Stake).ToString("N0"), straightUpBet.Number))
-            ]);
+            if (totalWinnings > 0)
+            {
+                ICredifyEventService.RaiseEvent(ObjectiveType.Baller, player.Client, totalWinnings);
+                await PersistenceService.AddCreditsAsync(player.Client, totalWinnings);
+            }
         }
 
         var colourString = spinResult.Colour switch
@@ -557,9 +571,9 @@ public class Table(
             .Select(p => new RoulettePlayerView(
                 p.Client.ClientId,
                 p.Client.CleanedName,
-                p.Bet?.Stake ?? 0,
-                p.BetDescription,
-                p.Bet is not null,
+                p.Bets.Select(placed => new RouletteBetView(placed.Label, placed.Bet.Stake)).ToList(),
+                p.TotalStake,
+                p.HasBet,
                 p.LastResult,
                 p.LastNet))
             .ToList();
@@ -578,17 +592,23 @@ public class Table(
         new(spin.Number, RouletteConstants.ToDisplayString(spin.Number), spin.Colour.ToString());
 
     /// <summary>
-    /// Places a bet on behalf of a web participant. Runs the same validation/placement path as chat input,
-    /// under the same chat lock, so web and in-game bets are serialized together. Returns null on success or
-    /// a player-facing error string. The web sends a single-line bet (e.g. stake 100 on "red" or "17"),
-    /// bypassing the guided category/details flow.
+    /// Places a batch of bets on behalf of a web participant in one shot (the web builds a selection of
+    /// board bets, then commits them together). Runs under the same chat lock as in-game input, so web and
+    /// chat bets are serialized. The whole batch is validated (every token parses, total stake affordable)
+    /// before anything is debited, so it never partially commits. Returns null on success or an error string.
     /// </summary>
-    public async Task<string?> PlaceWebBetAsync(EFClient client, int stake, string betInput)
+    public async Task<string?> PlaceWebBetsAsync(EFClient client, IReadOnlyList<(int Stake, string BetInput)> bets)
     {
         string? error = null;
 
         await ExecuteUnderChatLockAsync(async () =>
         {
+            if (bets.Count == 0)
+            {
+                error = "Place at least one bet.";
+                return;
+            }
+
             if (!Players.TryGetValue(client, out var player))
             {
                 error = "You're not seated at the table.";
@@ -613,27 +633,34 @@ public class Table(
 
             if (player.InputState is PlayerInputState.Complete)
             {
-                error = "You've already placed your bet this round.";
+                error = "You've already placed your bets this round.";
                 return;
             }
 
-            var credits = await PersistenceService.GetClientCreditsAsync(client);
-            if (stake < 10)
+            if (bets.Any(bet => bet.Stake < 10))
             {
                 error = "Minimum bet is 10 credits.";
                 return;
             }
 
-            if (stake > credits)
+            // validate every token parses BEFORE debiting anything (no partial commits)
+            if (bets.Any(bet => ParseBet(bet.Stake, bet.BetInput) is null))
             {
-                error = "You don't have enough credits for that bet.";
+                error = "One of those isn't a valid bet.";
                 return;
             }
 
-            if (!await TryPlaceBetAsync(player, stake, betInput))
+            var total = bets.Sum(bet => (long)bet.Stake);
+            var credits = await PersistenceService.GetClientCreditsAsync(client);
+            if (total > credits)
             {
-                error = "That isn't a valid bet.";
+                error = "You don't have enough credits for those bets.";
                 return;
+            }
+
+            foreach (var (stake, betInput) in bets)
+            {
+                await TryPlaceBetAsync(player, stake, betInput);
             }
 
             CheckAllPlayersCompleted();

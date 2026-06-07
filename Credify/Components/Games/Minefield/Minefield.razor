@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="/_content/credify/minefield/minefield.css"/>
 </HeadContent>
 
-<PluginPageShell FeltClass="mf-felt text-zinc-100" Menu='CredifyNav.Build("/credify/minefield")'>
+<PluginPageShell BackgroundClass="mf-felt text-zinc-100" Menu='CredifyNav.Build("/credify/minefield")'>
 
         <!-- header -->
         <div class="flex items-center justify-between gap-3">
@@ -27,6 +27,8 @@
                 }
             </div>
         </div>
+
+        <GameHistoryPanel ClientId="_client?.ClientId"/>
 
         @if (_loading)
         {
@@ -70,6 +72,8 @@
         }
         else
         {
+            <GameResultToast Toast="_toast"/>
+
             <!-- live multiplier / payout ribbon (only while a round is running or just finished) -->
             @if (_game.Phase != MinefieldPhase.Configuring)
             {
@@ -91,25 +95,6 @@
                     <div class="mf-ribbon-cell">
                         <span class="mf-ribbon-label">Mines</span>
                         <span class="mf-ribbon-value text-rose-300"><i class="ph-fill ph-bomb text-base"></i> @_game.MineCount</span>
-                    </div>
-                </div>
-            }
-
-            <!-- result banner -->
-            @if (_game.Phase == MinefieldPhase.Settled && _game.Result is { } result)
-            {
-                <div class="mt-4 flex justify-center">
-                    <div class="mf-banner @BannerClass(result)">
-                        <i class="ph-fill @BannerIcon(result) text-2xl"></i>
-                        <span>@BannerText(result)</span>
-                        @if (result != MinefieldResult.Busted)
-                        {
-                            <span class="mf-banner-net">+@_game.NetResult.ToString("N0")</span>
-                        }
-                        else
-                        {
-                            <span class="mf-banner-net">@((-_game.Stake).ToString("N0"))</span>
-                        }
                     </div>
                 </div>
             }
@@ -148,14 +133,7 @@
                 @if (_game.Phase == MinefieldPhase.Configuring)
                 {
                     <!-- bet -->
-                    <div class="flex flex-wrap items-center justify-center gap-2">
-                        @foreach (var chip in _chips)
-                        {
-                            <button class="mf-chip" disabled="@(_busy || _bet + chip > _balance)" @onclick="() => AddToBet(chip)">+@chip.ToString("N0")</button>
-                        }
-                        <button class="mf-chip mf-chip-max" disabled="@_busy" @onclick="BetMax">Max</button>
-                        <button class="mf-chip mf-chip-clear" disabled="@_busy" @onclick="ClearBet"><i class="ph ph-x"></i></button>
-                    </div>
+                    <BetControl @bind-Value="_bet" Balance="_balance" Min="MinBet" Disabled="_busy"/>
 
                     <!-- mines stepper + presets -->
                     <div class="mt-4 flex flex-wrap items-center justify-center gap-3">
@@ -178,12 +156,9 @@
                             First gem pays <span class="font-semibold text-emerald-300">@FirstGemMultiplier.ToString("0.00")×</span>
                             · next-tile risk <span class="font-semibold text-rose-300">@FormatPct(FirstTileRisk)</span>
                         </p>
-                        <div class="flex items-center gap-3">
-                            <span class="text-sm text-zinc-400">Bet <span class="text-lg font-bold text-amber-300">@_bet.ToString("N0")</span></span>
-                            <button class="mf-btn mf-btn-primary" disabled="@(_busy || _bet < MinBet || _bet > _balance)" @onclick="StartGame">
-                                <i class="ph-fill ph-shovel"></i> Plant &amp; dig
-                            </button>
-                        </div>
+                        <button class="mf-btn mf-btn-primary" disabled="@(_busy || _bet < MinBet || _bet > _balance)" @onclick="StartGame">
+                            <i class="ph-fill ph-shovel"></i> Plant &amp; dig
+                        </button>
                         @if (_balance < MinBet)
                         {
                             <p class="text-sm text-rose-400">You need at least @MinBet.ToString("N0") credits to play.</p>

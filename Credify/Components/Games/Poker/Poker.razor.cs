@@ -26,6 +26,7 @@ public partial class Poker
     [Inject] public required IEntityService<EFClient> ClientService { get; set; }
     [Inject] public required CredifyWebPlayers WebPlayers { get; set; }
     [Inject] public required IJSRuntime JS { get; set; }
+    [Inject] public required GameHistoryService GameHistory { get; set; }
 
     private readonly Card? _noCard = null;
 
@@ -44,6 +45,7 @@ public partial class Poker
     private int? _lastActive;
     private int _lastCommunity;
     private long _lastChips = -1;
+    private long _tableBuyIn; // total credits bought into the current sitting (for cash-out history net)
 
     private CancellationTokenSource? _loopCts;
 
@@ -65,6 +67,8 @@ public partial class Poker
 
     private string ActiveName =>
         _snapshot.Seats.FirstOrDefault(s => s.ClientId == _snapshot.ActiveClientId)?.Name ?? "player";
+
+    private double ActionWindow => Config.Poker.TimeoutForPlayerAction.TotalSeconds;
 
     protected override async Task OnInitializedAsync()
     {
@@ -110,7 +114,8 @@ public partial class Poker
         return resolved is null ? null : WebPlayers.GetOrAdd(clientId, () => resolved);
     }
 
-    private void OnStateChanged() => _ = RefreshAsync();
+    // marshal onto the renderer's context so this never races the timer-loop RefreshAsync
+    private void OnStateChanged() => _ = InvokeAsync(RefreshAsync);
 
     private async Task LoopAsync(CancellationToken token)
     {
@@ -179,7 +184,8 @@ public partial class Poker
         {
             if (_lastChips >= 0 && chips > _lastChips)
             {
-                try { await _audio.InvokeVoidAsync("win", chips - _lastChips, chips - _lastChips >= _snapshot.BigBlind * 20); } catch { }
+                // no clean per-hand stake for a pot win, so the jingle falls back to the absolute threshold
+                try { await _audio.InvokeVoidAsync("win", chips - _lastChips); } catch { }
             }
             _lastChips = chips;
         }
@@ -207,6 +213,7 @@ public partial class Poker
         _busy = true;
         if (_audio is not null) { try { await _audio.InvokeVoidAsync("play", "bet"); } catch { } }
         await PokerGame.JoinGameAsync(_client, _buyIn);
+        _tableBuyIn += _buyIn; // accumulate buy-ins/rebuys so cash-out can compute the sitting's net
         _balance = await Persistence.GetClientCreditsAsync(_client);
         _lastChips = MySeat?.Chips ?? _buyIn; // baseline so the buy-in doesn't read as a win
         await RefreshAsync();
@@ -221,7 +228,18 @@ public partial class Poker
         }
 
         _busy = true;
+
+        // cash out: log the whole sitting's net (chips taken to the rail minus everything bought in).
+        // chips are 1:1 with credits at this table, so the chip stack is the credit-equivalent returned.
+        var chipsOut = MySeat?.Chips ?? 0;
         await PokerGame.LeaveGameAsync(_client);
+        if (_tableBuyIn > 0)
+        {
+            GameHistory.Record(_client.ClientId, new GameHistoryEntry(
+                "Poker", "ph-spade", "Cash out", chipsOut - _tableBuyIn, DateTimeOffset.UtcNow));
+            _tableBuyIn = 0;
+        }
+
         _balance = await Persistence.GetClientCreditsAsync(_client);
         _lastChips = -1;
         await RefreshAsync();

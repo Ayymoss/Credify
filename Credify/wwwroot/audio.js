@@ -4,7 +4,11 @@
 // whose length scales with the amount won. Volume is global, persisted to localStorage, default 20%.
 
 const VOLUME_KEY = 'credify-volume';
-const DEFAULT_VOLUME = 0.2;
+// The slider (0..1) scales UNDER this ceiling: slider 100% = MASTER_CEILING real gain. Full-scale audio was
+// deafening (even 20% was loud), so the usable range is capped at 0.40 and the default slider sits at 40%
+// (≈ 0.16 real gain).
+const MASTER_CEILING = 0.4;
+const DEFAULT_VOLUME = 0.4;
 const MONEY_URL = '/_content/credify/sfx/money.ogg';
 const ACHIEVEMENT_URL = '/_content/credify/sfx/AchievementUnlocked.ogg';
 
@@ -28,7 +32,7 @@ function ensure() {
         if (!AC) return null;
         ctx = new AC();
         master = ctx.createGain();
-        master.gain.value = volume;
+        master.gain.value = volume * MASTER_CEILING;
         master.connect(ctx.destination);
         loadSample(MONEY_URL);       // preload on first unlock
         loadSample(ACHIEVEMENT_URL);
@@ -60,7 +64,7 @@ export function getVolume() { return volume; }
 export function setVolume(v) {
     volume = Math.max(0, Math.min(1, v));
     localStorage.setItem(VOLUME_KEY, String(volume));
-    if (master) master.gain.value = volume;
+    if (master) master.gain.value = volume * MASTER_CEILING;
     ensure(); // a slider drag is a user gesture — unlock here too
 }
 
@@ -147,10 +151,92 @@ export function gem(level) {
     tone(freq * 2, 0.1, 'sine', { gain: 0.05, when: 0.01 });
 }
 
+// soft peg tick for Plinko — a short, randomly-pitched click so a run of bounces doesn't sound mechanical
+export function peg() {
+    clickAt(0, 0.05, 1300 + Math.random() * 700);
+}
+
+// Plinko floor impact: a weighty thud whose pitched 'ding' climbs with the bucket's win multiplier. A
+// losing bucket (<1×) stays a dull low thump; winning buckets ring brighter/higher the bigger the win, and
+// 10×+ adds a sparkle. In multi-ball runs the staggered landings make a satisfying cascade of tones.
+export function plinkoLand(multiplier) {
+    if (!ensure()) return;
+    const m = Math.max(0, multiplier || 0);
+
+    // the physical impact — a short low thump + a filtered noise tap (the ball's weight hitting the floor)
+    tone(110, 0.16, 'sine', { gain: 0.20, slideTo: 60 });
+    noise(0.05, { gain: 0.12, freq: 900, type: 'lowpass' });
+
+    if (m < 1) {
+        // losing bucket — keep it dull and low, no bright chime
+        tone(180, 0.12, 'triangle', { gain: 0.08, slideTo: 120 });
+        return;
+    }
+
+    // winning bucket — a bell whose pitch rises with the multiplier (1× … 100×+ → ~440 … ~1880 Hz)
+    const level = Math.min(1, Math.log10(m) / 2); // m=1 → 0, m=100 → 1
+    const freq = 440 * Math.pow(2, level * 2.1);
+    const gain = 0.14 + level * 0.10;
+    tone(freq, 0.22 + level * 0.12, 'triangle', { gain });
+    tone(freq * 2, 0.14, 'sine', { gain: gain * 0.4, when: 0.01 }); // shimmer overtone
+
+    // big hits sparkle with a quick rising fifth + a bright tick
+    if (m >= 10) {
+        tone(freq * 1.5, 0.18, 'sine', { gain: gain * 0.5, when: 0.06 });
+        clickAt(0, 0.10, 3200);
+    }
+}
+
 // mine detonation
 export function bomb() {
     noise(0.55, { gain: 0.5, freq: 1100, type: 'lowpass' });
     tone(90, 0.5, 'sine', { gain: 0.4, slideTo: 40 });
+}
+
+// The reel deceleration curve — must match the transition easing in slots.js (`cubic-bezier(0.16,1,0.3,1)`).
+// We only need its y(t)/x(t) components (P0=(0,0), P1=(0.16,1), P2=(0.3,1), P3=(1,1)).
+function reelBezierY(t) { const mt = 1 - t; return (3 * mt * mt * t + 3 * mt * t * t) * 1 + t * t * t; }
+function reelBezierX(t) { const mt = 1 - t; return 3 * mt * mt * t * 0.16 + 3 * mt * t * t * 0.3 + t * t * t; }
+
+// Time fraction (0..1) at which the reel has scrolled `progress` (0..1) of its total distance. Inverting the
+// ease-out means equal progress steps map to growing time gaps — i.e. ticks decelerate exactly like the reels.
+function reelTimeAtProgress(progress) {
+    let lo = 0, hi = 1;
+    for (let i = 0; i < 28; i++) {
+        const m = (lo + hi) / 2;
+        if (reelBezierY(m) < progress) lo = m; else hi = m;
+    }
+    return reelBezierX((lo + hi) / 2);
+}
+
+// slot machine: a lever ka-chunk + per-reel tick trains where each tick = one symbol crossing the window, so
+// the ticks slow down with the reels (and overlap densely at the start, thinning as each reel lands). Reel
+// params mirror slots.js: cells = 17 + i*5, duration = 1.15 + i*0.36 s (= 1150 + i*360 ms).
+export function reels() {
+    if (!ensure()) return;
+
+    // lever pull / ka-chunk
+    clickAt(0, 0.18, 1500);
+    tone(190, 0.12, 'square', { gain: 0.14, slideTo: 110 });
+
+    const startDelay = 0.06;
+    for (let i = 0; i < 3; i++) {
+        const duration = 1.15 + i * 0.36;
+        const cells = 17 + i * 5;
+        const ticks = Math.min(15, cells - 1);
+
+        // one tick per equal slice of scroll distance → time gaps widen as the reel eases to a stop
+        for (let k = 1; k < ticks; k++) {
+            const progress = k / ticks;
+            const when = startDelay + reelTimeAtProgress(progress) * duration;
+            clickAt(when, 0.05 * (1 - progress * 0.4), 2500);
+        }
+
+        // the reel slamming to its stop
+        const stop = startDelay + duration;
+        clickAt(stop, 0.16, 1900);
+        tone(150, 0.14, 'sine', { gain: 0.2, slideTo: 80, when: stop });
+    }
 }
 
 // roulette wheel: a tick train whose spacing widens as the wheel "slows" over ~4s
@@ -172,6 +258,77 @@ export function land() {
     tone(180, 0.18, 'sine', { gain: 0.22, slideTo: 90 });
 }
 
+// ── Crash rocket: a continuous thrust whose pitch & intensity climb with the multiplier ──────
+// A looping filtered-noise hiss (the burn) layered with a low sawtooth (the engine body), driven live by
+// crash.js's animation loop. rocketSet(multiplier) ramps the brightness/pitch/loudness up as the rocket
+// climbs; rocketStop() fades it out on crash or cash-out.
+let rocket = null;
+
+export function rocketStart() {
+    if (!ensure()) return;
+    if (rocket) rocketStop();
+
+    // 2s of white noise, looped, band-passed = the rushing burn
+    const len = Math.floor(ctx.sampleRate * 2);
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.loop = true;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = 420;
+    filter.Q.value = 0.8;
+
+    const osc = ctx.createOscillator(); // low engine rumble under the hiss
+    osc.type = 'sawtooth';
+    osc.frequency.value = 60;
+    const oscGain = ctx.createGain();
+    oscGain.gain.value = 0.09;
+
+    const gain = ctx.createGain();
+    gain.gain.value = 0.0001;
+
+    src.connect(filter);
+    filter.connect(gain);
+    osc.connect(oscGain);
+    oscGain.connect(gain);
+    gain.connect(master);
+
+    const t = ctx.currentTime;
+    gain.gain.linearRampToValueAtTime(0.16, t + 0.25); // fade in
+    src.start();
+    osc.start();
+
+    rocket = { src, osc, filter, gain };
+}
+
+export function rocketSet(multiplier) {
+    if (!rocket || !ctx) return;
+    const m = Math.max(1, multiplier || 1);
+    // 0 at 1×, ~1 by 20× (log so it keeps climbing smoothly without ever maxing out)
+    const level = Math.min(1, Math.log2(m) / Math.log2(20));
+    const t = ctx.currentTime;
+    rocket.filter.frequency.setTargetAtTime(420 + level * 2400, t, 0.08);
+    rocket.filter.Q.setTargetAtTime(0.8 + level * 4.5, t, 0.1);
+    rocket.osc.frequency.setTargetAtTime(60 + level * 200, t, 0.08);
+    rocket.gain.gain.setTargetAtTime(0.16 + level * 0.2, t, 0.12);
+}
+
+export function rocketStop() {
+    if (!rocket || !ctx) return;
+    const r = rocket;
+    rocket = null;
+    const t = ctx.currentTime;
+    r.gain.gain.cancelScheduledValues(t);
+    r.gain.gain.setValueAtTime(Math.max(0.0001, r.gain.gain.value), t);
+    r.gain.gain.linearRampToValueAtTime(0.0001, t + 0.18);
+    try { r.src.stop(t + 0.22); } catch { /* already stopped */ }
+    try { r.osc.stop(t + 0.22); } catch { /* already stopped */ }
+}
+
 // ── the money-count win effect ──────────────────────────────────────────────
 // Spams the short money.ogg sample once per "tick", pitch descending GMod-Tower style. The number of ticks
 // scales with the amount won. The pitch slide runs over an ABSOLUTE timeframe (curveDuration), measured from
@@ -188,7 +345,8 @@ const MONEY = {
     curve: 1,           // pitch-descent easing exponent (1 = linear, >1 holds high longer, <1 drops fast)
     startDelay: 0,      // ms before the first tap
     curveDuration: 2100, // ms over which the full pitch slide happens (absolute, from the first tap)
-    achievementThreshold: 10000, // win >= this plays the achievement jingle (0 = off)
+    achievementThreshold: 10000, // gross win must be >= this for the jingle (0 = off) — the absolute floor
+    achievementMinMultiplier: 2, // …AND the gross payout must be at least this × the stake (relative gate)
     achievementMode: 'start',    // 'start' (with the first tap) | 'threshold' (when the count passes the
                                  // threshold) | 'after' (once the count finishes)
     achievementGap: 90,          // ms gap after the last tap, for 'after' mode
@@ -229,9 +387,15 @@ async function playMoney(o) {
         src.start(t0 + i * interval);
     }
 
-    // big-win reward: an achievement jingle, timed by mode
+    // big-win reward: an achievement jingle. `amount` is the PROFIT; the gross payout is profit + stake.
+    // It only fires on a strong win — the gross must be at least achievementMinMultiplier× the stake AND at
+    // least the absolute threshold, so a small bet that happens to multiply (e.g. 50 → 100) stays silent.
     const threshold = o.achievementAt ?? MONEY.achievementThreshold;
-    if (threshold > 0 && amount >= threshold) {
+    const bet = Math.max(0, o.bet ?? 0);
+    const gross = amount + bet;
+    const minMult = o.achievementMinMultiplier ?? MONEY.achievementMinMultiplier;
+    const meetsMultiplier = bet <= 0 || gross >= minMult * bet;
+    if (threshold > 0 && gross >= threshold && meetsMultiplier) {
         const mode = o.achievementMode ?? MONEY.achievementMode;
         let at;
         if (mode === 'threshold') {
@@ -264,11 +428,15 @@ function playsForAmount(amount, perPlay, minPlays, maxPlays) {
     return Math.max(minPlays, Math.min(maxPlays, Math.round(amount / Math.max(1, perPlay))));
 }
 
-export async function win(amount, big = false) {
+// amount = profit (what flies into the wallet); bet = the stake, used to gate the achievement jingle on a
+// strong multiplier. Pass bet = 0 (or omit) where there's no clean stake (e.g. a poker pot) to fall back
+// to the absolute threshold only.
+export async function win(amount, bet = 0) {
     if (!ensure()) return;
     const amt = Math.max(0, Math.round(amount));
+    const stake = Math.max(0, Math.round(bet));
     const plays = playsForAmount(amt, MONEY.perPlay, MONEY.minPlays, MONEY.maxPlays);
-    await playMoney({ amount: amt, plays, counter: true });
+    await playMoney({ amount: amt, bet: stake, plays, counter: true });
 }
 
 // Tester entry point — full control over every knob. opts: { amount, plays, perPlay, minPlays, maxPlays,

@@ -1,0 +1,27 @@
+@namespace Credify.Components.Shared
+
+<div class="credify-bet @(Disabled ? "credify-bet--disabled" : "")">
+    <div class="credify-bet-chips">
+        @foreach (var denom in Denominations)
+        {
+            <button type="button" class="credify-bet-chip"
+                    disabled="@(Disabled || Value + denom > Cap)"
+                    @onclick="() => AddAsync(denom)">+@denom.ToString("N0")</button>
+        }
+        <button type="button" class="credify-bet-chip credify-bet-chip--max"
+                disabled="@(!CanRaise)" @onclick="MaxAsync">Max</button>
+        <button type="button" class="credify-bet-chip credify-bet-chip--clear"
+                disabled="@(!CanClear)" @onclick="ClearAsync" aria-label="Clear bet"><i class="ph ph-x"></i></button>
+    </div>
+
+    <div class="credify-bet-entry">
+        <span class="credify-bet-label">@Label</span>
+        <input type="number" class="credify-bet-input" inputmode="numeric"
+               min="@Min" max="@Cap" step="@Step" value="@Value" disabled="@Disabled"
+               @onchange="EntryAsync"/>
+        @if (Max is > 0)
+        {
+            <span class="credify-bet-cap">max @Max.Value.ToString("N0")</span>
+        }
+    </div>
+</div>

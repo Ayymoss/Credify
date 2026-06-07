@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="/_content/credify/poker/poker.css"/>
 </HeadContent>
 
-<PluginPageShell FeltClass="pk-felt text-zinc-100" Menu='CredifyNav.Build("/credify/poker")'>
+<PluginPageShell BackgroundClass="pk-felt text-zinc-100" Menu='CredifyNav.Build("/credify/poker")'>
 
         <!-- header -->
         <div class="flex items-center justify-between gap-3">
@@ -29,6 +29,8 @@
             </div>
         </div>
 
+        <GameHistoryPanel ClientId="_client?.ClientId"/>
+
         @if (_loading)
         {
             <div class="flex items-center justify-center py-24 text-zinc-400">
@@ -41,11 +43,13 @@
             <div class="pk-board mt-5">
                 <div class="flex items-center gap-3">
                     <span class="pk-status">@PhaseLabel</span>
-                    @if (_snapshot.ActiveClientId is not null && _snapshot.SecondsRemaining > 0)
-                    {
-                        <span class="pk-status">@ActiveName to act <span class="pk-turn-timer">@($"{_snapshot.SecondsRemaining:0}s")</span></span>
-                    }
                 </div>
+                @if (_snapshot.ActiveClientId is not null && _snapshot.SecondsRemaining > 0)
+                {
+                    <div class="mt-2">
+                        <GameCountdown Seconds="_snapshot.SecondsRemaining" Total="ActionWindow" Label="@($"{ActiveName} to act")" Icon="ph-fill ph-timer"/>
+                    </div>
+                }
                 <div class="pk-pot"><i class="ph-fill ph-coins"></i> Pot @_snapshot.Pot.ToString("N0")</div>
                 <div class="pk-community">
                     @if (_snapshot.Community.Count == 0)
@@ -132,17 +136,17 @@
             <div class="pk-controls mt-5">
                 @if (!_authed)
                 {
-                    <div class="pk-panel mx-auto max-w-md text-center">
-                        <i class="ph-fill ph-sign-in text-4xl text-[color:var(--color-action-primary,#818cf8)]"></i>
-                        <h2 class="mt-2 text-lg font-bold">Sign in to play</h2>
-                        <p class="mt-1 text-sm text-zinc-400">Watch the table live. Log into IW4MAdmin to buy in and play Hold'em with the players in-game.</p>
-                    </div>
+                    <JoinTablePanel Icon="ph-fill ph-sign-in" Title="Sign in to play"
+                                    Description="Watch the table live. Log into IW4MAdmin to buy in and play Hold'em with the players in-game.">
+                        <a href="/" class="credify-join-btn"><i class="ph ph-sign-in"></i> Sign in</a>
+                    </JoinTablePanel>
                 }
                 else if (MySeat is null)
                 {
-                    <div class="flex flex-col items-center gap-3">
-                        <label class="text-sm text-zinc-400">Buy-in (@Config.Poker.MinimumBuyIn.ToString("N0")–@Math.Min(Config.Poker.MaximumBuyIn, _balance).ToString("N0"))</label>
-                        <input type="number" class="pk-buyin" min="@Config.Poker.MinimumBuyIn" max="@Math.Min(Config.Poker.MaximumBuyIn, _balance)" step="@Config.Poker.BigBlind" @bind="_buyIn"/>
+                    <JoinTablePanel Icon="ph-fill ph-spade" Title="Buy in"
+                                    Description="Bring chips to the table and play Hold'em with the players in-game.">
+                        <BetControl @bind-Value="_buyIn" Balance="_balance" Min="Config.Poker.MinimumBuyIn" Max="Config.Poker.MaximumBuyIn"
+                                    Step="Config.Poker.BigBlind" Disabled="_busy" Label="Buy-in"/>
                         <button class="pk-btn pk-btn-primary" disabled="@(_busy || _buyIn < Config.Poker.MinimumBuyIn || _buyIn > _balance)" @onclick="Join">
                             <i class="ph-fill ph-sign-in"></i> Buy in &amp; sit
                         </button>
@@ -150,7 +154,7 @@
                         {
                             <p class="text-sm text-rose-400">You need at least @Config.Poker.MinimumBuyIn.ToString("N0") credits to buy in.</p>
                         }
-                    </div>
+                    </JoinTablePanel>
                 }
                 else if (_snapshot.MyActions is { } act)
                 {

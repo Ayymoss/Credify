@@ -12,6 +12,7 @@ public class CredifyConfiguration
     public StreakConfiguration Streak { get; set; } = new();
     public BountyConfiguration Bounty { get; set; } = new();
     public SlotsConfiguration Slots { get; set; } = new();
+    public PlinkoConfiguration Plinko { get; set; } = new();
     public WheelConfiguration Wheel { get; set; } = new();
     public BountyContractConfiguration BountyContract { get; set; } = new();
     public PokerConfiguration Poker { get; set; } = new();

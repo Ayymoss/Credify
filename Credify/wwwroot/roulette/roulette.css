@@ -261,6 +261,18 @@
     border: 1px solid rgba(244, 63, 94, 0.4);
 }
 
+/* bet slip (pending bets being built) + placed bets */
+.rl-slip, .rl-placed { display: flex; flex-wrap: wrap; gap: 0.4rem; justify-content: center; }
+.rl-slip-chip, .rl-placed-chip {
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    padding: 0.3rem 0.6rem; border-radius: 0.5rem;
+    font-size: 0.8rem; font-weight: 700; color: #e4e4e7;
+}
+.rl-slip-chip { background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.14); }
+.rl-slip-chip:hover:not(:disabled) { background: rgba(244, 63, 94, 0.18); border-color: rgba(244, 63, 94, 0.4); }
+.rl-slip-chip i { opacity: 0.6; }
+.rl-placed-chip { background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1); }
+
 @media (min-width: 640px) {
     .rl-wheel { width: 21rem; height: 21rem; }
     .rl-pocket-num { font-size: 0.68rem; }

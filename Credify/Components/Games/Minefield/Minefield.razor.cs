@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
+using Credify.Components.Shared;
 using Credify.Configuration;
 using Credify.Games.Minefield;
 using Credify.Services;
@@ -17,18 +18,20 @@ namespace Credify.Components.Games.Minefield;
 public partial class Minefield
 {
     [Inject] public required PersistenceService Persistence { get; set; }
+    [Inject] public required GameHistoryService GameHistory { get; set; }
     [Inject] public required CredifyCache Cache { get; set; }
     [Inject] public required CredifyConfiguration Config { get; set; }
     [Inject] public required IManager Manager { get; set; }
     [Inject] public required IEntityService<EFClient> ClientService { get; set; }
     [Inject] public required IJSRuntime JS { get; set; }
 
-    private static readonly long[] _chips = [10, 50, 100, 500];
     private static readonly int[] _minePresets = [1, 3, 5, 10];
     private const long MinBet = GameConstants.MinimumCredits;
 
     private MinefieldWebGame _game = null!;
     private EFClient? _client;
+    private GameToast? _toast;
+    private int _toastSeq;
     private long _balance;
     private long _bet = MinBet;
     private int _mines = 3;
@@ -104,10 +107,6 @@ public partial class Minefield
         return live ?? await ClientService.Get(clientId);
     }
 
-    private void AddToBet(long amount) => _bet = Math.Clamp(_bet + amount, MinBet, _balance);
-    private void BetMax() => _bet = Math.Max(MinBet, _balance);
-    private void ClearBet() => _bet = Math.Min(MinBet, _balance);
-
     private void AdjustMines(int delta) => _mines = Math.Clamp(_mines + delta, 1, _game.MaxMines);
     private void SetMines(int value) => _mines = Math.Clamp(value, 1, _game.MaxMines);
 
@@ -176,6 +175,17 @@ public partial class Minefield
             _balance = await Persistence.AddCreditsAsync(_client, payout);
         }
 
+        if (_game.Result is { } result)
+        {
+            _toast = BuildToast(result);
+            if (_client is not null)
+            {
+                var label = result == MinefieldResult.Busted ? "Bust" : $"{_game.CurrentMultiplier:0.00}×";
+                GameHistory.Record(_client.ClientId, new GameHistoryEntry(
+                    "Minefield", "ph-bomb", label, _game.NetResult, DateTimeOffset.UtcNow));
+            }
+        }
+
         _busy = false;
         StateHasChanged();
 
@@ -192,15 +202,10 @@ public partial class Minefield
         }
         else if (_game.NetResult > 0)
         {
-            // a full clear, or a big multiplier, gets the bigger celebration
-            var big = _game.Result is MinefieldResult.Cleared || _game.CurrentMultiplier >= 5d;
+            // win reward signal is uniform across every game: the shared toast + the coin-count sound.
             if (_audio is not null)
             {
-                try { await _audio.InvokeVoidAsync("win", _game.NetResult, big); } catch { }
-            }
-            if (_jsModule is not null)
-            {
-                await _jsModule.InvokeVoidAsync("cashOut", big);
+                try { await _audio.InvokeVoidAsync("win", _game.NetResult, _game.Stake); } catch { }
             }
         }
     }
@@ -231,12 +236,19 @@ public partial class Minefield
         _ => "Boom!"
     };
 
-    private static string BannerClass(MinefieldResult r) => r switch
+    private GameToast BuildToast(MinefieldResult result)
     {
-        MinefieldResult.Cleared => "mf-banner-jackpot",
-        MinefieldResult.CashedOut => "mf-banner-win",
-        _ => "mf-banner-lose"
-    };
+        var variant = result switch
+        {
+            MinefieldResult.Cleared => GameToastVariant.Jackpot,
+            MinefieldResult.CashedOut => GameToastVariant.Win,
+            _ => GameToastVariant.Lose
+        };
+        var amount = result == MinefieldResult.Busted
+            ? (-_game.Stake).ToString("N0")
+            : $"+{_game.NetResult:N0}";
+        return new GameToast(++_toastSeq, variant, BannerText(result), amount, BannerIcon(result));
+    }
 
     private static string BannerIcon(MinefieldResult r) => r switch
     {

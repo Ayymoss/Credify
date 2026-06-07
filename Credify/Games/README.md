@@ -16,6 +16,10 @@ Games/                         ← shared core (no chat, no Razor, no credits/pe
   Minefield/
     MinefieldPayoutCalculator  multiplier / payout / odds (standard "Mines" math)
     MinefieldField.cs          shuffled mine field
+  Plinko/                      (web-only — no chat frontend, like Crash)
+    PlinkoBoard.cs             crypto 50/50 bounce per peg row -> landing bucket
+    PlinkoPayoutCalculator     multipliers DERIVED from the binomial pmf + a risk volatility, so the return
+                               is exactly the configured house edge for any board (no hand-authored tables)
 
 Chat/Active/Games/<Game>/      ← chat frontend: turn-based text I/O (COD console limits: <5 lines, letters
                                  not glyphs, no interactive input). Consumes the core; adds chat formatting.
