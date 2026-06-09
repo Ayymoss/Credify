@@ -240,6 +240,7 @@ public partial class Roulette
 
         _busy = true;
         _error = null;
+        CredifyDebugLog.Log("Roulette", $"WEB TakeSeat click: {_client.CleanedName} balance={_balance:N0}");
         if (_audio is not null)
         {
             try { await _audio.InvokeVoidAsync("play", "click"); } catch { }
@@ -256,6 +257,7 @@ public partial class Roulette
             return;
         }
 
+        CredifyDebugLog.Log("Roulette", $"WEB LeaveSeat click: {_client.CleanedName}");
         await RouletteTable.LeaveGameAsync(_client);
         await RefreshAsync();
     }
@@ -296,6 +298,7 @@ public partial class Roulette
         _busy = true;
         _error = null;
         var batch = _pendingBets.Select(bet => ((int)bet.Stake, bet.Input)).ToList();
+        CredifyDebugLog.Log("Roulette", $"WEB PlaceBets click: {_client.CleanedName} batch=[{string.Join(", ", batch.Select(b => $"{b.Item2}@{b.Item1}"))}] total={PendingTotal:N0}");
         var err = await RouletteTable.PlaceWebBetsAsync(_client, batch);
         if (err is not null)
         {

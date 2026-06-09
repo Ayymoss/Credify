@@ -211,6 +211,7 @@ public partial class Poker
         }
 
         _busy = true;
+        CredifyDebugLog.Log("Poker", $"WEB Join click: {_client.CleanedName} buyIn={_buyIn:N0} balance={_balance:N0}");
         if (_audio is not null) { try { await _audio.InvokeVoidAsync("play", "bet"); } catch { } }
         await PokerGame.JoinGameAsync(_client, _buyIn);
         _tableBuyIn += _buyIn; // accumulate buy-ins/rebuys so cash-out can compute the sitting's net
@@ -232,6 +233,7 @@ public partial class Poker
         // cash out: log the whole sitting's net (chips taken to the rail minus everything bought in).
         // chips are 1:1 with credits at this table, so the chip stack is the credit-equivalent returned.
         var chipsOut = MySeat?.Chips ?? 0;
+        CredifyDebugLog.Log("Poker", $"WEB Leave click: {_client.CleanedName} chipsOut={chipsOut:N0} tableBuyIn={_tableBuyIn:N0}");
         await PokerGame.LeaveGameAsync(_client);
         if (_tableBuyIn > 0)
         {
@@ -254,6 +256,7 @@ public partial class Poker
         }
 
         _busy = true;
+        CredifyDebugLog.Log("Poker", $"WEB Act click: {_client.CleanedName} cmd='{command}'");
         var sfx = command[0] switch { 'f' => "fold", 'r' => "bet", 'a' => "bet", _ => "stand" };
         if (_audio is not null) { try { await _audio.InvokeVoidAsync("play", sfx); } catch { } }
         await PokerGame.HandleChatAsync(_client, command);

@@ -56,9 +56,19 @@ public class PokerTable(
     /// </summary>
     private void TransitionToState(PokerGameState newState)
     {
+        var previous = _stateMachine.CurrentState;
         _stateMachine.TransitionTo(newState);
+        CredifyDebugLog.Log("Poker",
+            $"STATE {previous} -> {newState} | seats=[{RosterNames()}] inHand=[{InHandNames()}] " +
+            $"pot={_totalPot:N0} roundBet={_currentRound.CurrentBet:N0} " +
+            $"board=[{string.Join(" ", _communityCards.Select(c => c.ToString()))}]");
         RaiseStateChanged();
     }
+
+    // ── debug helpers (see CredifyDebugLog) ──
+    private string RosterNames() => string.Join(", ", Players.Values.Select(p => p.Client.CleanedName));
+    private string InHandNames() => string.Join(", ",
+        _playersInHand.Where(p => !p.IsFolded).Select(p => $"{p.Client.CleanedName}({p.Chips:N0})"));
 
     /// <summary>
     /// Checks if currently in the specified state.
@@ -406,6 +416,10 @@ public class PokerTable(
         // surface the active turn + deadline to the webfront
         _activeClientId = player.Client.ClientId;
         _turnEndsAt = DateTimeOffset.UtcNow + Config.Poker.TimeoutForPlayerAction;
+        CredifyDebugLog.Log("Poker",
+            $"TURN -> {player.Client.CleanedName} | state={GameState} " +
+            $"toCall={_currentRound.CurrentBet - player.CurrentBet:N0} chips={player.Chips:N0} " +
+            $"pot={_totalPot:N0} timeout={Config.Poker.TimeoutForPlayerAction.TotalSeconds:0}s");
         RaiseStateChanged();
 
         // Warn the actor ~10s before the auto-fold (no visible clock in chat).
@@ -434,6 +448,7 @@ public class PokerTable(
             if (!actionTaken)
             {
                 // Timeout - auto-fold
+                CredifyDebugLog.Log("Poker", $"TIMEOUT {player.Client.CleanedName} did not act in time -> auto-fold");
                 await ExecuteActionAsync(player, PlayerAction.Fold, null);
                 await output.TellPlayersAsync(_playersInHand, [
                     _pokerTrans.ActionTimeout.FormatExt(player.Client.CleanedName)
@@ -466,6 +481,9 @@ public class PokerTable(
     private async Task ExecuteActionAsync(PokerPlayer player, PlayerAction action, long? raiseAmount)
     {
         var amountToCall = _currentRound.CurrentBet - player.CurrentBet;
+        CredifyDebugLog.Log("Poker",
+            $"ACTION {player.Client.CleanedName}: {action}{(raiseAmount.HasValue ? $" {raiseAmount.Value:N0}" : "")} " +
+            $"| pre: chips={player.Chips:N0} curBet={player.CurrentBet:N0} toCall={amountToCall:N0} pot={_totalPot:N0}");
 
         switch (action)
         {
@@ -598,6 +616,8 @@ public class PokerTable(
             }
 
             winner.Chips += _totalPot;
+            CredifyDebugLog.Log("Poker",
+                $"SHOWDOWN uncontested winner={winner.Client.CleanedName} pot={_totalPot:N0} -> chips={winner.Chips:N0} (all others folded)");
             await output.TellPlayersAsync(_playersInHand, [
                 _pokerTrans.PlayerWins.FormatExt(
                     winner.Client.CleanedName,
@@ -622,7 +642,12 @@ public class PokerTable(
         {
             var hand = handEvaluator.EvaluateBestHand(player.HoleCards, _communityCards);
             playerHands[player] = hand;
+            CredifyDebugLog.Log("Poker",
+                $"SHOWDOWN {player.Client.CleanedName} holes=[{string.Join(" ", player.HoleCards.Select(c => c.ToString()))}] " +
+                $"-> {GetDescriptiveHandName(hand)} (invested={player.TotalInvestedThisHand:N0})");
         }
+        CredifyDebugLog.Log("Poker",
+            $"SHOWDOWN board=[{string.Join(" ", _communityCards.Select(c => c.ToString()))}] pot={_totalPot:N0} contenders={activePlayers.Count}");
 
         // Calculate side pots
         var sidePots = bettingService.CalculateSidePots(_playersInHand, _totalPot);
@@ -683,6 +708,7 @@ public class PokerTable(
                     amountPerWinner.ToString("N0"),
                     handName));
                 eventWinners.Add((winners[0].Client, amountPerWinner));
+                CredifyDebugLog.Log("Poker", $"PAYOUT {winners[0].Client.CleanedName} +{amountPerWinner:N0} ({handName}) from sidePot={sidePot.Amount:N0}");
             }
             else
             {
@@ -692,6 +718,7 @@ public class PokerTable(
                 {
                     eventWinners.Add((winner.Client, amountPerWinner));
                 }
+                CredifyDebugLog.Log("Poker", $"PAYOUT split [{winnerNames}] +{amountPerWinner:N0} each ({handName}) from sidePot={sidePot.Amount:N0}");
             }
         }
 
@@ -783,18 +810,26 @@ public class PokerTable(
     /// </summary>
     public override async Task HandleChatAsync(EFClient client, string message)
     {
-        if (!_pendingActionPlayers.ContainsKey(client))
+        var isWaiting = _pendingActionPlayers.ContainsKey(client);
+        CredifyDebugLog.Log("Poker",
+            $"RECV {client.CleanedName}: '{message}' | state={GameState} isThisPlayersTurn={isWaiting} " +
+            $"activeClientId={_activeClientId?.ToString() ?? "-"}");
+
+        if (!isWaiting)
         {
+            CredifyDebugLog.Log("Poker", $"DROP {client.CleanedName}: '{message}' ignored (not awaiting this player's action)");
             return; // Player not waiting for action
         }
 
         if (!Players.TryGetValue(client, out var player))
         {
+            CredifyDebugLog.Log("Poker", $"DROP {client.CleanedName}: '{message}' ignored (not seated at table)");
             return;
         }
 
         if (!_pendingActionCompletions.TryGetValue(client, out var completion))
         {
+            CredifyDebugLog.Log("Poker", $"DROP {client.CleanedName}: '{message}' ignored (no pending completion source)");
             return;
         }
 
@@ -805,6 +840,7 @@ public class PokerTable(
 
             if (!parseResult.IsValid || parseResult.Result is null)
             {
+                CredifyDebugLog.Log("Poker", $"REJECT {player.Client.CleanedName}: '{message}' -> unparseable (available: {availableActions})");
                 await output.TellPlayerAsync(player, [
                     _pokerTrans.InvalidAction.FormatExt(availableActions)
                 ], false);
@@ -840,6 +876,7 @@ public class PokerTable(
 
             if (!actionValid)
             {
+                CredifyDebugLog.Log("Poker", $"REJECT {player.Client.CleanedName}: {action} -> {actionErrorMsg ?? "invalid"} (available: {availableActions})");
                 await output.TellPlayerAsync(player, [
                     (actionErrorMsg ?? _pokerTrans.InvalidAction) + $" Available: {availableActions}"
                 ], false);
@@ -849,6 +886,7 @@ public class PokerTable(
             // Execute action
             await ExecuteActionAsync(player, action, raiseAmount);
             completion.TrySetResult(true);
+            CredifyDebugLog.Log("Poker", $"ACCEPT {player.Client.CleanedName}: {action} -> turn completed");
         });
 
         RaiseStateChanged();
@@ -864,6 +902,8 @@ public class PokerTable(
         {
             player.Chips = buyIn;
             await PersistenceService.RemoveCreditsAsync(player.Client, buyIn);
+            CredifyDebugLog.Log("Poker",
+                $"JOIN {player.Client.CleanedName} buyIn={buyIn:N0} | state={GameState} seats({Players.Count})=[{RosterNames()}]");
 
             SignalPlayersAvailable();
 
@@ -892,6 +932,9 @@ public class PokerTable(
     {
         if (Players.TryRemove(client, out var player))
         {
+            CredifyDebugLog.Log("Poker",
+                $"LEAVE {client.CleanedName} returnedChips={player.Chips:N0} | state={GameState} seats({Players.Count})=[{RosterNames()}]");
+
             // If player has chips, return them. Awaited (not fire-and-forget) so the credit
             // actually completes and any failure surfaces instead of silently losing chips.
             if (player.Chips > 0)

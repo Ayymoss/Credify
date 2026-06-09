@@ -63,8 +63,9 @@ public class BlackjackTranslations
     public string SplitNotAllowed { get; set; } = "(Color::Yellow)Cannot split. Need matching pair.";
     
     // Insurance
-    public string InsuranceOffer { get; set; } = "(Color::Yellow)Dealer shows Ace! (Color::White)Type [I] for insurance (costs (Color::Green)${{amount}}(Color::White))";
+    public string InsuranceOffer { get; set; } = "(Color::Yellow)Dealer shows Ace! (Color::White)Type [I] for insurance (costs (Color::Green)${{amount}}(Color::White)) or [S]tand to decline";
     public string InsuranceTaken { get; set; } = "(Color::Accent)Insurance taken for (Color::Green)${{amount}}";
+    public string InsuranceDeclined { get; set; } = "(Color::Yellow)Insurance declined.";
     public string InsuranceWin { get; set; } = "(Color::Accent)Dealer has blackjack! (Color::White)Insurance pays (Color::Green)${{amount}}";
     public string InsuranceLose { get; set; } = "(Color::Yellow)No dealer blackjack. Insurance lost.";
     public string InsuranceInsufficientFunds { get; set; } = "(Color::Yellow)Not enough credits for insurance";

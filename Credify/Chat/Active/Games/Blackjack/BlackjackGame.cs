@@ -43,9 +43,17 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>, IWebObservableGame
     /// </summary>
     protected void TransitionToState(GameState newState)
     {
+        var previous = _stateMachine.CurrentState;
         _stateMachine.TransitionTo(newState);
+        CredifyDebugLog.Log("Blackjack",
+            $"STATE {previous} -> {newState} | dealer=[{string.Join(" ", _houseHand.Select(c => c.ToChatString()))}] seats=[{RosterStates()}]");
         RaiseStateChanged();
     }
+
+    // ── debug helper (see CredifyDebugLog) ──
+    private string RosterStates() => string.Join(", ", Players.Values.Select(p =>
+        $"{p.Client.CleanedName}[{p.State} stake={(p.Stake?.ToString("N0") ?? "-")}" +
+        $"{(p.SittingOut ? " sittingOut" : "")}{(p.Queued ? " queued" : "")}]"));
 
     /// <summary>
     /// Checks if currently in the specified state.
@@ -300,6 +308,9 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>, IWebObservableGame
         }
 
         var remainingPlayers = GetDecisionStateRemainders();
+        CredifyDebugLog.Log("Blackjack",
+            $"DECISIONS awaiting {remainingPlayers.Count} player(s): [{string.Join(", ", remainingPlayers.Select(c => c.CleanedName))}] " +
+            $"dealerUp={_houseHand[0].ToChatString()}");
         if (remainingPlayers.Count is 0)
         {
             await DealerPlaysAsync(CancellationToken.None);
@@ -438,6 +449,10 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>, IWebObservableGame
 
             // Main hand payout
             var mainPayout = player.Payout ?? 0;
+            CredifyDebugLog.Log("Blackjack",
+                $"PAYOUT {player.Client.CleanedName} stake={(player.Stake?.ToString("N0") ?? "-")} payout={mainPayout:N0} " +
+                $"net={mainPayout - (player.Stake ?? 0):N0} hand=[{string.Join(" ", player.Cards.Select(c => c.ToChatString()))}]" +
+                $"={BlackjackPayoutCalculator.CalculateHandValue(player.Cards)}{(player.HasSplit ? " (+split)" : "")}");
             if (mainPayout > 0)
             {
                 ICredifyEventService.RaiseEvent(ObjectiveType.Baller, client, mainPayout);
@@ -524,6 +539,8 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>, IWebObservableGame
         // Use GetOrAdd to handle both new joins and rejoins cleanly
         var isRejoin = Players.ContainsKey(client);
         var player = Players.GetOrAdd(client, _ => new BlackjackPlayer { Client = client, Queued = true });
+        CredifyDebugLog.Log("Blackjack",
+            $"JOIN {client.CleanedName} (rejoin={isRejoin}) | state={GameState} seats({Players.Count})=[{RosterStates()}]");
         
         // If player was already in dict (rejoining), reset their state for a fresh start
         if (isRejoin)
@@ -576,8 +593,15 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>, IWebObservableGame
 
     public override async Task HandleChatAsync(EFClient client, string message)
     {
-        if (!Players.TryGetValue(client, out var player) || player.Queued) return;
-        
+        if (!Players.TryGetValue(client, out var player) || player.Queued)
+        {
+            CredifyDebugLog.Log("Blackjack", $"DROP {client.CleanedName}: '{message}' (not seated or queued for next round) state={GameState}");
+            return;
+        }
+
+        CredifyDebugLog.Log("Blackjack",
+            $"RECV {client.CleanedName}: '{message}' | state={GameState} playerState={player.State} stake={(player.Stake?.ToString("N0") ?? "-")}");
+
         // During stake collection, allow input even without stake set
         // During insurance offering, allow input regardless of player state (they haven't acted yet)
         // During gameplay, require stake and correct player state
@@ -588,14 +612,20 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>, IWebObservableGame
         else if (GameState == GameState.OfferingInsurance)
         {
             // Allow insurance input - player has stake but hasn't made decisions yet
-            if (player.Stake is null) return;
+            if (player.Stake is null)
+            {
+                CredifyDebugLog.Log("Blackjack", $"DROP {client.CleanedName}: '{message}' (insurance phase but no stake)");
+                return;
+            }
         }
         else if (player.Stake is null)
         {
+            CredifyDebugLog.Log("Blackjack", $"DROP {client.CleanedName}: '{message}' (no stake set, state={GameState})");
             return; // No stake set and not in stake collection phase
         }
         else if (player.State != PlayerState.Playing && player.State != PlayerState.PlayingSplitHand)
         {
+            CredifyDebugLog.Log("Blackjack", $"DROP {client.CleanedName}: '{message}' (playerState={player.State} not awaiting a decision)");
             return; // Not in a valid input state
         }
 
@@ -686,6 +716,7 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>, IWebObservableGame
         player.Stake = stakeResult.Result;
         player.LastStake = stakeResult.Result; // remember for "same"
         player.SittingOut = false;             // betting rejoins
+        CredifyDebugLog.Log("Blackjack", $"STAKE {player.Client.CleanedName} bet={stakeResult.Result:N0}");
         await PersistenceService.RemoveCreditsAsync(client, stakeResult.Result);
         await _outputHandler.TellPlayerAsync(player,
             [Config.Translations.Blackjack.AcceptedBet.FormatExt(stakeResult.Result)]);
@@ -706,53 +737,72 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>, IWebObservableGame
 
     private async Task HandleInsuranceInputAsync(EFClient client, BlackjackPlayer player, string message)
     {
-        if (player.HasInsurance) return; // Already took insurance
-        
+        if (player.HasInsurance || player.InsuranceDeclined) return; // already responded this offer
+
         var parseResult = _inputHandler.Parse(message);
         if (!parseResult.IsValid)
         {
             await _outputHandler.TellPlayerAsync(player, [parseResult.ErrorMessage ?? Config.Translations.Blackjack.PlayerDecision]);
             return;
         }
-        if (parseResult.Result!.Action != PlayerAction.Insurance) return;
-        
+
+        var action = parseResult.Result!.Action;
+
+        // Stand during the insurance window = actively decline, so the round can advance immediately
+        // instead of making everyone wait out the timer. (Stand is unambiguous here — decisions
+        // haven't started, so there's no hand to "stand" on yet.)
+        if (action == PlayerAction.Stand)
+        {
+            player.InsuranceDeclined = true;
+            CredifyDebugLog.Log("Blackjack", $"INSURANCE {player.Client.CleanedName} declined");
+            await _outputHandler.TellPlayerAsync(player, [Config.Translations.Blackjack.InsuranceDeclined]);
+            await ProceedIfAllInsuranceResponsesInAsync();
+            return;
+        }
+
+        if (action != PlayerAction.Insurance) return; // ignore unrelated input during the offer
+
         var insuranceCost = player.Stake!.Value / 2;
         var playerFunds = await PersistenceService.GetClientCreditsAsync(client);
-        
+
         if (playerFunds < insuranceCost)
         {
             await _outputHandler.TellPlayerAsync(player, [Config.Translations.Blackjack.InsuranceInsufficientFunds]);
             return;
         }
-        
+
         await PersistenceService.RemoveCreditsAsync(client, insuranceCost);
         player.HasInsurance = true;
         player.InsuranceBet = insuranceCost;
+        CredifyDebugLog.Log("Blackjack", $"INSURANCE {player.Client.CleanedName} cost={insuranceCost:N0}");
         await _outputHandler.TellPlayerAsync(player,
             [Config.Translations.Blackjack.InsuranceTaken.FormatExt(insuranceCost.ToString("N0"))]);
-        
-        // Check if all eligible players have responded - if so, proceed immediately
-        // (All players either have insurance, or couldn't afford it). Awaited rather than
-        // blocking on .Result to avoid stalling the game loop / threadpool.
-        var allResponded = true;
+
+        await ProceedIfAllInsuranceResponsesInAsync();
+    }
+
+    /// <summary>
+    /// Advances out of the insurance window the moment every eligible player has answered — taken it,
+    /// explicitly declined it, or can't afford it (no choice, so counts as answered). This is what lets a
+    /// manual decline skip the wait; without an answer from someone who could still take it, the offer
+    /// stays open until the timeout fires.
+    /// </summary>
+    private async Task ProceedIfAllInsuranceResponsesInAsync()
+    {
         foreach (var (otherClient, otherPlayer) in ActivePlayers)
         {
-            if (otherPlayer.HasInsurance) continue;
+            if (otherPlayer.HasInsurance || otherPlayer.InsuranceDeclined) continue;
             var otherCredits = await PersistenceService.GetClientCreditsAsync(otherClient);
             if (otherCredits >= otherPlayer.Stake!.Value / 2)
             {
-                allResponded = false;
-                break;
+                return; // someone who could still take insurance hasn't answered yet
             }
         }
 
-        if (allResponded)
-        {
-            _insuranceToken?.Cancel();
-            _insuranceToken?.Dispose();
-            _insuranceToken = null;
-            await RequestPlayerDecisionsAsync();
-        }
+        _insuranceToken?.Cancel();
+        _insuranceToken?.Dispose();
+        _insuranceToken = null;
+        await RequestPlayerDecisionsAsync();
     }
 
     private async Task HandlePlayerDecisionAsync(EFClient client, BlackjackPlayer player, string message)
@@ -767,6 +817,9 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>, IWebObservableGame
         var action = parseResult.Result!.Action;
         var isPlayingSplit = player.State == PlayerState.PlayingSplitHand;
         var currentCards = isPlayingSplit ? player.SplitCards : player.Cards;
+        CredifyDebugLog.Log("Blackjack",
+            $"DECISION {player.Client.CleanedName}: {action}{(isPlayingSplit ? " (split hand)" : "")} " +
+            $"| hand=[{string.Join(" ", currentCards.Select(c => c.ToChatString()))}]={BlackjackPayoutCalculator.CalculateHandValue(currentCards)}");
 
         switch (action)
         {
@@ -1163,7 +1216,13 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>, IWebObservableGame
             ? 0
             : revealed ? BlackjackRules.HandValue(_houseHand) : _houseHand[0].BlackjackValue;
 
-        var seats = Players.Values.Select(p => BuildSeat(p, state, revealed)).ToList();
+        // a seat's Outcome/Net are only valid once the round resolves into Payout — DetermineOutcome and
+        // CalculatePayout run on the way into that state. `revealed` is broader (it also covers DealerPlays,
+        // so the dealer's hole card flips while it draws); using it to gate the outcome would expose the
+        // not-yet-computed result, where p.Outcome defaults to GameOutcome.Blackjack (enum 0) and
+        // Net reads (0 - stake). That surfaced as bogus "Blackjack! -stake" rows in the web history rail.
+        var outcomeSettled = state is GameState.Payout;
+        var seats = Players.Values.Select(p => BuildSeat(p, state, outcomeSettled)).ToList();
 
         return new BlackjackSnapshot
         {

@@ -26,8 +26,6 @@ public partial class Keno
     [Inject] public required IJSRuntime JS { get; set; }
 
     private const long MinBet = GameConstants.MinimumCredits;
-    // jackpots reach 100,000× (a 10/10), so cap the stake to keep the worst-case payout bounded. Tunable.
-    private const long MaxBet = 2_500;
     private const int RevealMs = 1300; // total time for the 20 balls to light up
 
     private EFClient? _client;

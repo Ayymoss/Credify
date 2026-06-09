@@ -43,6 +43,10 @@ public class Table(
 
     private void RaiseStateChanged() => StateChanged?.Invoke();
 
+    // ── debug helper (see CredifyDebugLog) ──
+    private string RoundNames() => string.Join(", ", _roundPlayers.Select(p =>
+        $"{p.Client.CleanedName}[{p.InputState} bets={p.Bets.Count}]"));
+
     protected override int GetMinimumPlayers() => 1;
     protected override TimeSpan GetDelayBetweenRounds() => TimeSpan.Zero;
 
@@ -57,6 +61,7 @@ public class Table(
             player.ResetForNewRound();
         }
 
+        CredifyDebugLog.Log("Roulette", $"ROUND start | players({_roundPlayers.Count})=[{RoundNames()}]");
         RaiseStateChanged();
 
         // Phase 1: Collect bets via chat
@@ -64,9 +69,11 @@ public class Table(
 
         // Remove players who didn't complete betting
         RemoveIncompleteBets();
+        CredifyDebugLog.Log("Roulette", $"BETTING closed | remaining=[{RoundNames()}]");
 
         if (_roundPlayers.Count == 0)
         {
+            CredifyDebugLog.Log("Roulette", "ROUND aborted (no players completed betting) -> WaitingForPlayers");
             _gameState = RouletteGameState.WaitingForPlayers;
             RaiseStateChanged();
             return;
@@ -78,6 +85,7 @@ public class Table(
         RaiseStateChanged();
         await SpinWheelMessage(token);
         var spinResult = SpinWheel();
+        CredifyDebugLog.Log("Roulette", $"SPIN -> {RouletteConstants.ToDisplayString(spinResult.Number)} {spinResult.Colour}{(spinResult.IsEven ? " even" : "")}");
 
         // record the result for the web (history strip + landed number) before resolving
         _lastSpin = spinResult;
@@ -101,6 +109,7 @@ public class Table(
         }
 
         await RemoveBrokePlayers();
+        CredifyDebugLog.Log("Roulette", $"ROUND end -> WaitingForPlayers | seats({Players.Count})=[{string.Join(", ", Players.Values.Select(p => p.Client.CleanedName))}]");
         _gameState = RouletteGameState.WaitingForPlayers;
         RaiseStateChanged();
     }
@@ -108,6 +117,7 @@ public class Table(
     private async Task CollectBetsAsync(CancellationToken token)
     {
         _gameState = RouletteGameState.CollectingBets;
+        CredifyDebugLog.Log("Roulette", $"STATE -> CollectingBets | window={(Config.Roulette.TimeoutForPlayerAction * 3).TotalSeconds:0}s players=[{RoundNames()}]");
 
         // Prompt all players for their bet (single-line syntax taught up front).
         foreach (var player in _roundPlayers)
@@ -466,6 +476,8 @@ public class Table(
             // sound) keys off a genuine positive net, so winning one bet but netting a loss never reads as a win.
             player.LastNet = totalWinnings - totalStaked;
             player.LastResult = player.LastNet > 0 ? "Won" : "Lost";
+            CredifyDebugLog.Log("Roulette",
+                $"RESULT {player.Client.CleanedName}: {player.LastResult} staked={totalStaked:N0} winnings={totalWinnings:N0} net={player.LastNet:N0} (bets={player.Bets.Count})");
 
             if (totalWinnings > 0)
             {
@@ -660,12 +672,16 @@ public class Table(
 
             foreach (var (stake, betInput) in bets)
             {
+                CredifyDebugLog.Log("Roulette", $"BET {player.Client.CleanedName}: '{betInput}' stake={stake:N0}");
                 await TryPlaceBetAsync(player, stake, betInput);
             }
 
             CheckAllPlayersCompleted();
         });
 
+        CredifyDebugLog.Log("Roulette", error is null
+            ? $"WEBBETS {client.CleanedName}: accepted {bets.Count} bet(s), total={bets.Sum(b => (long)b.Stake):N0}"
+            : $"WEBBETS {client.CleanedName}: REJECTED -> {error}");
         RaiseStateChanged();
         return error;
     }

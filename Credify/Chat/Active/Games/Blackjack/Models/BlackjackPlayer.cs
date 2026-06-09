@@ -37,6 +37,9 @@ public class BlackjackPlayer
     public bool HasDoubled { get; set; }
     public bool HasInsurance { get; set; }
     public long InsuranceBet { get; set; }
+    /// <summary>Player actively declined insurance (vs. simply not having responded yet). Lets the
+    /// insurance window close as soon as everyone has answered, instead of forcing a wait for the timer.</summary>
+    public bool InsuranceDeclined { get; set; }
 
     /// <summary>
     /// Checks if player can split (two cards of same rank).
@@ -70,6 +73,7 @@ public class BlackjackPlayer
         HasDoubled = false;
         HasInsurance = false;
         InsuranceBet = 0;
+        InsuranceDeclined = false;
         Queued = false;
     }
 }

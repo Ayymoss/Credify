@@ -229,6 +229,7 @@ public partial class Blackjack
         }
 
         _busy = true;
+        CredifyDebugLog.Log("Blackjack", $"WEB Join click: {_client.CleanedName} balance={_balance:N0}");
         await Sfx("click");
         await Game.JoinGameAsync(_client);
         await RefreshAsync();
@@ -243,6 +244,7 @@ public partial class Blackjack
         }
 
         _busy = true;
+        CredifyDebugLog.Log("Blackjack", $"WEB PlaceBet click: {_client.CleanedName} stake={_stake:N0} balance={_balance:N0}");
         await Game.HandleChatAsync(_client, _stake.ToString());
         if (_client is not null) _balance = await Persistence.GetClientCreditsAsync(_client);
         await Sfx("bet");
@@ -259,6 +261,7 @@ public partial class Blackjack
         }
 
         _busy = true;
+        CredifyDebugLog.Log("Blackjack", $"WEB Act click: {_client.CleanedName} action='{action}'");
         await Sfx(action switch { "hit" => "hit", "double" => "bet", "split" => "bet", "stand" => "stand", _ => "click" });
         await Game.HandleChatAsync(_client, action);
         if (_client is not null) _balance = await Persistence.GetClientCreditsAsync(_client);

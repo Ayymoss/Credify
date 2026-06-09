@@ -4,11 +4,6 @@
 @implements IAsyncDisposable
 
 <PageTitle>Credify · Blackjack</PageTitle>
-<HeadContent>
-    <link rel="stylesheet" href="/_content/credify/plugin.css"/>
-    <link rel="stylesheet" href="/_content/credify/custom.css"/>
-    <link rel="stylesheet" href="/_content/credify/blackjack/blackjack.css"/>
-</HeadContent>
 
 <PluginPageShell BackgroundClass="bj-felt text-zinc-100" Menu='CredifyNav.Build("/credify/blackjack")'>
 
@@ -177,7 +172,7 @@
                     {
                         <div class="flex items-center justify-center gap-2">
                             <button class="bj-btn bj-btn-action" disabled="@_busy" @onclick='() => Act("insurance")'><i class="ph-fill ph-shield-check"></i> Insurance</button>
-                            <span class="text-sm text-zinc-400">or wait to decline</span>
+                            <button class="bj-btn" disabled="@_busy" @onclick='() => Act("stand")'><i class="ph-fill ph-x"></i> Decline</button>
                         </div>
                     }
                     else if (_snapshot.Phase == "Decisions" && seat.State is "Playing" or "PlayingSplit")
