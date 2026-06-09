@@ -280,10 +280,10 @@ public partial class Plinko
     // colour the bucket strip by how the multiplier compares to the stake: green = profit, amber = big, red = loss
     private static string BucketClass(double multiplier) => multiplier switch
     {
-        >= 10 => "pk-bucket-huge",
-        >= 2 => "pk-bucket-big",
-        >= 1 => "pk-bucket-win",
-        _ => "pk-bucket-low"
+        >= 10 => "pl-bucket-huge",
+        >= 2 => "pl-bucket-big",
+        >= 1 => "pl-bucket-win",
+        _ => "pl-bucket-low"
     };
 
     private static string FormatMultiplier(double multiplier) => multiplier switch
