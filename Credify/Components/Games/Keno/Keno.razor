@@ -4,11 +4,6 @@
 @using Credify.Games.Keno
 
 <PageTitle>Credify · Keno</PageTitle>
-<HeadContent>
-    <link rel="stylesheet" href="/_content/credify/plugin.css"/>
-    <link rel="stylesheet" href="/_content/credify/custom.css"/>
-    <link rel="stylesheet" href="/_content/credify/keno/keno.css"/>
-</HeadContent>
 
 <PluginPageShell BackgroundClass="kn-felt text-zinc-100" Menu='CredifyNav.Build("/credify/keno")'>
 
@@ -97,7 +92,7 @@
             </div>
 
             <div class="mt-3">
-                <BetControl @bind-Value="_bet" Balance="_balance" Min="MinBet" Max="MaxBet" Disabled="_busy"/>
+                <BetControl @bind-Value="_bet" Balance="_balance" Min="MinBet" Disabled="_busy"/>
             </div>
 
             <div class="mt-4 flex flex-col items-center gap-2">

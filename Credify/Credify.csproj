@@ -11,7 +11,7 @@
              remove this and compile CSS however you like; the bundle just packages wwwroot/. -->
         <IW4MAdminTailwind>true</IW4MAdminTailwind>
         <Authors>Amos</Authors>
-        <Version>1.0.0.0</Version>
+        <Version>2026.06.09.2</Version>
     </PropertyGroup>
 
     <ItemGroup>

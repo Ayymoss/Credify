@@ -1,19 +1,21 @@
 /*
  * Tailwind input for the Credify plugin's web pages.
  *
- * Emitted into the host's lowest-priority `plugins` cascade layer (the host declares it in app.css) so the
- * plugin's utilities NEVER override the host's own utilities/chrome — e.g. the host sidebar/topbar use
- * `hidden md:flex`, and without this the plugin's generic `.hidden`/`.flex` would out-order them and collapse
- * the layout. Layering keeps plugin styling fully functional for the plugin's own markup.
+ * Emitted UNLAYERED. The host serves this CSS scoped to Credify's own rendered DOM (CSS @scope, via
+ * SharedLibraryCore's PluginCssScoper), so the plugin's generic `.hidden`/`.flex`/etc. apply only inside
+ * Credify's pages and can never out-order the host chrome (sidebar/topbar `hidden md:flex`). Because they're
+ * unlayered they also keep full power on Credify's own markup — overriding the host's base utilities where
+ * needed (e.g. `flex-col sm:flex-row`). Do NOT wrap these in layer(plugins): a lower layer would stop those
+ * overrides and silently break responsive/state layout on Credify's pages.
  *
  * Preflight (Tailwind's global reset) is intentionally omitted — the host already ships one. We pull only
- * the theme tokens and the utilities, both into layer(plugins).
+ * the theme tokens and the utilities.
  *
- * The build compiles this to plugin.css (purged to the classes these components use); the host serves it at
- * /_content/credify/plugin.css.
+ * The build compiles this to plugin.css (purged to the classes these components use); the host serves it,
+ * scoped, at /_content/credify/plugin.css.
  */
-@import "tailwindcss/theme.css" layer(plugins);
-@import "tailwindcss/utilities.css" layer(plugins);
+@import "tailwindcss/theme.css";
+@import "tailwindcss/utilities.css";
 
 /* scan this plugin's components so only the utilities actually used are emitted */
 @source "../Components/**/*.razor";
