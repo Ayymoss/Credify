@@ -456,7 +456,20 @@ export async function previewMoney(opts) {
 function moneyCounter(amount, dur) {
     const el = document.createElement('div');
     el.className = 'credify-money-pop';
-    document.body.appendChild(el);
+    // This element lands on <body>, outside any host-stamped scope marker, so the plugin's scoped
+    // CSS can't style it directly (inside @scope, bare selectors match only DESCENDANTS of the
+    // scope root). Nest it under a marker wrapper — via the host helper when available (host
+    // 2026.06.09+), else inline. Marker value is case-sensitive (bundle id).
+    const scope = window.iw4m?.scopedOverlay
+        ? window.iw4m.scopedOverlay('Credify')
+        : (() => {
+            const s = document.createElement('div');
+            s.setAttribute('data-iw4m-plugin', 'Credify');
+            s.style.display = 'contents';
+            document.body.appendChild(s);
+            return s;
+        })();
+    scope.appendChild(el);
     const start = performance.now();
     const ease = t => 1 - Math.pow(1 - t, 3);
     function frame(now) {
@@ -465,8 +478,10 @@ function moneyCounter(amount, dur) {
         if (t < 1) {
             requestAnimationFrame(frame);
         } else {
-            el.classList.add('credify-money-pop-out');
-            setTimeout(() => el.remove(), 700);
+            // landed: stamp the final value (punch + flare + shock ring), then drift out
+            el.classList.add('credify-money-pop-done');
+            setTimeout(() => el.classList.add('credify-money-pop-out'), 500);
+            setTimeout(() => scope.remove(), 1150);
         }
     }
     requestAnimationFrame(frame);

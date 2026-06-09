@@ -47,7 +47,14 @@
     background: var(--color-action-primary, #6366f1);
 }
 
-/* ── money-count popup (GMod-Tower style win effect, spawned by audio.js) ── */
+/* ── money-count popup (GMod-Tower style win effect, spawned by audio.js) ──
+   Three phases mirroring the sound's arc, orchestrated by class switches from moneyCounter():
+     1. base class        → slam-in (overshoot scale) + molten-gold sheen while the number counts
+     2. …-pop-done        → "stamp" on the landed value: scale punch, brightness flare, shock ring
+     3. …-pop-out         → drift up and dissolve
+   Animations replace each other wholesale per phase (fill: both), so transform/filter never fight a
+   transition. transform/opacity/background-position only — compositor-friendly. All keyframes are
+   credify- prefixed: the host hoists @keyframes out of the plugin's @scope, so names are global. */
 .credify-money-pop {
     position: fixed;
     left: 50%;
@@ -56,15 +63,115 @@
     z-index: 9999;
     pointer-events: none;
     font-weight: 900;
-    font-size: clamp(2rem, 7vw, 4rem);
+    font-style: italic;
+    font-size: clamp(2.2rem, 8vw, 4.5rem);
     font-variant-numeric: tabular-nums;
-    color: #fcd34d;
-    text-shadow: 0 2px 0 #b45309, 0 0 24px rgba(252, 211, 77, 0.6);
-    transition: opacity 0.6s ease, transform 0.6s ease;
+    letter-spacing: 0.01em;
+    /* molten gold: gradient fill clipped to the glyphs, swept by animating background-position */
+    background-image: linear-gradient(170deg,
+        #fff7d6 0%, #ffe588 16%, #fcd34d 34%, #f59e0b 52%, #b45309 68%, #fcd34d 84%, #fff7d6 100%);
+    background-size: 100% 300%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 2px 0 rgba(120, 53, 15, 0.9)) drop-shadow(0 0 18px rgba(252, 211, 77, 0.45));
+    animation:
+        credify-money-in 0.45s cubic-bezier(0.22, 1.6, 0.36, 1) both,
+        credify-money-sheen 1.2s linear 0.45s infinite;
 }
-.credify-money-pop-out {
-    opacity: 0;
-    transform: translate(-50%, -160%);
+
+/* soft glow bloom behind the number, breathing while the count runs — deliberately faint:
+   the flare on the glyphs (drop-shadows in the stamp keyframes) carries the impact */
+.credify-money-pop::before {
+    content: '';
+    position: absolute;
+    inset: -30% -15%;
+    z-index: -1;
+    border-radius: 50%;
+    background: radial-gradient(closest-side, rgba(252, 211, 77, 0.14), rgba(252, 211, 77, 0));
+    animation:
+        credify-money-bloom-in 0.45s ease-out both,
+        credify-money-bloom-pulse 1.3s ease-in-out 0.45s infinite alternate;
+}
+
+/* phase 2 — the landed value stamps: punch + flare; sheen stops so the gold "sets" */
+.credify-money-pop.credify-money-pop-done {
+    animation: credify-money-stamp 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* the bloom flares once with the stamp, then dissolves — nothing lingers behind the number */
+.credify-money-pop.credify-money-pop-done::before {
+    animation: credify-money-bloom-out 0.5s ease-out both;
+}
+
+/* phase 3 — must follow the -done rule in source order so it wins while both classes are present */
+.credify-money-pop.credify-money-pop-out {
+    animation: credify-money-out 0.55s cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+@keyframes credify-money-in {
+    0%   { transform: translate(-50%, -50%) scale(0.3) rotate(-7deg); opacity: 0; }
+    60%  { transform: translate(-50%, -50%) scale(1.14) rotate(1.5deg); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1) rotate(0deg); opacity: 1; }
+}
+
+@keyframes credify-money-sheen {
+    from { background-position: 0% 0%; }
+    to   { background-position: 0% 300%; }
+}
+
+@keyframes credify-money-bloom-in {
+    from { opacity: 0; transform: scale(0.5); }
+    to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes credify-money-bloom-pulse {
+    from { opacity: 0.7; transform: scale(0.92); }
+    to   { opacity: 1; transform: scale(1.08); }
+}
+
+@keyframes credify-money-stamp {
+    0% {
+        transform: translate(-50%, -50%) scale(1);
+        filter: drop-shadow(0 2px 0 rgba(120, 53, 15, 0.9)) drop-shadow(0 0 18px rgba(252, 211, 77, 0.45));
+        opacity: 1;
+    }
+    35% {
+        transform: translate(-50%, -50%) scale(1.22);
+        filter: drop-shadow(0 2px 0 rgba(120, 53, 15, 0.9)) drop-shadow(0 0 34px rgba(255, 232, 160, 0.95))
+                brightness(1.55);
+        opacity: 1;
+    }
+    100% {
+        transform: translate(-50%, -50%) scale(1);
+        filter: drop-shadow(0 2px 0 rgba(120, 53, 15, 0.9)) drop-shadow(0 0 18px rgba(252, 211, 77, 0.45));
+        opacity: 1;
+    }
+}
+
+@keyframes credify-money-bloom-out {
+    0%   { opacity: 0.9; transform: scale(1); }
+    30%  { opacity: 1; transform: scale(1.15); }
+    100% { opacity: 0; transform: scale(1.3); }
+}
+
+@keyframes credify-money-out {
+    from { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    to   { transform: translate(-50%, -230%) scale(0.82) rotate(3deg); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .credify-money-pop,
+    .credify-money-pop::before,
+    .credify-money-pop.credify-money-pop-done,
+    .credify-money-pop.credify-money-pop-done::before {
+        animation: none;
+    }
+    .credify-money-pop.credify-money-pop-out {
+        animation: none;
+        opacity: 0;
+        transition: opacity 0.4s ease;
+    }
 }
 
 /* ── volume control (CredifyAudioControls.razor) ── */
