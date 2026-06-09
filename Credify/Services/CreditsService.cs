@@ -110,6 +110,62 @@ public class CreditsService(
     }
 
     /// <summary>
+    /// Atomically applies a signed credit delta (positive = credit, negative = deduct). When
+    /// <paramref name="allowOverdraft"/> is false, a deduction that would take the balance below
+    /// zero is rejected without changing anything — the check runs inside the same per-client lock
+    /// as the mutation, so a concurrent wager can't slip between check and write. Statistics are
+    /// tracked like Add/RemoveCredits, but no CreditsSpent quest event is raised: an administrative
+    /// adjustment is not gameplay spending and must not advance spend quests.
+    /// </summary>
+    /// <returns>Whether the delta was applied, and the (new or unchanged) balance.</returns>
+    public async Task<(bool Applied, long Balance)> TryAdjustCreditsAsync(EFClient client, long delta, bool allowOverdraft = false)
+    {
+        var clientLock = GetClientLock(client.ClientId);
+        await clientLock.WaitAsync();
+        try
+        {
+            long credits;
+            if (client.IsIngame)
+            {
+                if (client.GetAdditionalProperty<long?>(PluginConstants.CreditsAmount) is null)
+                {
+                    await LoadUserCreditsAsync(client);
+                }
+                credits = client.GetAdditionalProperty<long>(PluginConstants.CreditsAmount);
+            }
+            else
+            {
+                credits = await LoadUserCreditsAsync(client);
+            }
+
+            var newCredits = credits + delta;
+            if (!allowOverdraft && delta < 0 && newCredits < 0)
+            {
+                return (false, credits);
+            }
+
+            if (client.IsIngame)
+            {
+                client.SetAdditionalProperty(PluginConstants.CreditsAmount, newCredits);
+            }
+            else
+            {
+                await WriteClientCreditsAsync(client, newCredits);
+            }
+
+            if (delta > 0) statisticsService.AddCreditsWon((ulong)delta);
+            else if (delta < 0) statisticsService.AddCreditsSpent((ulong)(-delta));
+
+            statisticsService.OrderTop(client, newCredits);
+            return (true, newCredits);
+        }
+        finally
+        {
+            clientLock.Release();
+        }
+    }
+
+    /// <summary>
     /// Loads user credits from persistent storage into client's property cache.
     /// </summary>
     private async Task<long> LoadUserCreditsAsync(EFClient client)

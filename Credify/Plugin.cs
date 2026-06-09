@@ -53,7 +53,7 @@ public class Plugin : IPluginV2
     private readonly ActiveGameTracker _activeGameTracker;
 
     public string Name => PluginConstants.PluginName;
-    public string Version => "2026-06-06";
+    public string Version => "2026-06-09-2";
     public string Author => "Amos";
 
     public Plugin(
@@ -73,8 +73,13 @@ public class Plugin : IPluginV2
         ClientStateDisposedEventHandler clientStateDisposedEventHandler,
         CredifyEventHandler credifyEventHandler,
         ActiveGameTracker activeGameTracker,
+        // Resolved purely to run its constructor, which binds the host ILogger into the static
+        // CredifyDebugLog facade used by the live-game debug tracing. Must be a Plugin dependency so DI
+        // constructs it (and performs the binding) regardless of whether the plugin is enabled.
+        CredifyDebugLogService debugLog,
         CredifyConfiguration config)
     {
+        _ = debugLog;
         _persistenceService = persistenceService;
         _chatUtils = chatUtils;
         _rouletteTable = rouletteTable;
@@ -110,6 +115,11 @@ public class Plugin : IPluginV2
         serviceCollection.AddConfiguration("CredifyConfigurationV4", new CredifyConfiguration());
         serviceCollection.AddSingleton<CredifyCache>();
 
+        // Debug logging facade for the live casino games — binds the host ILogger to the static
+        // CredifyDebugLog (the game cores aren't DI-resolved with a logger of their own). Constructed
+        // via the Plugin ctor dependency below so the binding runs before any game loop starts.
+        serviceCollection.AddSingleton<CredifyDebugLogService>();
+
         // Persistence Services (order matters due to dependencies)
         serviceCollection.AddSingleton<StatisticsService>();
         serviceCollection.AddSingleton<BankService>();
@@ -127,6 +137,7 @@ public class Plugin : IPluginV2
         serviceCollection.AddSingleton<SlotsService>(); // atomic spin: shared by chat command + web page
         serviceCollection.AddSingleton<PlinkoService>(); // atomic drop: webfront-only game
         serviceCollection.AddSingleton<GameHistoryService>(); // per-client session log for the web games
+        serviceCollection.AddSingleton<CreditsApiIdempotencyCache>(); // replay guard for POST /api/credits adjust
 
         // Active Games Core
         serviceCollection.AddSingleton<GamePlayerCommunication>();

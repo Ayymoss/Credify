@@ -24,6 +24,8 @@ public class PersistenceService(
     public async Task<long> GetClientCreditsAsync(EFClient client) => await creditsService.GetClientCreditsAsync(client);
     public async Task<long> AddCreditsAsync(EFClient client, long credits) => await creditsService.AddCreditsAsync(client, credits);
     public async Task<long> RemoveCreditsAsync(EFClient client, long credits) => await creditsService.RemoveCreditsAsync(client, credits);
+    public async Task<(bool Applied, long Balance)> TryAdjustCreditsAsync(EFClient client, long delta, bool allowOverdraft = false) =>
+        await creditsService.TryAdjustCreditsAsync(client, delta, allowOverdraft);
 
     // Statistics operations
     public async Task WriteTopScoreAsync() => await statisticsService.WriteTopScoreAsync();
