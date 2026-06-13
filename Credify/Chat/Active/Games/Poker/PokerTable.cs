@@ -37,6 +37,7 @@ public class PokerTable(
     private readonly List<PokerCard> _communityCards = [];
     private readonly BettingRound _currentRound = new();
     private long _totalPot = 0; // Accumulated pot across all betting rounds in a hand
+    private readonly HashSet<int> _lastWinnerIds = []; // client IDs that won the most recent showdown — drives the webfront winner-card glow
     private int _dealerButtonPosition = -1;
     private readonly PokerTranslations _pokerTrans = translations.Poker;
 
@@ -603,12 +604,14 @@ public class PokerTable(
     private async Task ExecuteShowdownAsync()
     {
         TransitionToState(PokerGameState.Showdown);
+        _lastWinnerIds.Clear(); // fresh winner set for this showdown (drives the webfront card glow)
         var activePlayers = GetActivePlayers();
 
         if (activePlayers.Count == 1)
         {
             // Single winner - no showdown needed
             var winner = activePlayers[0];
+            _lastWinnerIds.Add(winner.Client.ClientId);
             // Collect any remaining bets into pot
             foreach (var player in _playersInHand)
             {
@@ -725,9 +728,10 @@ public class PokerTable(
         // Send all messages in one batch
         await output.TellPlayersAsync(_playersInHand, outputMessages);
 
-        // Raise events (silent)
+        // Raise events (silent) and remember winners for the webfront card glow
         foreach (var (client, amount) in eventWinners)
         {
+            _lastWinnerIds.Add(client.ClientId);
             ICredifyEventService.RaiseEvent(ObjectiveType.Baller, client, amount);
         }
 
@@ -1129,6 +1133,7 @@ public class PokerTable(
             HoleCards = reveal ? p.HoleCards.Select(ToCard).ToList() : [],
             HasHiddenCards = !reveal && p.HoleCards.Count > 0,
             HandName = handName,
+            IsWinner = showdown && _lastWinnerIds.Contains(p.Client.ClientId),
             LastAction = p.LastAction?.ToString() ?? ""
         };
     }

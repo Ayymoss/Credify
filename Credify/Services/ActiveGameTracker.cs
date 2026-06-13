@@ -4,12 +4,21 @@ using SharedLibraryCore.Database.Models;
 
 namespace Credify.Services;
 
+/// <summary>One chat table's live occupancy, for the web home page's casino-floor view.</summary>
+public sealed record LiveTableInfo(string Name, int Players);
+
 /// <summary>
 /// Service that tracks all active games and prevents players from joining multiple games simultaneously.
 /// </summary>
 public class ActiveGameTracker
 {
     private readonly List<IActiveGame> _activeGames = new();
+
+    /// <summary>Current player count per registered chat table (registration happens once at load,
+    /// so iterating the list here is safe).</summary>
+    public List<LiveTableInfo> SnapshotTables() => _activeGames
+        .Select(game => new LiveTableInfo(GetGameDisplayName(game), game.GetPlayerCount()))
+        .ToList();
 
     /// <summary>
     /// Registers an active game to be tracked.

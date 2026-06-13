@@ -229,6 +229,210 @@
     box-shadow: inset 0 0 130px rgba(0, 0, 0, 0.5);
 }
 
+/* ── home page (Credits.razor) — the casino lobby ── */
+.credify-panel {
+    padding: 1rem 1.1rem;
+    border-radius: 0.9rem;
+    background: rgba(0, 0, 0, 0.28);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.credify-panel-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1rem;
+    font-weight: 800;
+}
+.credify-panel-title i { color: var(--color-action-primary, #818cf8); }
+.credify-panel-foot {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-top: 0.75rem;
+    padding-top: 0.6rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    font-size: 0.78rem;
+    color: rgba(255, 255, 255, 0.45);
+}
+.credify-panel code {
+    padding: 0.05rem 0.3rem;
+    border-radius: 0.3rem;
+    background: rgba(255, 255, 255, 0.08);
+    font-size: 0.85em;
+}
+
+.credify-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.7rem;
+    border-radius: 9999px;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    font-weight: 700;
+    font-size: 0.85rem;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+.credify-muted { color: rgba(255, 255, 255, 0.5); font-weight: 500; }
+
+.credify-me {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    background:
+        radial-gradient(120% 120% at 0% 0%, color-mix(in srgb, var(--color-action-primary, #6366f1) 12%, transparent), transparent 55%),
+        rgba(0, 0, 0, 0.28);
+}
+
+.credify-title-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.05rem 0.45rem;
+    border-radius: 9999px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background: rgba(252, 211, 77, 0.12);
+    border: 1px solid rgba(252, 211, 77, 0.3);
+    color: #fcd34d;
+    white-space: nowrap;
+}
+
+/* generic two-sided list row (leaderboard, bounties, purchases) */
+.credify-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    padding: 0.45rem 0.6rem;
+    border-radius: 0.55rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    font-size: 0.875rem;
+}
+.credify-row-you { border-color: rgba(252, 211, 77, 0.35); background: rgba(252, 211, 77, 0.05); }
+a.credify-row { transition: background 0.12s ease, border-color 0.12s ease; }
+a.credify-row:hover { background: rgba(255, 255, 255, 0.07); border-color: rgba(255, 255, 255, 0.12); }
+
+/* casino floor rows are links — same skin plus hover lift */
+.credify-floor-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    padding: 0.45rem 0.6rem;
+    border-radius: 0.55rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    font-size: 0.875rem;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+.credify-floor-row:hover { background: rgba(255, 255, 255, 0.07); border-color: rgba(255, 255, 255, 0.12); }
+.credify-floor-game { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 600; }
+.credify-floor-game i { color: var(--color-action-primary, #818cf8); }
+.credify-floor-count { font-size: 0.75rem; color: rgba(255, 255, 255, 0.35); white-space: nowrap; }
+.credify-floor-live {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: #6ee7b7;
+    font-weight: 700;
+}
+
+.credify-livepip {
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 9999px;
+    background: #34d399;
+    box-shadow: 0 0 8px rgba(52, 211, 153, 0.8);
+    animation: credify-livepip 1.8s ease-in-out infinite;
+    flex-shrink: 0;
+}
+@keyframes credify-livepip {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+}
+
+.credify-raffle-pot { display: flex; align-items: baseline; gap: 0.5rem; margin-top: 0.6rem; }
+.credify-raffle-amount {
+    font-size: 1.6rem;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+    color: #fcd34d;
+    text-shadow: 0 0 22px rgba(252, 211, 77, 0.3);
+}
+
+.credify-bounty-amount { font-weight: 800; font-variant-numeric: tabular-nums; color: #fda4af; }
+
+/* quest rows: icon | name + progress bar | count + reward */
+.credify-quest {
+    display: grid;
+    grid-template-columns: 1.8rem 1fr auto;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.45rem 0.6rem;
+    border-radius: 0.55rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    font-size: 0.875rem;
+}
+.credify-quest-done { opacity: 0.65; }
+.credify-quest-icon { text-align: center; color: var(--color-action-primary, #818cf8); }
+.credify-quest-tag {
+    padding: 0.05rem 0.4rem;
+    border-radius: 9999px;
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    background: rgba(255, 255, 255, 0.07);
+    color: rgba(255, 255, 255, 0.5);
+    white-space: nowrap;
+}
+.credify-quest-reward { margin-left: 0.5rem; font-weight: 800; font-variant-numeric: tabular-nums; color: #6ee7b7; }
+.credify-qbar {
+    display: block;
+    height: 0.25rem;
+    margin-top: 0.3rem;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.07);
+    overflow: hidden;
+}
+.credify-qbar-fill {
+    display: block;
+    height: 100%;
+    border-radius: 9999px;
+    background: linear-gradient(90deg, var(--color-action-primary, #6366f1), #34d399);
+    transition: width 0.4s ease;
+}
+
+/* leaderboard medals */
+.credify-rank {
+    width: 1.5rem;
+    height: 1.5rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: rgba(255, 255, 255, 0.45);
+    background: rgba(255, 255, 255, 0.05);
+    flex-shrink: 0;
+}
+.credify-rank-1 { background: rgba(252, 211, 77, 0.18); color: #fcd34d; box-shadow: 0 0 10px rgba(252, 211, 77, 0.25); }
+.credify-rank-2 { background: rgba(212, 212, 216, 0.15); color: #e4e4e7; }
+.credify-rank-3 { background: rgba(217, 119, 6, 0.18); color: #fbbf24; }
+
+@media (prefers-reduced-motion: reduce) {
+    .credify-livepip { animation: none; }
+}
+
 /* ── shared countdown (GameCountdown.razor) ── */
 .credify-countdown { width: 100%; max-width: 22rem; margin-inline: auto; }
 .credify-countdown-head {
@@ -466,3 +670,207 @@
 .credify-history-net { font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .credify-history-net.pos { color: #6ee7b7; }
 .credify-history-net.neg { color: #fda4af; }
+
+/* ── session P/L graph (GameHistoryPanel → SessionGraphPanel → shared/session-graph.js) ── */
+/* A live sparkline of the session's cumulative net, sitting at the top of the history rail's card.
+   The curve + fill use a hard-split gradient: emerald above the dashed breakeven line, rose below —
+   the chart reads at a glance without a legend. Blazor owns the .credify-sgraph slot; the JS module
+   owns everything inside it. */
+.credify-sgraph {
+    margin-top: 0.5rem;
+    padding: 0.5rem 0.55rem 0.4rem;
+    border-radius: 0.6rem;
+    background:
+        radial-gradient(120% 90% at 50% -20%, rgba(99, 102, 241, 0.08), transparent 60%),
+        rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.credify-sgraph-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+.credify-sgraph-time { font-size: 0.68rem; font-variant-numeric: tabular-nums; color: rgba(255, 255, 255, 0.35); }
+
+.credify-sgraph-net {
+    font-size: 1.05rem;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+    color: #a1a1aa;
+    transition: color 0.3s ease;
+}
+.credify-sgraph-net.pos { color: #6ee7b7; text-shadow: 0 0 16px rgba(52, 211, 153, 0.35); }
+.credify-sgraph-net.neg { color: #fda4af; text-shadow: 0 0 16px rgba(251, 113, 133, 0.25); }
+
+.credify-sgraph-chartwrap { margin-top: 0.35rem; }
+.credify-sgraph-chartwrap svg { display: block; width: 100%; height: 3.75rem; }
+.credify-sgraph--empty .credify-sgraph-chartwrap svg { opacity: 0.5; }
+
+/* the live tip of the curve: a solid dot + a pulse ring re-fired on every settled play */
+.credify-sgraph-dot { stroke: rgba(10, 12, 20, 0.9); stroke-width: 1.5; }
+.credify-sgraph-pulse {
+    fill: none;
+    stroke: currentColor;
+    animation: credify-sgraph-pulse 1.1s ease-out;
+    r: 3;
+    opacity: 0;
+}
+@keyframes credify-sgraph-pulse {
+    0% { r: 3; opacity: 0.9; stroke-width: 2; }
+    100% { r: 13; opacity: 0; stroke-width: 0.5; }
+}
+
+.credify-sgraph-foot {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-top: 0.4rem;
+    padding-top: 0.4rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    font-size: 0.66rem;
+    color: rgba(255, 255, 255, 0.4);
+}
+.credify-sgraph-foot i { vertical-align: -0.08em; }
+.credify-sgraph-foot b { font-weight: 700; font-variant-numeric: tabular-nums; color: rgba(255, 255, 255, 0.6); }
+.credify-sgraph-plays { margin-left: auto; }
+
+@media (prefers-reduced-motion: reduce) {
+    .credify-sgraph-pulse { animation: none; }
+}
+
+/* ── shared playing card (PlayingCard.razor) ─────────────────────────────
+   One card kit for every card game. Was bj-card* in blackjack.css; promoted here so Poker,
+   Hold'em and Three-Card share the exact same look, deal-in, flip-reveal and win glow. */
+.credify-card {
+    width: 4.25rem;
+    height: 6rem;
+    flex: 0 0 auto;
+    border-radius: 0.5rem;
+    transform-style: preserve-3d;
+}
+.credify-card img { border-radius: 0.5rem; box-shadow: 0 6px 14px rgba(0, 0, 0, 0.4); }
+
+.credify-card-face {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(180deg, #ffffff, #f3f4f6);
+    border-radius: 0.5rem;
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.4);
+    overflow: hidden;
+}
+.credify-card-red { color: #e11d48; }
+.credify-card-black { color: #18181b; }
+
+.credify-card-corner {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    line-height: 0.95;
+    font-weight: 800;
+}
+.credify-card-tl { top: 0.3rem; left: 0.4rem; }
+.credify-card-br { bottom: 0.3rem; right: 0.4rem; transform: rotate(180deg); }
+.credify-card-rank { font-size: 1rem; }
+.credify-card-suit { font-size: 0.8rem; }
+.credify-card-pip {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.4rem;
+    opacity: 0.92;
+}
+
+@keyframes credify-card-deal {
+    from { opacity: 0; transform: translateY(-2.4rem) scale(0.85) rotate(-4deg); }
+    to   { opacity: 1; transform: none; }
+}
+.credify-card-deal { animation: credify-card-deal 0.38s cubic-bezier(0.2, 0.8, 0.25, 1) both; }
+
+@keyframes credify-card-reveal {
+    from { transform: rotateY(90deg); opacity: 0.15; }
+    to   { transform: rotateY(0deg); opacity: 1; }
+}
+.credify-card-reveal { animation: credify-card-reveal 0.42s ease-out both; }
+
+/* winning card — a warm gold ring + soft pulse so a winning hand reads at a glance */
+.credify-card-win .credify-card-face {
+    box-shadow: 0 0 0 2px #fbbf24, 0 0 16px 2px rgba(251, 191, 36, 0.55), 0 6px 14px rgba(0, 0, 0, 0.4);
+    animation: credify-card-win-pulse 1.4s ease-in-out infinite;
+}
+@keyframes credify-card-win-pulse {
+    0%, 100% { box-shadow: 0 0 0 2px #fbbf24, 0 0 14px 1px rgba(251, 191, 36, 0.45), 0 6px 14px rgba(0, 0, 0, 0.4); }
+    50%      { box-shadow: 0 0 0 2px #fcd34d, 0 0 22px 4px rgba(251, 191, 36, 0.75), 0 6px 14px rgba(0, 0, 0, 0.4); }
+}
+
+@media (min-width: 640px) {
+    .credify-card { width: 5rem; height: 7rem; }
+    .credify-card-pip { font-size: 2.9rem; }
+    .credify-card-rank { font-size: 1.15rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .credify-card-deal,
+    .credify-card-reveal { animation: none; }
+    .credify-card-win .credify-card-face { animation: none; }
+}
+
+/* Compact variant (PlayingCard Compact="true") — for rows that show many cards at once, e.g. the
+   five-card video-poker hand. Responsive so they always fit a narrow machine screen. */
+.credify-card-sm { width: clamp(2.9rem, 16.5vw, 5rem); height: clamp(4rem, 23vw, 7rem); }
+
+/* ── achievement gallery (Profile.razor) ─────────────────────────────── */
+.credify-ach {
+    display: flex; gap: 0.6rem; align-items: flex-start;
+    padding: 0.7rem 0.8rem; border-radius: 0.7rem;
+    background: rgba(0, 0, 0, 0.28); border: 1px solid rgba(255, 255, 255, 0.06);
+    opacity: 0.7;
+}
+.credify-ach-on {
+    opacity: 1;
+    background:
+        radial-gradient(120% 120% at 0% 0%, color-mix(in srgb, #fbbf24 12%, transparent), transparent 60%),
+        rgba(0, 0, 0, 0.3);
+    border-color: rgba(251, 191, 36, 0.3);
+}
+.credify-ach-icon {
+    flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
+    width: 2rem; height: 2rem; border-radius: 0.55rem; font-size: 1.05rem;
+    background: rgba(255, 255, 255, 0.06); color: #a1a1aa;
+}
+.credify-ach-on .credify-ach-icon {
+    background: radial-gradient(circle at 50% 35%, #fde68a, #fbbf24);
+    color: #1a1022; box-shadow: 0 0 12px rgba(251, 191, 36, 0.4);
+}
+.credify-ach-desc { font-size: 0.75rem; color: #a1a1aa; margin-top: 0.1rem; }
+.credify-ach-reward { font-size: 0.75rem; font-weight: 700; color: #6ee7b7; margin-top: 0.35rem; }
+.credify-ach-bar {
+    height: 0.3rem; border-radius: 9999px; overflow: hidden; margin-top: 0.45rem;
+    background: rgba(255, 255, 255, 0.1);
+}
+.credify-ach-fill {
+    display: block; height: 100%; border-radius: 9999px;
+    background: linear-gradient(90deg, var(--color-action-primary, #6366f1), #fbbf24);
+}
+.credify-ach-prog { font-size: 0.68rem; color: #71717a; margin-top: 0.25rem; font-variant-numeric: tabular-nums; }
+
+/* ── leaderboard tabs (Leaderboards.razor) ───────────────────────────── */
+.credify-tabs { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.credify-tab {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    padding: 0.4rem 0.85rem; border-radius: 9999px; font-weight: 600; font-size: 0.85rem;
+    color: #a1a1aa; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.06);
+    transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+.credify-tab:hover { color: #e4e4e7; background: rgba(255, 255, 255, 0.08); }
+.credify-tab-on {
+    color: #fff;
+    background: color-mix(in srgb, var(--color-action-primary, #6366f1) 30%, transparent);
+    border-color: color-mix(in srgb, var(--color-action-primary, #6366f1) 55%, transparent);
+}

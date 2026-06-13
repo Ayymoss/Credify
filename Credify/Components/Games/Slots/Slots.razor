@@ -7,20 +7,7 @@
 <PluginPageShell BackgroundClass="sl-felt text-zinc-100" Menu='CredifyNav.Build("/credify/slots")'>
 
     <!-- header -->
-    <div class="flex items-center justify-between gap-3">
-        <div class="flex items-center gap-2">
-            <i class="ph-fill ph-cherries text-2xl text-[color:var(--color-action-primary,#818cf8)]"></i>
-            <h1 class="text-2xl font-bold tracking-tight">Slots</h1>
-        </div>
-        <div class="flex items-center gap-2">
-            <CredifyAudioControls/>
-            <span class="sl-chip-stat"><i class="ph-fill ph-coins text-amber-400"></i> @Cache.BankCredits.ToString("N0") <span class="sl-muted">bank</span></span>
-            @if (_authed)
-            {
-                <span class="sl-chip-stat"><i class="ph-fill ph-wallet text-emerald-400"></i> @_balance.ToString("N0") <span class="sl-muted">credits</span></span>
-            }
-        </div>
-    </div>
+    <GameHeader Title="Slots" Icon="ph-cherries" Balance="_balance" Authed="_authed"/>
 
     <GameHistoryPanel ClientId="_client?.ClientId"/>
 
@@ -69,39 +56,101 @@
     {
         <GameResultToast Toast="_toast"/>
 
-        <!-- the machine -->
-        <div class="sl-machine mt-6" id="sl-machine">
-            <div class="sl-reels @(_busy ? "sl-reels-spinning" : "")">
-                @for (var i = 0; i < _reels.Length; i++)
-                {
-                    <div class="sl-reel">
-                        <div class="sl-reel-glyph">@_reels[i]</div>
+        <!-- the cabinet (reel strips are built/owned by slots.js inside the empty .sl-reel windows) -->
+        <div class="sl-cabinet mt-6" @ref="_machine">
+            <div class="sl-cabinet-face">
+                <div class="sl-marquee">
+                    <span class="sl-marquee-seven">7</span>
+                    <span class="sl-marquee-title">Lucky Sevens</span>
+                    <span class="sl-marquee-seven">7</span>
+                </div>
+
+                <div class="sl-bulbs">
+                    @for (var i = 0; i < BulbCount; i++)
+                    {
+                        <span class="sl-bulb" style="--d:@(i * 70)ms"></span>
+                    }
+                </div>
+
+                <div class="sl-reels-row">
+                    <div class="sl-window">
+                        <div class="sl-reel"></div>
+                        <div class="sl-reel"></div>
+                        <div class="sl-reel"></div>
+                        <div class="sl-payline"></div>
+                        <span class="sl-payarrow sl-payarrow-l">▶</span>
+                        <span class="sl-payarrow sl-payarrow-r">◀</span>
                     </div>
-                }
+                    <button class="sl-lever @(_busy ? "sl-lever-down" : "")" disabled="@(!CanSpin)"
+                            @onclick="Spin" aria-label="Pull the lever to spin" title="Pull to spin">
+                        <span class="sl-lever-track"></span>
+                        <span class="sl-lever-arm"></span>
+                        <span class="sl-lever-knob"></span>
+                    </button>
+                </div>
+
+                <div class="sl-bulbs" style="margin-top:0.6rem">
+                    @for (var i = 0; i < BulbCount; i++)
+                    {
+                        <span class="sl-bulb" style="--d:@(i * 70)ms"></span>
+                    }
+                </div>
             </div>
-            <div class="sl-payline"></div>
         </div>
 
         <!-- controls -->
         <div class="sl-controls mt-5">
-            <BetControl @bind-Value="_bet" Balance="_balance" Min="MinBet" Max="MaxBet" Disabled="_busy"/>
+            @if (_phase == Phase.Idle)
+            {
+                <BetControl @bind-Value="_bet" Balance="_balance" Min="MinBet" Max="MaxBet" Disabled="_busy"/>
 
-            <div class="mt-4 flex flex-col items-center gap-2">
-                <button class="sl-btn sl-btn-lever" disabled="@(!CanSpin)" @onclick="Spin">
-                    @if (_busy)
+                <div class="mt-4 flex flex-col items-center gap-2">
+                    <button class="sl-btn sl-btn-lever" disabled="@(!CanSpin)" @onclick="Spin">
+                        @if (_busy)
+                        {
+                            <i class="ph ph-spinner animate-spin"></i> <span>Spinning…</span>
+                        }
+                        else
+                        {
+                            <i class="ph-fill ph-arrow-fat-line-down"></i> <span>Spin</span>
+                        }
+                    </button>
+                    @if (_balance < MinBet)
                     {
-                        <i class="ph ph-spinner animate-spin"></i> <span>Spinning…</span>
+                        <p class="text-sm text-rose-400">You need at least @MinBet.ToString("N0") credits to play.</p>
+                    }
+                </div>
+            }
+            else
+            {
+                <!-- gamble (double-or-nothing) — fair 50/50, EV-neutral -->
+                <div class="sl-gamble">
+                    @if (_phase == Phase.Won)
+                    {
+                        <div class="sl-gamble-amount">@_gambleAmount.ToString("N0") <span class="sl-muted">on the table</span></div>
+                        <p class="sl-gamble-hint">Gamble @_gambleSteps/@MaxSteps · double or lose it</p>
+                        <div class="sl-gamble-actions">
+                            <button class="sl-btn sl-btn-collect" @onclick="Collect"><i class="ph-fill ph-hand-coins"></i> Collect</button>
+                            <button class="sl-btn sl-btn-gamble" @onclick="BeginGamble"><i class="ph-fill ph-cards"></i> Gamble</button>
+                        </div>
+                    }
+                    else if (_phase == Phase.Picking)
+                    {
+                        <p class="sl-gamble-hint">Pick a colour to double <b>@_gambleAmount.ToString("N0")</b></p>
+                        <div class="sl-gamble-actions">
+                            <button class="sl-pick sl-pick-red" disabled="@_busy" @onclick="() => PickColour(true)"><span class="sl-pick-pips">♦ ♥</span><span>RED</span></button>
+                            <button class="sl-pick sl-pick-black" disabled="@_busy" @onclick="() => PickColour(false)"><span class="sl-pick-pips">♣ ♠</span><span>BLACK</span></button>
+                        </div>
                     }
                     else
                     {
-                        <i class="ph-fill ph-arrow-fat-line-down"></i> <span>Spin</span>
+                        <div class="sl-gamble-card @(_lastLandedRed ? "sl-card-red" : "sl-card-black") @(_lastGambleWon ? "sl-card-won" : "sl-card-lost")">
+                            <span class="sl-gamble-card-pip">@(_lastLandedRed ? "♥" : "♠")</span>
+                        </div>
+                        <p class="sl-gamble-hint">@(_lastGambleWon ? "Doubled!" : "Gambled away")</p>
                     }
-                </button>
-                @if (_balance < MinBet)
-                {
-                    <p class="text-sm text-rose-400">You need at least @MinBet.ToString("N0") credits to play.</p>
-                }
-            </div>
+                </div>
+            }
 
             @RenderPaytable()
         </div>

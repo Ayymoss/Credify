@@ -1,27 +1,14 @@
+@page "/credify/texasholdem"
 @page "/credify/poker"
 @rendermode RenderMode.InteractiveServer
 @implements IAsyncDisposable
 
-<PageTitle>Credify · Poker</PageTitle>
+<PageTitle>Credify · Texas Hold'em</PageTitle>
 
-<PluginPageShell BackgroundClass="pk-felt text-zinc-100" Menu='CredifyNav.Build("/credify/poker")'>
+<PluginPageShell BackgroundClass="pk-felt text-zinc-100" Menu='CredifyNav.Build("/credify/texasholdem")'>
 
         <!-- header -->
-        <div class="flex items-center justify-between gap-3">
-            <div class="flex items-center gap-2">
-                <i class="ph-fill ph-spade text-2xl text-[color:var(--color-action-primary,#818cf8)]"></i>
-                <h1 class="text-2xl font-bold tracking-tight">Poker</h1>
-                <span class="pk-muted text-xs">Hold'em</span>
-            </div>
-            <div class="flex items-center gap-2">
-                <CredifyAudioControls/>
-                <span class="pk-chip-stat"><i class="ph-fill ph-coins text-amber-400"></i> @Cache.BankCredits.ToString("N0") <span class="pk-muted">bank</span></span>
-                @if (_authed)
-                {
-                    <span class="pk-chip-stat"><i class="ph-fill ph-wallet text-emerald-400"></i> @_balance.ToString("N0") <span class="pk-muted">credits</span></span>
-                }
-            </div>
-        </div>
+        <GameHeader Title="Texas Hold'em" Icon="ph-spade" Balance="_balance" Authed="_authed"/>
 
         <GameHistoryPanel ClientId="_client?.ClientId"/>
 
@@ -54,7 +41,7 @@
                     {
                         @for (var i = 0; i < _snapshot.Community.Count; i++)
                         {
-                            <CardView Card="_snapshot.Community[i]" Index="i"/>
+                            <PlayingCard Card="_snapshot.Community[i]" Index="i"/>
                         }
                     }
                 </div>
@@ -89,13 +76,13 @@
                                 {
                                     @for (var i = 0; i < seat.HoleCards.Count; i++)
                                     {
-                                        <CardView Card="seat.HoleCards[i]" Index="i"/>
+                                        <PlayingCard Card="seat.HoleCards[i]" Index="i" Highlight="seat.IsWinner"/>
                                     }
                                 }
                                 else if (seat.HasHiddenCards)
                                 {
-                                    <CardView Card="_noCard" FaceDown="true" Index="0"/>
-                                    <CardView Card="_noCard" FaceDown="true" Index="1"/>
+                                    <PlayingCard Card="_noCard" FaceDown="true" Index="0"/>
+                                    <PlayingCard Card="_noCard" FaceDown="true" Index="1"/>
                                 }
                                 else
                                 {

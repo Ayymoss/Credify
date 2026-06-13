@@ -42,7 +42,7 @@ A custom static pub/sub system (`ICredifyEventService`) raises `ObjectiveType` e
 
 ### Latency Compensation — `ChatGame.CalculateReactionTime()`
 
-Passive chat games use IW4MAdmin's `server.LatencyMetrics` (available via `client.CurrentServer.LatencyMetrics`) to compensate for RCON/log ingestion lag. The raw wall-clock reaction time (`answerEventTime - broadcastTime`) is adjusted by subtracting `GameLogPipelineMs` (precise, requires GSC companion) or `RconRoundTripMs / 2` (estimated one-way, fallback). This makes reaction times comparable across servers with different latencies.
+Passive chat games use IW4MAdmin's `server.LatencyMetrics` (available via `client.CurrentServer.LatencyMetrics`) to compensate for RCON/log ingestion lag. The raw wall-clock reaction time (`answerEventTime - broadcastTime`) is adjusted by subtracting `GameLogIngestMs` (precise, requires GSC companion) or `RconRoundTripMs / 2` (estimated one-way, fallback). This makes reaction times comparable across servers with different latencies.
 
 ### Configuration — `Configuration/CredifyConfiguration.cs`
 

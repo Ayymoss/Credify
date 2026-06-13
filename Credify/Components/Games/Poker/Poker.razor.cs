@@ -238,7 +238,7 @@ public partial class Poker
         if (_tableBuyIn > 0)
         {
             GameHistory.Record(_client.ClientId, new GameHistoryEntry(
-                "Poker", "ph-spade", "Cash out", chipsOut - _tableBuyIn, DateTimeOffset.UtcNow));
+                "Texas Hold'em", "ph-spade", "Cash out", chipsOut - _tableBuyIn, DateTimeOffset.UtcNow));
             _tableBuyIn = 0;
         }
 

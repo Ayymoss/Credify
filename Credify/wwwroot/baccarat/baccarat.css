@@ -1,0 +1,110 @@
+/* Credify Baccarat — a refined high-roller table: deep-green baize, gold trim, Player-blue and
+   Banker-red accents. Cards render via the shared PlayingCard component (.credify-card* in custom.css). */
+
+.bac-felt {
+    background: radial-gradient(125% 100% at 50% -5%, #104a37 0%, #08291e 50%, #03130d 100%);
+}
+
+.bac-panel {
+    border-radius: 1rem; padding: 1.25rem;
+    background: rgba(0, 0, 0, 0.28); border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.bac-odds-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.4rem 0.7rem; border-radius: 0.5rem; background: rgba(0, 0, 0, 0.25);
+    font-weight: 700;
+}
+.bac-odds-row span:last-child { color: #fcd34d; font-variant-numeric: tabular-nums; }
+
+/* ── table ───────────────────────────────────────────────────────────── */
+.bac-table {
+    max-width: 34rem; margin-inline: auto;
+    display: flex; flex-direction: column; gap: 0.8rem;
+}
+
+.bac-side {
+    position: relative; border-radius: 0.9rem; padding: 0.8rem 1rem;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(0, 0, 0, 0.25));
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    transition: box-shadow 0.25s ease, border-color 0.25s ease;
+}
+.bac-side-player { border-left: 3px solid #38bdf8; }
+.bac-side-banker { border-left: 3px solid #fb7185; }
+
+.bac-side-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.55rem; }
+.bac-side-name {
+    display: inline-flex; align-items: center; gap: 0.45rem;
+    font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; font-size: 0.9rem;
+}
+.bac-side-player .bac-side-name i { color: #38bdf8; }
+.bac-side-banker .bac-side-name i { color: #fb7185; }
+
+/* the mod-10 total — a gold medallion */
+.bac-total {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 2.1rem; height: 2.1rem; padding: 0 0.4rem; border-radius: 9999px;
+    font-weight: 900; font-size: 1.15rem; color: #1a1022; font-variant-numeric: tabular-nums;
+    background: radial-gradient(circle at 50% 35%, #fde68a, #d9a93a);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.5);
+}
+
+.bac-cards { display: flex; gap: 0.45rem; min-height: 4rem; align-items: center; }
+.bac-empty { color: rgba(255, 255, 255, 0.3); font-size: 1.4rem; }
+
+/* the winning hand glows gold */
+.bac-win {
+    border-color: rgba(251, 191, 36, 0.6);
+    box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.5), 0 0 26px rgba(251, 191, 36, 0.4);
+    animation: bac-win-pulse 1.3s ease-in-out infinite;
+}
+@keyframes bac-win-pulse { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.12); } }
+
+/* ── bet spots ───────────────────────────────────────────────────────── */
+.bac-spots {
+    max-width: 34rem; margin-inline: auto;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem;
+}
+.bac-spot {
+    display: flex; flex-direction: column; align-items: center; gap: 0.25rem;
+    padding: 0.75rem 0.5rem; border-radius: 0.8rem;
+    background: rgba(0, 0, 0, 0.3); border: 2px solid rgba(255, 255, 255, 0.12);
+    transition: transform 0.08s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.bac-spot:disabled { cursor: not-allowed; }
+.bac-spot:not(:disabled):hover { transform: translateY(-2px); background: rgba(0, 0, 0, 0.2); }
+.bac-spot-name { font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.95rem; }
+.bac-spot-odds { font-size: 0.75rem; font-weight: 700; color: #fcd34d; font-variant-numeric: tabular-nums; }
+.bac-spot-player .bac-spot-name { color: #7dd3fc; }
+.bac-spot-banker .bac-spot-name { color: #fda4af; }
+.bac-spot-tie .bac-spot-name { color: #6ee7b7; }
+
+/* the chosen spot */
+.bac-spot-on {
+    border-color: #fbbf24;
+    background: radial-gradient(120% 130% at 50% 0%, rgba(251, 191, 36, 0.18), rgba(0, 0, 0, 0.3));
+    box-shadow: 0 0 14px rgba(251, 191, 36, 0.35);
+}
+/* the winning result, post-deal */
+.bac-spot-win {
+    border-color: #34d399;
+    box-shadow: 0 0 16px rgba(52, 211, 153, 0.55);
+    animation: bac-win-pulse 1.3s ease-in-out infinite;
+}
+
+/* ── controls ────────────────────────────────────────────────────────── */
+.bac-controls { display: flex; flex-direction: column; align-items: center; gap: 0.8rem; }
+.bac-btn {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    padding: 0.7rem 2rem; border-radius: 0.8rem; font-weight: 800; font-size: 1.05rem; color: #06241b;
+    background: linear-gradient(180deg, #fde68a, #d9a93a);
+    box-shadow: 0 8px 20px rgba(180, 130, 30, 0.35);
+    transition: filter 0.15s ease, transform 0.05s ease;
+}
+.bac-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.bac-btn:not(:disabled):hover { filter: brightness(1.07); }
+.bac-btn:not(:disabled):active { transform: translateY(1px); }
+
+@media (prefers-reduced-motion: reduce) {
+    .bac-win, .bac-spot-win { animation: none; }
+}

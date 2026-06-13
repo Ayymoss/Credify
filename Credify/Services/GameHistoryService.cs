@@ -19,9 +19,10 @@ public sealed class GameHistoryService
     private const int MaxPerClient = 30;
     private readonly ConcurrentDictionary<int, LinkedList<GameHistoryEntry>> _byClient = new();
 
-    /// <summary>Raised (with the affected client id) whenever a result is recorded, so an open history
-    /// rail can refresh itself live instead of waiting for its page to re-render.</summary>
-    public event Action<int>? Changed;
+    /// <summary>Raised (with the affected client id and the entry itself) whenever a result is recorded,
+    /// so an open history rail or session graph can refresh itself live instead of waiting for its page
+    /// to re-render.</summary>
+    public event Action<int, GameHistoryEntry>? Changed;
 
     public void Record(int clientId, GameHistoryEntry entry)
     {
@@ -35,7 +36,7 @@ public sealed class GameHistoryService
             }
         }
 
-        Changed?.Invoke(clientId);
+        Changed?.Invoke(clientId, entry);
     }
 
     /// <summary>Most-recent-first snapshot of a client's session log (empty if they've not played yet).</summary>

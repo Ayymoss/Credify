@@ -15,15 +15,23 @@ public static class CredifyNav
     private static readonly (string Title, string Route, string Icon) Credits =
         ("Credits", "/credify", "ph-fill ph-trophy");
 
+    private static readonly (string Title, string Route, string Icon) ProfileEntry =
+        ("Profile", "/credify/profile", "ph-fill ph-user-circle");
+
+    private static readonly (string Title, string Route, string Icon) LeaderboardsEntry =
+        ("Leaderboards", "/credify/leaderboards", "ph-fill ph-ranking");
+
     private static readonly (string Category, (string Title, string Route, string Icon)[] Games)[] Sections =
     [
         ("Table Games",
         [
             ("Blackjack", "/credify/blackjack", "ph-fill ph-cards-three"),
             ("Roulette", "/credify/roulette", "ph-fill ph-circle-half"),
-            ("Poker", "/credify/poker", "ph-fill ph-spade"),
+            ("Texas Hold'em", "/credify/texasholdem", "ph-fill ph-spade"),
             ("Casino Hold'em", "/credify/casinoholdem", "ph-fill ph-club"),
             ("Three-Card Poker", "/credify/threecardpoker", "ph-fill ph-cards"),
+            ("Video Poker", "/credify/videopoker", "ph-fill ph-spade"),
+            ("Baccarat", "/credify/baccarat", "ph-fill ph-cards"),
         ]),
         ("Originals",
         [
@@ -41,7 +49,12 @@ public static class CredifyNav
     {
         // Credits is an ungrouped top entry; the games are collapsible category groups (IsCollapse + Meta),
         // the mechanism the shared SideContextMenu already supports (same as Top Players' server groups).
-        var items = new List<SideContextMenuItem> { Link(Credits, activeRoute, category: null) };
+        var items = new List<SideContextMenuItem>
+        {
+            Link(Credits, activeRoute, category: null),
+            Link(ProfileEntry, activeRoute, category: null),
+            Link(LeaderboardsEntry, activeRoute, category: null),
+        };
 
         foreach (var (category, games) in Sections)
         {

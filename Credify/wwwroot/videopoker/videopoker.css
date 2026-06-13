@@ -1,0 +1,115 @@
+/* Credify Video Poker — a classic CRT machine: an amber paytable lit over a blue screen, five cards
+   on a green strip, red HOLD tags. Distinct from the Slots cabinet (aubergine/gold) on purpose.
+   Cards render via the shared PlayingCard component (.credify-card* in custom.css). */
+
+.vp-felt {
+    background: radial-gradient(125% 100% at 50% -10%, #0c2742 0%, #08182b 50%, #040c16 100%);
+}
+
+/* ── cabinet ─────────────────────────────────────────────────────────── */
+.vp-cabinet {
+    max-width: 34rem; margin-inline: auto;
+    border-radius: 1.2rem; padding: 0.8rem;
+    background: linear-gradient(180deg, #2b3340, #141a22);
+    border: 3px solid transparent;
+    background:
+        linear-gradient(180deg, #2b3340, #141a22) padding-box,
+        linear-gradient(160deg, #8da2b8, #3a4350 45%, #1e242c 75%, #6b7c90) border-box;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6), inset 0 2px 2px rgba(255, 255, 255, 0.18);
+}
+
+/* the CRT screen */
+.vp-screen {
+    position: relative; overflow: hidden;
+    border-radius: 0.8rem; padding: 0.85rem;
+    background: radial-gradient(130% 120% at 50% 0%, #0b2a47, #061726 70%, #03101c);
+    box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.18), inset 0 0 40px rgba(0, 0, 0, 0.6);
+}
+/* faint scanlines for the CRT feel */
+.vp-screen::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 4; border-radius: 0.8rem;
+    background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.16) 0 1px, transparent 1px 3px);
+    mix-blend-mode: multiply; opacity: 0.5;
+}
+
+/* ── paytable (amber lit grid) ───────────────────────────────────────── */
+.vp-paytable {
+    border-radius: 0.5rem; overflow: hidden;
+    border: 1px solid rgba(251, 191, 36, 0.35);
+    background: rgba(0, 0, 0, 0.4);
+}
+.vp-pt-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.18rem 0.7rem; font-size: 0.82rem; font-weight: 700;
+    color: #fbbf24; text-shadow: 0 0 6px rgba(251, 191, 36, 0.35);
+    font-variant-numeric: tabular-nums; letter-spacing: 0.02em;
+}
+.vp-pt-row + .vp-pt-row { border-top: 1px solid rgba(251, 191, 36, 0.12); }
+.vp-pt-name { text-transform: uppercase; }
+.vp-pt-pay { color: #fde68a; }
+/* the achieved hand lights up */
+.vp-pt-hit {
+    background: linear-gradient(90deg, rgba(251, 191, 36, 0.25), rgba(251, 191, 36, 0.08));
+    color: #fff7e0; text-shadow: 0 0 10px rgba(255, 224, 130, 0.9);
+    animation: vp-pt-flash 0.8s ease-in-out infinite;
+}
+@keyframes vp-pt-flash { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.4); } }
+
+/* ── status ──────────────────────────────────────────────────────────── */
+.vp-status {
+    text-align: center; font-size: 0.85rem; font-weight: 600;
+    padding: 0.6rem 0 0.5rem;
+}
+
+/* ── hand ────────────────────────────────────────────────────────────── */
+.vp-hand { display: flex; justify-content: center; align-items: flex-start; gap: 0.45rem; }
+.vp-slot { display: flex; flex-direction: column; align-items: center; gap: 0.4rem; }
+
+.vp-card {
+    background: none; border: none; padding: 0; cursor: pointer; border-radius: 0.55rem;
+    transition: transform 0.12s ease, filter 0.12s ease;
+}
+.vp-card:disabled { cursor: default; }
+.vp-card:not(:disabled):hover { transform: translateY(-4px); }
+/* a held card lifts and gets a cyan lock-glow */
+.vp-card-held {
+    transform: translateY(-8px);
+    filter: drop-shadow(0 0 10px rgba(34, 211, 238, 0.75));
+}
+.vp-card-held:not(:disabled):hover { transform: translateY(-10px); }
+
+/* (responsive sizing for the five cards lives with the card kit in custom.css to keep all
+   .credify-card rules in one sheet — the bundle loads every sheet in one shared scope) */
+
+.vp-hold-tag {
+    font-size: 0.65rem; font-weight: 900; letter-spacing: 0.12em;
+    padding: 0.1rem 0.5rem; border-radius: 9999px;
+    color: transparent; background: transparent; border: 1px solid transparent;
+    transition: all 0.12s ease;
+}
+.vp-hold-on {
+    color: #fff;
+    background: radial-gradient(circle at 50% 30%, #f43f5e, #9f1239);
+    border-color: rgba(255, 255, 255, 0.3);
+    box-shadow: 0 0 10px rgba(244, 63, 94, 0.65);
+}
+
+/* ── controls ────────────────────────────────────────────────────────── */
+.vp-controls {
+    display: flex; flex-direction: column; align-items: center; gap: 0.8rem;
+    padding: 1rem 0.5rem 0.4rem;
+}
+.vp-btn {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    padding: 0.7rem 2rem; border-radius: 0.8rem; font-weight: 800; font-size: 1.05rem; color: #fff;
+    transition: filter 0.15s ease, transform 0.05s ease;
+}
+.vp-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.vp-btn:not(:disabled):hover { filter: brightness(1.1); }
+.vp-btn:not(:disabled):active { transform: translateY(1px); }
+.vp-btn-deal { background: linear-gradient(180deg, #06b6d4, #0e7490); box-shadow: 0 8px 20px rgba(14, 116, 144, 0.4); }
+.vp-btn-draw { background: linear-gradient(180deg, #fbbf24, #b45309); color: #1a1022; box-shadow: 0 8px 20px rgba(180, 83, 9, 0.4); }
+
+@media (prefers-reduced-motion: reduce) {
+    .vp-pt-hit { animation: none; }
+}

@@ -483,7 +483,11 @@ public class BlackjackGame : BaseActiveGame<BlackjackPlayer>, IWebObservableGame
             }
         }
 
-        SharedLibraryCore.Utilities.ExecuteAfterDelay(TimeSpan.FromSeconds(GameConstants.Timeouts.DefaultPayoutDelay),
+        // Hold the Payout state long enough for the web table's staggered dealer reveal (~0.9s + 0.65s per
+        // card) plus time to actually read the outcome — at the old 2s the next round tore the table down
+        // mid-reveal. Scales with the dealer's hand since bigger hands take longer to flip.
+        var payoutDelay = Math.Clamp(2 + _houseHand.Count, 5, 8);
+        SharedLibraryCore.Utilities.ExecuteAfterDelay(TimeSpan.FromSeconds(payoutDelay),
             EndGameAsync, CancellationToken.None);
     }
 

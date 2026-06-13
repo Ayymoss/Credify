@@ -53,6 +53,10 @@ public partial class ThreeCardPoker
 
     [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
 
+    // winning-side card glow at showdown (ThreeCardOutcome.Result: "Win" | "Lose" | "Push" | "Fold")
+    private bool PlayerWon => _phase == Phase.Settle && _outcome is { Result: "Win" };
+    private bool DealerWon => _phase == Phase.Settle && _outcome is { Result: "Lose" };
+
     private long PairPlus => _pairPlusOn ? _ante : 0;
     private long DealCost => _ante + PairPlus;
     private bool CanDeal => !_busy && _authed && _client is not null && _ante >= MinBet && DealCost <= _balance;

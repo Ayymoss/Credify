@@ -26,7 +26,8 @@ public partial class Keno
     [Inject] public required IJSRuntime JS { get; set; }
 
     private const long MinBet = GameConstants.MinimumCredits;
-    private const int RevealMs = 1300; // total time for the 20 balls to light up
+    private const int PerBallMs = 70;  // pacing between drawn balls
+    private const int HitPauseMs = 95; // extra beat when a drawn ball is one of yours, so hits land with weight
 
     private EFClient? _client;
     private long _balance;
@@ -39,6 +40,8 @@ public partial class Keno
     private IReadOnlyList<int> _drawn = [];
     private Dictionary<int, int> _drawnOrder = new();
     private HashSet<int> _hits = [];
+    private int _revealedCount;   // balls lit so far during the draw animation
+    private int? _currentBall;    // the number popping right now (drives the draw readout)
 
     private GameToast? _toast;
     private int _toastSeq;
@@ -49,6 +52,8 @@ public partial class Keno
 
     private int Spots => _picks.Count;
     private bool HasResult => _drawn.Count > 0;
+    private bool Revealing => _busy && HasResult;                         // mid-draw (balls still lighting up)
+    private int RevealedHits => _drawn.Take(_revealedCount).Count(_picks.Contains); // live hit tally as balls land
     private bool CanPlay => !_busy && _authed && _client is not null && Spots >= 1 && _bet >= MinBet && _bet <= _balance;
 
     protected override async Task OnInitializedAsync()
@@ -95,6 +100,8 @@ public partial class Keno
         _drawn = [];
         _drawnOrder = new();
         _hits = [];
+        _revealedCount = 0;
+        _currentBall = null;
     }
 
     private void Toggle(int number)
@@ -155,23 +162,14 @@ public partial class Keno
             cls += " kn-pick";
         }
 
-        if (HasResult)
+        // only mark a number once its ball has actually been drawn in the sequential reveal
+        if (HasResult && _drawnOrder.TryGetValue(number, out var order) && order < _revealedCount)
         {
-            if (_hits.Contains(number))
-            {
-                cls += " kn-hit";
-            }
-            else if (_drawnOrder.ContainsKey(number))
-            {
-                cls += " kn-drawn";
-            }
+            cls += _picks.Contains(number) ? " kn-hit" : " kn-drawn";
         }
 
         return cls;
     }
-
-    private string CellStyle(int number) =>
-        _drawnOrder.TryGetValue(number, out var order) ? $"animation-delay:{order * 55}ms" : "";
 
     private static string Mult(double multiplier) => multiplier.ToString("0.##", CultureInfo.InvariantCulture) + "×";
 
@@ -196,14 +194,40 @@ public partial class Keno
             _balance = await Persistence.AddCreditsAsync(_client, payout);
         }
 
-        // reveal the 20 drawn numbers (CSS staggers them by draw order)
+        // hand the result to the board, but reveal nothing yet — the balls light up one at a time below
         _drawn = result.Drawn;
         _drawnOrder = result.Drawn.Select((n, i) => (n, i)).ToDictionary(x => x.n, x => x.i);
         _hits = result.Hits.ToHashSet();
+        _revealedCount = 0;
+        _currentBall = null;
         StateHasChanged();
 
         if (_audio is not null) { try { await _audio.InvokeVoidAsync("play", "bet"); } catch { } }
-        await Task.Delay(RevealMs);
+
+        // sequential draw: each ball pops in turn, the hit tally climbs live, and every ball has a
+        // voice — a rising ping that pitches up with each hit, a soft tick for the misses.
+        for (var i = 0; i < _drawn.Count; i++)
+        {
+            var ball = _drawn[i];
+            var isHit = _picks.Contains(ball);
+            _revealedCount = i + 1;
+            _currentBall = ball;
+            StateHasChanged();
+
+            if (_audio is not null)
+            {
+                try
+                {
+                    if (isHit) await _audio.InvokeVoidAsync("gem", RevealedHits); // level rises with the hit count
+                    else await _audio.InvokeVoidAsync("peg");
+                }
+                catch { /* best-effort */ }
+            }
+
+            await Task.Delay(isHit ? PerBallMs + HitPauseMs : PerBallMs);
+        }
+
+        _currentBall = null;
 
         var profit = payout - _bet;
         _toast = BuildToast(result, profit);

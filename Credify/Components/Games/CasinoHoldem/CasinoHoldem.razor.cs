@@ -58,6 +58,10 @@ public partial class CasinoHoldem
 
     [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
 
+    // winning-side card glow at showdown (CasinoHoldemOutcome.Result: "Win" | "Lose" | "Push" | "Fold")
+    private bool PlayerWon => _phase == Phase.Settle && _outcome is { Result: "Win" };
+    private bool DealerWon => _phase == Phase.Settle && _outcome is { Result: "Lose" };
+
     private long CallCost => _ante * 2;
     private bool CanDeal => !_busy && _authed && _client is not null && _ante >= MinBet && _ante <= _balance;
     private bool CanCall => !_busy && _balance >= CallCost;

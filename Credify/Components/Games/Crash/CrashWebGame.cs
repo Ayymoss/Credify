@@ -82,6 +82,37 @@ public sealed class CrashWebGame(CrashConfiguration config)
         return false;
     }
 
+    /// <summary>
+    /// Auto cash-out: banks EXACTLY <paramref name="target"/> once the rocket has flown long enough to reach
+    /// it — provided the (predetermined) crash point is beyond the target. Because the crash point is known
+    /// server-side from launch, this is deterministic: a late poll tick can't turn a winning target into a
+    /// bust, and the banked multiplier is the target itself, not whatever the poll happened to sample.
+    /// Returns true if it cashed out. A target at/past the crash point returns false and leaves the round to
+    /// <see cref="PollCrash"/>.
+    /// </summary>
+    public bool TryAutoCashOut(double target)
+    {
+        if (Phase != CrashPhase.Flying || target < 1.01)
+        {
+            return false;
+        }
+
+        if (ElapsedSeconds < CrashMath.TimeToReach(config, target))
+        {
+            return false; // not there yet
+        }
+
+        if (target >= _crashPoint)
+        {
+            return false; // it crashes first — PollCrash settles this round
+        }
+
+        CashedMultiplier = Math.Round(target, 2);
+        Phase = CrashPhase.Settled;
+        Outcome = CrashOutcome.CashedOut;
+        return true;
+    }
+
     /// <summary>Banks the current multiplier — unless the rocket already crashed (then it's a loss).</summary>
     public void CashOut()
     {

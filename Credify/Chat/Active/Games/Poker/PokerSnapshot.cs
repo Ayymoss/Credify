@@ -56,6 +56,9 @@ public sealed record PokerSeatView
     /// <summary>Made-hand name, shown at showdown for revealed seats.</summary>
     public string? HandName { get; init; }
 
+    /// <summary>Won (or split) the most recent showdown — drives the winning-card glow on the webfront.</summary>
+    public bool IsWinner { get; init; }
+
     public string LastAction { get; init; } = "";
 }
 

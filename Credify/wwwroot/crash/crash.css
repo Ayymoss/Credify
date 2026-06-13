@@ -9,17 +9,6 @@
     box-shadow: inset 0 0 130px rgba(0, 0, 0, 0.55);
 }
 
-.cr-chip-stat {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.3rem 0.7rem;
-    border-radius: 9999px;
-    background: rgba(0, 0, 0, 0.35);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    font-weight: 700;
-    font-size: 0.85rem;
-}
 .cr-muted { color: rgba(255, 255, 255, 0.5); font-weight: 500; }
 
 .cr-panel {
@@ -66,6 +55,29 @@
     color: rgba(255, 255, 255, 0.45);
     pointer-events: none;
 }
+/* live profit under the big multiplier (text driven per-frame by crash.js) */
+.cr-profit {
+    position: absolute;
+    top: calc(50% + clamp(1.8rem, 6vw, 3rem));
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: clamp(0.9rem, 3vw, 1.3rem);
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    color: #6ee7b7;
+    text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
+    pointer-events: none;
+}
+
+/* 10×+ … crash explosion rattles the stage */
+@keyframes cr-shake {
+    0%, 100% { transform: translate(0, 0); }
+    20% { transform: translate(-4px, 3px); }
+    40% { transform: translate(4px, -3px); }
+    60% { transform: translate(-3px, -2px); }
+    80% { transform: translate(3px, 2px); }
+}
+.cr-shake { animation: cr-shake 0.45s ease; }
 
 /* (win/loss feedback is the shared GameResultToast — see custom.css `.credify-toast*`) */
 
@@ -99,6 +111,55 @@
     50% { box-shadow: 0 6px 28px rgba(16, 185, 129, 0.7); }
 }
 
+/* small square quick-action buttons (½ / 2× / auto presets) */
+.cr-quick {
+    min-width: 2.4rem;
+    padding: 0.45rem 0.6rem;
+    border-radius: 0.6rem;
+    font-weight: 800;
+    font-size: 0.85rem;
+    color: #c7d2fe;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    transition: background 0.15s ease, transform 0.05s ease;
+}
+.cr-quick:not(:disabled):hover { background: rgba(255, 255, 255, 0.1); }
+.cr-quick:not(:disabled):active { transform: translateY(1px); }
+.cr-quick:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.cr-auto-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(255, 255, 255, 0.5); }
+
+/* auto cash-out toggle + target input */
+.cr-autocash {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.35rem 0.7rem;
+    border-radius: 0.6rem;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: 0.8rem;
+    color: #d4d4d8;
+    cursor: pointer;
+}
+.cr-autocash input[type="checkbox"] { accent-color: var(--color-action-primary, #6366f1); }
+.cr-autocash-input {
+    width: 4.2rem;
+    padding: 0.2rem 0.4rem;
+    border-radius: 0.4rem;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    color: #fff;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+.cr-autocash-input:disabled { opacity: 0.45; }
+
+.cr-btn-stopauto {
+    background: linear-gradient(180deg, #f43f5e, #9f1239);
+    box-shadow: 0 6px 16px rgba(159, 18, 57, 0.4);
+}
+
 .cr-chip {
     min-width: 3rem;
     padding: 0.45rem 0.6rem;
@@ -128,6 +189,9 @@
     font-size: 0.875rem;
 }
 .cr-live-you { border-color: rgba(252, 211, 77, 0.4); background: rgba(252, 211, 77, 0.06); }
+.cr-live-settled { opacity: 0.55; transition: opacity 0.6s ease; }
+.cr-live-stake { font-variant-numeric: tabular-nums; font-size: 0.78rem; color: rgba(255, 255, 255, 0.45); }
+.cr-live-profit { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 0.8rem; min-width: 3.5rem; }
 .cr-live-mult { font-variant-numeric: tabular-nums; font-weight: 700; }
 .cr-live-flying { color: #fcd34d; }
 .cr-live-cashed { color: #6ee7b7; }

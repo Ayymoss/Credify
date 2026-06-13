@@ -1,0 +1,116 @@
+@page "/credify/videopoker"
+@rendermode RenderMode.InteractiveServer
+@using Credify.Games.VideoPoker
+
+<PageTitle>Credify · Video Poker</PageTitle>
+
+<PluginPageShell BackgroundClass="vp-felt text-zinc-100" Menu='CredifyNav.Build("/credify/videopoker")'>
+
+    <!-- header -->
+    <GameHeader Title="Video Poker" Icon="ph-spade" Subtitle="Jacks or Better" Balance="_balance" Authed="_authed"/>
+
+    <GameHistoryPanel ClientId="_client?.ClientId"/>
+
+    @if (_loading)
+    {
+        <div class="flex items-center justify-center py-24 text-zinc-400"><i class="ph ph-spinner animate-spin text-3xl"></i></div>
+    }
+    else if (!_authed)
+    {
+        <div class="mt-6 grid gap-6 md:grid-cols-2">
+            <JoinTablePanel Icon="ph-fill ph-spade" Title="Sign in to play"
+                            Description="Deal five, hold the cards you want, and draw. A pair of Jacks or better pays — the better the hand, the bigger the win.">
+                <a href="/" class="vp-btn vp-btn-deal mt-1 inline-flex"><i class="ph ph-sign-in"></i> Sign in</a>
+            </JoinTablePanel>
+            @RenderPaytable()
+        </div>
+    }
+    else
+    {
+        <GameResultToast Toast="_toast"/>
+
+        <!-- the machine -->
+        <div class="vp-cabinet mt-6">
+            <div class="vp-screen">
+                @RenderPaytable()
+
+                <!-- status line -->
+                <div class="vp-status">
+                    @if (_phase == Phase.Decision)
+                    {
+                        <span><i class="ph-fill ph-hand-tap text-cyan-300"></i> Tap cards to <b>HOLD</b>, then draw</span>
+                    }
+                    else if (_result is { } r)
+                    {
+                        <span class="@(r.Profit > 0 ? "text-amber-300" : r.Winnings > 0 ? "text-cyan-300" : "text-zinc-400")">
+                            <i class="ph-fill @(r.Profit > 0 ? "ph-trophy" : "ph-cards")"></i>
+                            @VideoPokerHand.Name(r.Rank)@(r.Profit > 0 ? $" — +{r.Profit:N0}" : r.Winnings > 0 ? " — push" : "")
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="text-zinc-400"><i class="ph-fill ph-spade"></i> Place your bet and deal</span>
+                    }
+                </div>
+
+                <!-- the five cards -->
+                <div class="vp-hand">
+                    @for (var i = 0; i < 5; i++)
+                    {
+                        var idx = i;
+                        <div class="vp-slot">
+                            <button class="vp-card @(_hold[idx] ? "vp-card-held" : "")"
+                                    disabled="@(_phase != Phase.Decision || _busy)"
+                                    @onclick="() => ToggleHold(idx)">
+                                <PlayingCard Card="_cards[idx]" FaceDown="@(_cards[idx] is null || _faceDown[idx])" Index="idx" Sound="false" Compact="true"/>
+                            </button>
+                            <span class="vp-hold-tag @(_hold[idx] ? "vp-hold-on" : "")">HELD</span>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- controls -->
+            <div class="vp-controls">
+                @if (_phase == Phase.Bet)
+                {
+                    <BetControl @bind-Value="_bet" Balance="_balance" Min="MinBet" Max="MaxBet" Disabled="_busy"/>
+                    <button class="vp-btn vp-btn-deal" disabled="@(!CanDeal)" @onclick="Deal">
+                        @if (_busy) { <i class="ph ph-spinner animate-spin"></i> <span>Dealing…</span> }
+                        else { <i class="ph-fill ph-cards"></i> <span>Deal</span> }
+                    </button>
+                    @if (_balance < MinBet)
+                    {
+                        <p class="text-sm text-rose-400">You need at least @MinBet.ToString("N0") credits to play.</p>
+                    }
+                }
+                else
+                {
+                    <button class="vp-btn vp-btn-draw" disabled="@(!CanDraw)" @onclick="Draw">
+                        @if (_busy) { <i class="ph ph-spinner animate-spin"></i> <span>Drawing…</span> }
+                        else { <i class="ph-fill ph-arrows-clockwise"></i> <span>Draw</span> }
+                    </button>
+                }
+            </div>
+        </div>
+
+        <div class="mt-4 text-center">
+            <a href="/credify" class="text-sm text-zinc-400 hover:text-zinc-200 hover:underline">← Back to Credify</a>
+        </div>
+    }
+</PluginPageShell>
+
+@code {
+    private RenderFragment RenderPaytable() => __builder =>
+    {
+        <div class="vp-paytable">
+            @foreach (var rank in PayRanks)
+            {
+                <div class="vp-pt-row @(_result?.Rank == rank ? "vp-pt-hit" : "")">
+                    <span class="vp-pt-name">@VideoPokerHand.Name(rank)</span>
+                    <span class="vp-pt-pay">@(_authed ? PayoutFor(rank).ToString("N0") : Config.VideoPoker.Multiplier(rank).ToString("0.##") + "×")</span>
+                </div>
+            }
+        </div>
+    };
+}

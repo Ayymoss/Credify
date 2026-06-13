@@ -1,45 +1,288 @@
 @page "/credify"
+@rendermode RenderMode.InteractiveServer
 
 <PageTitle>Credify</PageTitle>
 
 <PluginPageShell BackgroundClass="credify-felt text-zinc-100" Menu='CredifyNav.Build("/credify")'>
-    <div class="flex items-center justify-between">
-        <h1 class="text-2xl font-bold">Credits</h1>
-        <span class="credify-badge">economy</span>
+    <div class="flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+            <i class="ph-fill ph-trophy text-2xl text-[color:var(--color-action-primary,#818cf8)]"></i>
+            <h1 class="text-2xl font-bold tracking-tight">Credify</h1>
+            <span class="credify-badge">economy</span>
+        </div>
+        <span class="credify-chip" title="Players connected to the game servers right now">
+            <i class="ph-fill ph-users text-emerald-400"></i> @PlayersOnline.ToString("N0") <span class="credify-muted">online</span>
+        </span>
     </div>
 
-    <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <StatCard Title="Server bank" Value="@Cache.BankCredits.ToString("N0")"/>
-        <StatCard Title="Ranked players" Value="@_board.Count.ToString("N0")"/>
-        <StatCard Title="Top balance" Value="@_topBalance.ToString("N0")"/>
-    </div>
+    <GameHistoryPanel ClientId="_client?.ClientId"/>
 
-    <h2 class="mt-7 flex items-center gap-2 text-lg font-bold">
-        <i class="ph-fill ph-trophy text-amber-400"></i> Top Credits
-    </h2>
-    @if (_board.Count == 0)
+    @if (_loading)
     {
-        <p class="mt-2 text-sm text-zinc-400">No credit data yet.</p>
+        <div class="flex items-center justify-center py-24 text-zinc-400">
+            <i class="ph ph-spinner animate-spin text-3xl"></i>
+        </div>
     }
     else
     {
-        <ol class="mt-3 space-y-1">
-            @foreach (var (row, i) in _board.Select((r, i) => (r, i)))
-            {
-                <li class="flex items-center justify-between rounded-md bg-zinc-800/60 px-3 py-2 ring-1 ring-white/5">
-                    <span class="flex items-center gap-2 truncate">
-                        <span class="w-6 text-right font-semibold text-zinc-500">@(i + 1)</span>
-                        <span class="truncate font-medium">@row.Name</span>
-                    </span>
-                    <span class="font-semibold text-[color:var(--color-action-primary,#818cf8)]">@row.Credits.ToString("N0")</span>
-                </li>
-            }
-        </ol>
-    }
+        @* ── signed-in strip ─────────────────────────────────────────────── *@
+        @if (_authed && _client is not null)
+        {
+            <div class="credify-panel credify-me mt-5">
+                <div class="flex items-center gap-3 min-w-0">
+                    <i class="ph-fill ph-user-circle text-3xl text-[color:var(--color-action-primary,#818cf8)]"></i>
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-2">
+                            <a href="/credify/profile" class="truncate font-bold hover:underline">@_client.CleanedName</a>
+                            @if (_myTitle is not null)
+                            {
+                                <Tooltip Text="@TitleDesc(_myTitle)" WrapperClass="inline-flex">
+                                    <span class="credify-title-chip"><i class="ph-fill ph-medal"></i> @_myTitle</span>
+                                </Tooltip>
+                            }
+                        </div>
+                        @if (_dailyQuests.Count > 0)
+                        {
+                            <div class="text-xs text-zinc-400">@DailiesDone/@_dailyQuests.Count daily quests done</div>
+                        }
+                    </div>
+                </div>
+                <span class="credify-chip">
+                    <i class="ph-fill ph-wallet text-emerald-400"></i> @_balance.ToString("N0") <span class="credify-muted">credits</span>
+                </span>
+            </div>
+        }
+        else
+        {
+            <div class="credify-panel mt-5 flex items-center gap-3 text-sm text-zinc-400">
+                <i class="ph-fill ph-sign-in text-xl text-[color:var(--color-action-primary,#818cf8)]"></i>
+                Log into IW4MAdmin to see your wallet, daily quest progress and session history here — and to play the web games.
+            </div>
+        }
 
-    @* dev tool — money-sound tester; only rendered in DEBUG builds (gated by ShowDebugTools) *@
-    @if (ShowDebugTools)
-    {
-        <MoneySoundTester/>
+        @* ── economy pulse ───────────────────────────────────────────────── *@
+        <div class="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <StatCard Title="Server bank" Value="@Cache.BankCredits.ToString("N0")"/>
+            <StatCard Title="Wagered all-time" Value="@Cache.StatisticsState.CreditsSpent.ToString("N0")"/>
+            <StatCard Title="Won all-time" Value="@Cache.StatisticsState.CreditsWon.ToString("N0")"/>
+            <StatCard Title="Paid out for kills" Value="@Cache.StatisticsState.CreditsEarned.ToString("N0")"/>
+        </div>
+
+        @* ── live floor ──────────────────────────────────────────────────── *@
+        <div class="mt-4 grid gap-4 lg:grid-cols-3">
+
+            <div class="credify-panel">
+                <h2 class="credify-panel-title"><i class="ph-fill ph-broadcast"></i> Casino floor</h2>
+                <div class="mt-3 flex flex-col gap-1.5">
+                    @foreach (var table in _tables)
+                    {
+                        var meta = MetaFor(table.Name);
+                        <a class="credify-floor-row" href="@meta.Route">
+                            <span class="credify-floor-game"><i class="ph-fill @meta.Icon"></i> @meta.Title</span>
+                            @if (table.Players > 0)
+                            {
+                                <span class="credify-floor-count credify-floor-live"><span class="credify-livepip"></span>@table.Players playing</span>
+                            }
+                            else
+                            {
+                                <span class="credify-floor-count">empty</span>
+                            }
+                        </a>
+                    }
+                    <a class="credify-floor-row" href="/credify/crash">
+                        <span class="credify-floor-game"><i class="ph-fill ph-rocket-launch"></i> Crash</span>
+                        @if (_crashFlying > 0)
+                        {
+                            <span class="credify-floor-count credify-floor-live"><span class="credify-livepip"></span>@_crashFlying flying</span>
+                        }
+                        else
+                        {
+                            <span class="credify-floor-count">empty</span>
+                        }
+                    </a>
+                </div>
+                @if (Config.ChatGame.IsEnabled)
+                {
+                    <div class="credify-panel-foot">
+                        @if (Passive.CurrentGameName is { } chatGame)
+                        {
+                            <span class="credify-livepip"></span>
+                            <span><b>@chatGame</b> is live in server chat right now</span>
+                        }
+                        else if (Passive.NextGameDue is { } due)
+                        {
+                            <i class="ph ph-timer"></i>
+                            <span>Next chat game in <b>@Eta(due)</b></span>
+                        }
+                    </div>
+                }
+            </div>
+
+            <div class="credify-panel">
+                <h2 class="credify-panel-title"><i class="ph-fill ph-ticket"></i> Raffle</h2>
+                <div class="credify-raffle-pot">
+                    <span class="credify-raffle-amount">@Cache.BankCredits.ToString("N0")</span>
+                    <span class="credify-muted text-xs">in the pot</span>
+                </div>
+                <div class="mt-2 flex flex-col gap-1 text-sm text-zinc-300">
+                    @if (Raffle.NextOccurrence > DateTimeOffset.UtcNow)
+                    {
+                        <span><i class="ph ph-timer"></i> Draw in <b>@Eta(Raffle.NextOccurrence)</b></span>
+                    }
+                    <span><i class="ph ph-users-three"></i> <b>@_raffleTickets</b> @(_raffleTickets == 1 ? "ticket" : "tickets") sold · @Config.Core.RaffleCost.ToString("N0") each</span>
+                    <span class="credify-muted text-xs">buy in-game with <code>!crraf</code></span>
+                </div>
+                @if (_raffleLastWinner is { } winner)
+                {
+                    <div class="credify-panel-foot">
+                        <i class="ph-fill ph-confetti text-amber-400"></i>
+                        <span><b>@winner.ClientName</b> took <b>@winner.Amount.ToString("N0")</b> against @winner.PreviousPlayers @(winner.PreviousPlayers == 1 ? "player" : "players")</span>
+                    </div>
+                }
+            </div>
+
+            <div class="credify-panel">
+                <h2 class="credify-panel-title"><i class="ph-fill ph-skull"></i> Most wanted</h2>
+                @if (_bounties.Count == 0)
+                {
+                    <p class="mt-3 text-sm text-zinc-400">No open contracts. Put a price on someone's head in-game with <code>!crbounty</code>.</p>
+                }
+                else
+                {
+                    <div class="mt-3 flex flex-col gap-1.5">
+                        @foreach (var bounty in _bounties)
+                        {
+                            <div class="credify-row">
+                                <span class="flex items-center gap-2 truncate">
+                                    <i class="ph-fill ph-crosshair-simple text-rose-400"></i>
+                                    <span class="truncate font-medium">@bounty.Target</span>
+                                </span>
+                                <span class="flex items-center gap-2 whitespace-nowrap text-xs text-zinc-400">
+                                    @if (bounty.Contracts > 1)
+                                    {
+                                        <span>@bounty.Contracts contracts</span>
+                                    }
+                                    @if (bounty.ExpiresAt is { } expiry)
+                                    {
+                                        <span title="Soonest contract expiry">@Eta(expiry) left</span>
+                                    }
+                                    <span class="credify-bounty-amount">@bounty.Total.ToString("N0")</span>
+                                </span>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        @* ── quests + leaderboard ────────────────────────────────────────── *@
+        <div class="mt-4 grid gap-4 lg:grid-cols-2">
+
+            <div class="credify-panel">
+                <h2 class="credify-panel-title"><i class="ph-fill ph-scroll"></i> Today's quests</h2>
+                @if (_dailyQuests.Count == 0 && _permanentQuests.Count == 0)
+                {
+                    <p class="mt-3 text-sm text-zinc-400">Quests are being drawn — check back in a minute.</p>
+                }
+                else
+                {
+                    <div class="mt-3 flex flex-col gap-1.5">
+                        @foreach (var quest in _dailyQuests.Concat(_permanentQuests))
+                        {
+                            var mine = MyProgressFor(quest);
+                            <div class="credify-quest @(mine is { Done: true } ? "credify-quest-done" : "")">
+                                <span class="credify-quest-icon"><i class="ph-fill @QuestIcon(quest.ObjectiveType)"></i></span>
+                                <span class="min-w-0">
+                                    <span class="flex items-center gap-2">
+                                        <span class="truncate font-medium">@quest.Name</span>
+                                        @if (quest.IsPermanent)
+                                        {
+                                            <span class="credify-quest-tag">permanent</span>
+                                        }
+                                    </span>
+                                    @if (mine is { } progress)
+                                    {
+                                        <span class="credify-qbar"><span class="credify-qbar-fill" style="width:@(quest.ObjectiveCount > 0 ? Math.Min(100, progress.Progress * 100 / quest.ObjectiveCount) : 0)%"></span></span>
+                                    }
+                                </span>
+                                <span class="text-right whitespace-nowrap">
+                                    @if (mine is { Done: true })
+                                    {
+                                        <i class="ph-fill ph-check-circle text-emerald-400"></i>
+                                    }
+                                    else if (mine is { } p)
+                                    {
+                                        <span class="text-xs text-zinc-400">@p.Progress/@quest.ObjectiveCount</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-xs text-zinc-500">×@quest.ObjectiveCount.ToString("N0")</span>
+                                    }
+                                    <span class="credify-quest-reward">+@quest.Reward.ToString("N0")</span>
+                                </span>
+                            </div>
+                        }
+                    </div>
+                    <div class="credify-panel-foot"><i class="ph ph-arrows-clockwise"></i> Dailies reset at midnight</div>
+                }
+            </div>
+
+            <div class="credify-panel">
+                <h2 class="credify-panel-title">
+                    <i class="ph-fill ph-trophy text-amber-400"></i> Top credits
+                    <a href="/credify/leaderboards" class="ml-auto text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:underline">View all →</a>
+                </h2>
+                @if (_board.Count == 0)
+                {
+                    <p class="mt-3 text-sm text-zinc-400">No credit data yet.</p>
+                }
+                else
+                {
+                    <ol class="mt-3 flex flex-col gap-1.5">
+                        @foreach (var (row, i) in _board.Select((r, i) => (r, i)))
+                        {
+                            <li>
+                                <a href="/credify/profile/@row.ClientId" class="credify-row @(row.ClientId == _client?.ClientId ? "credify-row-you" : "")">
+                                    <span class="flex items-center gap-2 truncate">
+                                        <span class="credify-rank credify-rank-@(i + 1)">@(i + 1)</span>
+                                        <span class="truncate font-medium">@row.Name</span>
+                                        @if (row.Title is not null)
+                                        {
+                                            <Tooltip Text="@TitleDesc(row.Title)" WrapperClass="inline-flex">
+                                                <span class="credify-title-chip">@row.Title</span>
+                                            </Tooltip>
+                                        }
+                                    </span>
+                                    <span class="font-semibold text-[color:var(--color-action-primary,#818cf8)]">@row.Credits.ToString("N0")</span>
+                                </a>
+                            </li>
+                        }
+                    </ol>
+                }
+            </div>
+        </div>
+
+        @* ── recent shop purchases ───────────────────────────────────────── *@
+        @if (Config.Shop.IsEnabled && _purchases.Count > 0)
+        {
+            <div class="credify-panel mt-4">
+                <h2 class="credify-panel-title"><i class="ph-fill ph-shopping-bag"></i> Recently bought</h2>
+                <div class="mt-3 flex flex-col gap-1.5">
+                    @foreach (var purchase in _purchases)
+                    {
+                        <div class="credify-row">
+                            <span class="truncate"><b>@purchase.Buyer</b> bought <b>@purchase.Item</b></span>
+                            <span class="text-xs text-zinc-500 whitespace-nowrap">@Ago(purchase.At)</span>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
+        @* dev tool — money-sound tester; only rendered in DEBUG builds (gated by ShowDebugTools) *@
+        @if (ShowDebugTools)
+        {
+            <MoneySoundTester/>
+        }
     }
 </PluginPageShell>

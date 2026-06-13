@@ -1,0 +1,110 @@
+@page "/credify/profile"
+@page "/credify/profile/{ClientId:int}"
+@rendermode RenderMode.InteractiveServer
+
+<PageTitle>Credify · Profile</PageTitle>
+
+<PluginPageShell BackgroundClass="credify-felt text-zinc-100" Menu='CredifyNav.Build("/credify/profile")'>
+    <div class="flex items-center gap-2">
+        <i class="ph-fill ph-user-circle text-2xl text-[color:var(--color-action-primary,#818cf8)]"></i>
+        <h1 class="text-2xl font-bold tracking-tight">Profile</h1>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="flex items-center justify-center py-24 text-zinc-400"><i class="ph ph-spinner animate-spin text-3xl"></i></div>
+    }
+    else if (ClientId is null && _viewerId is null)
+    {
+        <div class="credify-panel mt-5 flex items-center gap-3 text-sm text-zinc-400">
+            <i class="ph-fill ph-sign-in text-xl text-[color:var(--color-action-primary,#818cf8)]"></i>
+            Log into IW4MAdmin to see your profile — wallet, lifetime stats and achievements.
+        </div>
+    }
+    else if (_notFound || _target is null)
+    {
+        <div class="credify-panel mt-5 flex items-center gap-3 text-sm text-zinc-400">
+            <i class="ph-fill ph-warning text-xl text-amber-400"></i> No player found for that id.
+        </div>
+    }
+    else
+    {
+        @* ── identity strip ─────────────────────────────────────────────── *@
+        <div class="credify-panel credify-me mt-5">
+            <div class="flex items-center gap-3 min-w-0">
+                <i class="ph-fill ph-user-circle text-3xl text-[color:var(--color-action-primary,#818cf8)]"></i>
+                <div class="min-w-0">
+                    <div class="flex items-center gap-2">
+                        <span class="truncate font-bold">@_target.CleanedName</span>
+                        @if (_title is not null)
+                        {
+                            <Tooltip Text="@TitleDesc(_title)" WrapperClass="inline-flex">
+                                <span class="credify-title-chip"><i class="ph-fill ph-medal"></i> @_title</span>
+                            </Tooltip>
+                        }
+                    </div>
+                    <div class="text-xs text-zinc-400">
+                        @_unlockedCount/@_achievements.Count achievements · @_questsDone quests completed
+                        @if (!_isSelf) { <span class="credify-muted">· viewing another player</span> }
+                    </div>
+                </div>
+            </div>
+            <span class="credify-chip">
+                <i class="ph-fill ph-wallet text-emerald-400"></i> @_balance.ToString("N0") <span class="credify-muted">credits</span>
+            </span>
+        </div>
+
+        @* session P/L graph + history — only meaningful for your own live session (circuit-scoped) *@
+        @if (_isSelf)
+        {
+            <GameHistoryPanel ClientId="_target.ClientId"/>
+        }
+
+        @* ── lifetime stats ─────────────────────────────────────────────── *@
+        <div class="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <StatCard Title="Won all-time" Value="@Won.ToString("N0")"/>
+            <StatCard Title="Wagered all-time" Value="@Wagered.ToString("N0")"/>
+            <StatCard Title="Kills" Value="@Kills.ToString("N0")"/>
+            <StatCard Title="Gifted to players" Value="@Gifted.ToString("N0")"/>
+        </div>
+
+        @* ── achievements gallery ───────────────────────────────────────── *@
+        <div class="credify-panel mt-4">
+            <h2 class="credify-panel-title">
+                <i class="ph-fill ph-trophy text-amber-400"></i> Achievements
+                <span class="credify-muted">@_unlockedCount / @_achievements.Count unlocked</span>
+            </h2>
+            <div class="mt-3 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                @foreach (var row in _achievements)
+                {
+                    <div class="credify-ach @(row.Unlocked ? "credify-ach-on" : "")">
+                        <span class="credify-ach-icon"><i class="ph-fill @ObjectiveIcon(row.Achievement.Objective)"></i></span>
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center gap-2">
+                                <span class="truncate font-semibold">@row.Achievement.Name</span>
+                                @if (row.Unlocked)
+                                {
+                                    <i class="ph-fill ph-check-circle text-emerald-400"></i>
+                                }
+                            </div>
+                            <div class="credify-ach-desc">@row.Achievement.Description</div>
+                            @if (row.Unlocked)
+                            {
+                                <div class="credify-ach-reward">+@row.Achievement.Reward.ToString("N0") credits</div>
+                            }
+                            else
+                            {
+                                <div class="credify-ach-bar"><span class="credify-ach-fill" style="width:@row.Pct%"></span></div>
+                                <div class="credify-ach-prog">@row.Current.ToString("N0") / @row.Achievement.Threshold.ToString("N0")</div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="mt-4 text-center">
+            <a href="/credify" class="text-sm text-zinc-400 hover:text-zinc-200 hover:underline">← Back to Credify</a>
+        </div>
+    }
+</PluginPageShell>

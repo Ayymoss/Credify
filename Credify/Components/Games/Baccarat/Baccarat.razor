@@ -1,0 +1,116 @@
+@page "/credify/baccarat"
+@rendermode RenderMode.InteractiveServer
+@using Credify.Games.Baccarat
+
+<PageTitle>Credify · Baccarat</PageTitle>
+
+<PluginPageShell BackgroundClass="bac-felt text-zinc-100" Menu='CredifyNav.Build("/credify/baccarat")'>
+
+    <!-- header -->
+    <GameHeader Title="Baccarat" Icon="ph-cards" Subtitle="Punto Banco" Balance="_balance" Authed="_authed"/>
+
+    <GameHistoryPanel ClientId="_client?.ClientId"/>
+
+    @if (_loading)
+    {
+        <div class="flex items-center justify-center py-24 text-zinc-400"><i class="ph ph-spinner animate-spin text-3xl"></i></div>
+    }
+    else if (!_authed)
+    {
+        <div class="mt-6 grid gap-6 md:grid-cols-2">
+            <JoinTablePanel Icon="ph-fill ph-cards" Title="Sign in to play"
+                            Description="Back the Player, the Banker, or a Tie. Two hands are dealt by fixed rules — closest to 9 wins. Nothing to decide but where your chips go.">
+                <a href="/" class="bac-btn bac-btn-deal mt-1 inline-flex"><i class="ph ph-sign-in"></i> Sign in</a>
+            </JoinTablePanel>
+            <div class="bac-panel">
+                <h2 class="flex items-center gap-2 text-lg font-bold"><i class="ph-fill ph-scales text-amber-400"></i> Fair odds</h2>
+                <p class="mt-2 text-sm text-zinc-400">No house edge — every bet pays its true odds.</p>
+                <div class="mt-3 flex flex-col gap-1.5 text-sm">
+                    <div class="bac-odds-row"><span>Player</span><span>@Odds(BaccaratBet.Player)</span></div>
+                    <div class="bac-odds-row"><span>Banker</span><span>@Odds(BaccaratBet.Banker)</span></div>
+                    <div class="bac-odds-row"><span>Tie</span><span>@Odds(BaccaratBet.Tie)</span></div>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <GameResultToast Toast="_toast"/>
+
+        <!-- the table -->
+        <div class="bac-table mt-6">
+
+            <!-- banker -->
+            <div class="bac-side bac-side-banker @(ResultOutcome == BaccaratResult.BankerWin ? "bac-win" : "")">
+                <div class="bac-side-head">
+                    <span class="bac-side-name"><i class="ph-fill ph-bank"></i> Banker</span>
+                    @if (_bCount > 0) { <span class="bac-total">@BankerShown</span> }
+                </div>
+                <div class="bac-cards">
+                    @for (var i = 0; i < _bCount; i++)
+                    {
+                        <PlayingCard Card="_banker[i]" FaceDown="_bFace[i]" Index="i" Sound="false" Compact="true"/>
+                    }
+                    @if (_bCount == 0) { <span class="bac-empty">—</span> }
+                </div>
+            </div>
+
+            <!-- player -->
+            <div class="bac-side bac-side-player @(ResultOutcome == BaccaratResult.PlayerWin ? "bac-win" : "")">
+                <div class="bac-side-head">
+                    <span class="bac-side-name"><i class="ph-fill ph-user"></i> Player</span>
+                    @if (_pCount > 0) { <span class="bac-total">@PlayerShown</span> }
+                </div>
+                <div class="bac-cards">
+                    @for (var i = 0; i < _pCount; i++)
+                    {
+                        <PlayingCard Card="_player[i]" FaceDown="_pFace[i]" Index="i" Sound="false" Compact="true"/>
+                    }
+                    @if (_pCount == 0) { <span class="bac-empty">—</span> }
+                </div>
+            </div>
+        </div>
+
+        <!-- bet spots -->
+        <div class="bac-spots mt-5">
+            <button class="bac-spot bac-spot-player @(_choice == BaccaratBet.Player ? "bac-spot-on" : "") @(ResultOutcome == BaccaratResult.PlayerWin ? "bac-spot-win" : "")"
+                    disabled="@(_phase == Phase.Dealing)" @onclick="() => Choose(BaccaratBet.Player)">
+                <span class="bac-spot-name">Player</span>
+                <span class="bac-spot-odds">@Odds(BaccaratBet.Player)</span>
+            </button>
+            <button class="bac-spot bac-spot-tie @(_choice == BaccaratBet.Tie ? "bac-spot-on" : "") @(ResultOutcome == BaccaratResult.Tie ? "bac-spot-win" : "")"
+                    disabled="@(_phase == Phase.Dealing)" @onclick="() => Choose(BaccaratBet.Tie)">
+                <span class="bac-spot-name">Tie</span>
+                <span class="bac-spot-odds">@Odds(BaccaratBet.Tie)</span>
+            </button>
+            <button class="bac-spot bac-spot-banker @(_choice == BaccaratBet.Banker ? "bac-spot-on" : "") @(ResultOutcome == BaccaratResult.BankerWin ? "bac-spot-win" : "")"
+                    disabled="@(_phase == Phase.Dealing)" @onclick="() => Choose(BaccaratBet.Banker)">
+                <span class="bac-spot-name">Banker</span>
+                <span class="bac-spot-odds">@Odds(BaccaratBet.Banker)</span>
+            </button>
+        </div>
+
+        <!-- controls -->
+        <div class="bac-controls mt-5">
+            @if (_phase == Phase.Dealing)
+            {
+                <p class="text-sm text-zinc-400"><i class="ph ph-spinner animate-spin"></i> Dealing…</p>
+            }
+            else
+            {
+                <BetControl @bind-Value="_bet" Balance="_balance" Min="MinBet" Max="MaxBet" Disabled="_busy"/>
+                <button class="bac-btn bac-btn-deal" disabled="@(!CanDeal)" @onclick="Deal">
+                    <i class="ph-fill ph-cards"></i> <span>Deal · @_choice.ToString()</span>
+                </button>
+                @if (_balance < MinBet)
+                {
+                    <p class="text-sm text-rose-400">You need at least @MinBet.ToString("N0") credits to play.</p>
+                }
+            }
+        </div>
+
+        <div class="mt-4 text-center">
+            <a href="/credify" class="text-sm text-zinc-400 hover:text-zinc-200 hover:underline">← Back to Credify</a>
+        </div>
+    }
+</PluginPageShell>

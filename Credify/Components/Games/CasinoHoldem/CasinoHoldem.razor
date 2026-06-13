@@ -8,20 +8,7 @@
 <PluginPageShell BackgroundClass="ch-felt text-zinc-100" Menu='CredifyNav.Build("/credify/casinoholdem")'>
 
     <!-- header -->
-    <div class="flex items-center justify-between gap-3">
-        <div class="flex items-center gap-2">
-            <i class="ph-fill ph-club text-2xl text-[color:var(--color-action-primary,#818cf8)]"></i>
-            <h1 class="text-2xl font-bold tracking-tight">Casino Hold'em</h1>
-        </div>
-        <div class="flex items-center gap-2">
-            <CredifyAudioControls/>
-            <span class="ch-chip-stat"><i class="ph-fill ph-coins text-amber-400"></i> @Cache.BankCredits.ToString("N0") <span class="ch-muted">bank</span></span>
-            @if (_authed)
-            {
-                <span class="ch-chip-stat"><i class="ph-fill ph-wallet text-emerald-400"></i> @_balance.ToString("N0") <span class="ch-muted">credits</span></span>
-            }
-        </div>
-    </div>
+    <GameHeader Title="Casino Hold'em" Icon="ph-club" Balance="_balance" Authed="_authed"/>
 
     <GameHistoryPanel ClientId="_client?.ClientId"/>
 
@@ -60,14 +47,14 @@
                     }
                     else if (_phase == Phase.Decision)
                     {
-                        <CardView Card="_noCard" FaceDown="true" Index="0"/>
-                        <CardView Card="_noCard" FaceDown="true" Index="1"/>
+                        <PlayingCard Card="_noCard" FaceDown="true" Index="0"/>
+                        <PlayingCard Card="_noCard" FaceDown="true" Index="1"/>
                     }
                     else
                     {
                         @for (var i = 0; i < _dealerHole.Count; i++)
                         {
-                            <CardView Card="_dealerHole[i]" Index="i"/>
+                            <PlayingCard Card="_dealerHole[i]" Index="i" Highlight="DealerWon"/>
                         }
                     }
                 </div>
@@ -86,7 +73,7 @@
                         @for (var i = 0; i < 5; i++)
                         {
                             var shown = _phase == Phase.Settle || i < 3; // flop visible at decision, all five at settle
-                            <CardView Card="@(shown ? _community[i] : _noCard)" FaceDown="@(!shown)" Index="i"/>
+                            <PlayingCard Card="@(shown ? _community[i] : _noCard)" FaceDown="@(!shown)" Index="i"/>
                         }
                     }
                 </div>
@@ -113,7 +100,7 @@
                     {
                         @for (var i = 0; i < _playerHole.Count; i++)
                         {
-                            <CardView Card="_playerHole[i]" Index="i"/>
+                            <PlayingCard Card="_playerHole[i]" Index="i" Highlight="PlayerWon"/>
                         }
                     }
                 </div>

@@ -17,7 +17,11 @@ public class ScheduleService(
 {
     public void TriggerSchedules(IManager manager, CancellationToken token)
     {
-        if (config.ChatGame.IsEnabled) Utilities.ExecuteAfterDelay(config.ChatGame.Frequency, InitChatGameAsync, token);
+        if (config.ChatGame.IsEnabled)
+        {
+            passiveManager.NextGameDue = DateTimeOffset.UtcNow + config.ChatGame.Frequency;
+            Utilities.ExecuteAfterDelay(config.ChatGame.Frequency, InitChatGameAsync, token);
+        }
 
         Utilities.ExecuteAfterDelay(config.Core.AdvertisementIntervalMinutes,
             cancellationToken => AdvertisementDelayAsync(manager, cancellationToken), token);
@@ -31,6 +35,7 @@ public class ScheduleService(
     private async Task InitChatGameAsync(CancellationToken token)
     {
         await passiveManager.InitGameAsync();
+        passiveManager.NextGameDue = DateTimeOffset.UtcNow + config.ChatGame.Frequency;
         Utilities.ExecuteAfterDelay(config.ChatGame.Frequency, InitChatGameAsync, token);
     }
 

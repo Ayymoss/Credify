@@ -1,0 +1,58 @@
+@page "/credify/leaderboards"
+@rendermode RenderMode.InteractiveServer
+
+<PageTitle>Credify · Leaderboards</PageTitle>
+
+<PluginPageShell BackgroundClass="credify-felt text-zinc-100" Menu='CredifyNav.Build("/credify/leaderboards")'>
+    <div class="flex items-center gap-2">
+        <i class="ph-fill ph-ranking text-2xl text-[color:var(--color-action-primary,#818cf8)]"></i>
+        <h1 class="text-2xl font-bold tracking-tight">Leaderboards</h1>
+        <span class="credify-badge">top @Limit</span>
+    </div>
+
+    @* ── tabs ─────────────────────────────────────────────────────────── *@
+    <div class="credify-tabs mt-4">
+        @foreach (var tab in TabDefs)
+        {
+            <button class="credify-tab @(_active == tab.Key ? "credify-tab-on" : "")" @onclick="() => Select(tab.Key)">
+                <i class="ph-fill @tab.Icon"></i> @tab.Label
+            </button>
+        }
+    </div>
+
+    <div class="credify-panel mt-4">
+        @if (_loading)
+        {
+            <div class="flex items-center justify-center py-16 text-zinc-400"><i class="ph ph-spinner animate-spin text-3xl"></i></div>
+        }
+        else if (_rows.Count == 0)
+        {
+            <p class="py-10 text-center text-sm text-zinc-400">No ranked players yet for this board.</p>
+        }
+        else
+        {
+            <ol class="flex flex-col gap-1.5">
+                @foreach (var row in _rows)
+                {
+                    <li>
+                        <a href="/credify/profile/@row.ClientId"
+                           class="credify-row @(row.ClientId == _viewerId ? "credify-row-you" : "")">
+                            <span class="flex items-center gap-2 truncate">
+                                <span class="credify-rank credify-rank-@row.Rank">@row.Rank</span>
+                                <span class="truncate font-medium">@row.Name</span>
+                            </span>
+                            <span class="whitespace-nowrap font-semibold text-[color:var(--color-action-primary,#818cf8)]">
+                                @row.Value.ToString("N0") <span class="credify-muted">@Active.Suffix</span>
+                            </span>
+                        </a>
+                    </li>
+                }
+            </ol>
+        }
+        <div class="credify-panel-foot"><i class="ph ph-arrows-clockwise"></i> Refreshes every minute · tap a player to view their profile</div>
+    </div>
+
+    <div class="mt-4 text-center">
+        <a href="/credify" class="text-sm text-zinc-400 hover:text-zinc-200 hover:underline">← Back to Credify</a>
+    </div>
+</PluginPageShell>

@@ -187,6 +187,14 @@ export function plinkoLand(multiplier) {
     }
 }
 
+// Crash multiplier milestone (2× / 5× / 10× / …): a quick rising two-note chime whose pitch climbs with
+// the milestone index, layered over the continuous rocket thrust.
+export function milestone(level) {
+    const f = 660 * Math.pow(1.4, Math.min(level, 5));
+    tone(f, 0.12, 'triangle', { gain: 0.13 });
+    tone(f * 1.5, 0.16, 'sine', { gain: 0.11, when: 0.07 });
+}
+
 // mine detonation
 export function bomb() {
     noise(0.55, { gain: 0.5, freq: 1100, type: 'lowpass' });
@@ -209,37 +217,75 @@ function reelTimeAtProgress(progress) {
     return reelBezierX((lo + hi) / 2);
 }
 
-// slot machine: a lever ka-chunk + per-reel tick trains where each tick = one symbol crossing the window, so
-// the ticks slow down with the reels (and overlap densely at the start, thinning as each reel lands). Reel
-// params mirror slots.js: cells = 17 + i*5, duration = 1.15 + i*0.36 s (= 1150 + i*360 ms).
-export function reels() {
+// slot machine: a lever ka-chunk + per-reel tick trains where each tick = one symbol crossing the
+// window, so the ticks decelerate exactly with the reels. The choreography mirrors slots.js: reels
+// 0 & 1 spin together (1.15s / 1.55s); reel 2 starts once they've stopped and — when `anticipate`
+// is set (the first two reels match) — crawls for a longer beat with a heartbeat underneath before
+// landing. Keep these timings in sync with spinReel() in slots.js.
+export function reels(anticipate = false) {
     if (!ensure()) return;
 
     // lever pull / ka-chunk
     clickAt(0, 0.18, 1500);
     tone(190, 0.12, 'square', { gain: 0.14, slideTo: 110 });
 
-    const startDelay = 0.06;
-    for (let i = 0; i < 3; i++) {
-        const duration = 1.15 + i * 0.36;
-        const cells = 17 + i * 5;
-        const ticks = Math.min(15, cells - 1);
+    const lanes = [
+        { start: 0.04, dur: 1.15 },
+        { start: 0.04, dur: 1.55 },
+        { start: 1.55, dur: anticipate ? 2.6 : 1.75 }, // final reel runs alone, after the first two
+    ];
 
+    for (const lane of lanes) {
+        const ticks = 15;
         // one tick per equal slice of scroll distance → time gaps widen as the reel eases to a stop
         for (let k = 1; k < ticks; k++) {
             const progress = k / ticks;
-            const when = startDelay + reelTimeAtProgress(progress) * duration;
+            const when = lane.start + reelTimeAtProgress(progress) * lane.dur;
             clickAt(when, 0.05 * (1 - progress * 0.4), 2500);
         }
 
         // the reel slamming to its stop
-        const stop = startDelay + duration;
+        const stop = lane.start + lane.dur;
         clickAt(stop, 0.16, 1900);
         tone(150, 0.14, 'sine', { gain: 0.2, slideTo: 80, when: stop });
     }
+
+    // anticipation heartbeat under the lone final reel
+    if (anticipate) {
+        for (let b = 0; b < 5; b++) {
+            const when = 1.8 + b * 0.45;
+            tone(95, 0.12, 'sine', { gain: 0.17, when });
+            tone(72, 0.14, 'sine', { gain: 0.13, when: when + 0.12 });
+        }
+    }
+}
+
+// Single pocket-pass tick for the roulette wheel — fired by roulette.js as each pocket crosses the
+// pointer, so the tick rate IS the wheel's real speed (a pre-baked schedule drifts out of sync with the
+// animation). Intensity 0..1 follows the wheel speed: quieter and duller as it slows.
+// Unlike clickAt (square wave, envelope scheduled at ctx.currentTime exactly), this voice is built for
+// rapid rAF-driven firing: a 10ms scheduling lead so the attack ramp is never clamped into the past
+// (a clamped ramp skips the fade-in and pops), a soft triangle instead of a square, and an asymptotic
+// setTargetAtTime decay with no envelope corners to click on.
+export function pocketTick(intensity = 1) {
+    if (!ensure()) return;
+    const i = Math.max(0, Math.min(1, intensity));
+    const t = ctx.currentTime + 0.01;
+    const o = ctx.createOscillator();
+    o.type = 'triangle';
+    o.frequency.value = 1500 + 600 * i;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.035 + 0.095 * i, t + 0.004);
+    g.gain.setTargetAtTime(0, t + 0.004, 0.012);
+    o.connect(g);
+    g.connect(master);
+    o.start(t);
+    o.stop(t + 0.1); // ~8 time-constants into the decay (≈ -70 dB), silent at the stop
 }
 
 // roulette wheel: a tick train whose spacing widens as the wheel "slows" over ~4s
+// (legacy — live roulette now uses pocketTick() per real pocket crossing; kept for the /credify tester)
 export function spin() {
     if (!ensure()) return;
     const total = 4.0;
@@ -352,7 +398,7 @@ const MONEY = {
     achievementGap: 90,          // ms gap after the last tap, for 'after' mode
 };
 
-// Core engine, fully parameterised. Used by both win() (live) and previewMoney() (tester).
+// Core engine, fully parameterised. Used by both the real win() path and previewMoney() (the /credify tester).
 async function playMoney(o) {
     if (!ensure()) return;
 
@@ -428,15 +474,14 @@ function playsForAmount(amount, perPlay, minPlays, maxPlays) {
     return Math.max(minPlays, Math.min(maxPlays, Math.round(amount / Math.max(1, perPlay))));
 }
 
-// amount = profit (what flies into the wallet); bet = the stake, used to gate the achievement jingle on a
-// strong multiplier. Pass bet = 0 (or omit) where there's no clean stake (e.g. a poker pot) to fall back
-// to the absolute threshold only.
-export async function win(amount, bet = 0) {
-    if (!ensure()) return;
+// The real win effect — amount = profit (what flies into the wallet); bet = the stake, used to gate the
+// achievement jingle on a strong multiplier. Pass bet = 0 (or omit) where there's no clean stake (e.g. a
+// poker pot) to fall back to the absolute threshold only. Tick count derives from the amount.
+export function win(amount, bet = 0) {
     const amt = Math.max(0, Math.round(amount));
-    const stake = Math.max(0, Math.round(bet));
+    if (amt <= 0) return;
     const plays = playsForAmount(amt, MONEY.perPlay, MONEY.minPlays, MONEY.maxPlays);
-    await playMoney({ amount: amt, bet: stake, plays, counter: true });
+    playMoney({ amount: amt, bet, plays });
 }
 
 // Tester entry point — full control over every knob. opts: { amount, plays, perPlay, minPlays, maxPlays,

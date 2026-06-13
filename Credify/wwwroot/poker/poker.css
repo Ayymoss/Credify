@@ -1,6 +1,6 @@
 /*
  * Credify Poker table styling. Bespoke `.pk-*` classes, served at /_content/credify/poker/poker.css.
- * The page also loads blackjack.css so the shared CardView (`.bj-card*`) renders identically.
+ * Cards render via the shared PlayingCard component (`.credify-card*` in custom.css).
  */
 
 .pk-felt {
@@ -10,17 +10,6 @@
     box-shadow: inset 0 0 130px rgba(0, 0, 0, 0.55);
 }
 
-.pk-chip-stat {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.3rem 0.7rem;
-    border-radius: 9999px;
-    background: rgba(0, 0, 0, 0.35);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    font-weight: 700;
-    font-size: 0.85rem;
-}
 .pk-muted { color: rgba(255, 255, 255, 0.5); font-weight: 500; }
 
 .pk-panel {

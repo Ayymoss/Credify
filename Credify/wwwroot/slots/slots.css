@@ -1,97 +1,195 @@
-/* Credify Slots — neutral casino felt + a 3-reel machine. Layout/chrome come from the host
-   classes via PluginPageShell; these are the game-specific bits only. */
+/* Credify Slots — a vintage Vegas cabinet. Brass-trimmed aubergine body, a lit marquee, a 3-row
+   reel window (centre row = payline), a chrome pull-lever and a bulb border that chases on a win.
+   Layout/chrome around it come from the host via PluginPageShell; these are the game-specific bits.
+   The reel strips are built/owned by slots.js — Blazor only renders the empty .sl-reel windows. */
 
 .sl-felt {
-    background: radial-gradient(130% 110% at 50% -10%, #2a1430 0%, #1a1022 45%, #0a0710 100%);
+    background:
+        radial-gradient(120% 90% at 50% -10%, #321a3c 0%, #1a1022 50%, #070409 100%);
 }
 
 .sl-muted { color: var(--color-subtle, #a1a1aa); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; }
-
-.sl-chip-stat {
-    display: inline-flex; align-items: center; gap: 0.4rem;
-    padding: 0.35rem 0.7rem; border-radius: 0.6rem;
-    background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.08);
-    font-weight: 700; font-size: 0.85rem;
-}
 
 .sl-panel {
     border-radius: 1rem; padding: 1.25rem;
     background: rgba(0, 0, 0, 0.28); border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-/* ── machine ─────────────────────────────────────────────────────────── */
-.sl-machine {
+/* ── cabinet ─────────────────────────────────────────────────────────── */
+.sl-cabinet {
     position: relative;
-    max-width: 30rem; margin-inline: auto;
-    padding: 1.1rem; border-radius: 1.2rem;
-    background: linear-gradient(180deg, #3a2350, #241338);
-    border: 2px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    max-width: 32rem; margin-inline: auto;
+    padding: 0.9rem 1rem 1.2rem;
+    border-radius: 1.4rem;
+    /* brass frame: a metallic gradient border drawn with a padded inset body */
+    background:
+        linear-gradient(180deg, #5a3a18, #20140a) padding-box,
+        linear-gradient(145deg, #fde08a 0%, #b8860b 22%, #7a5410 50%, #d9a93a 75%, #ffe9a8 100%) border-box;
+    border: 4px solid transparent;
+    box-shadow:
+        0 24px 60px rgba(0, 0, 0, 0.6),
+        inset 0 2px 2px rgba(255, 255, 255, 0.25),
+        inset 0 -3px 8px rgba(0, 0, 0, 0.5);
+}
+/* inner cabinet face behind the marquee + reels */
+.sl-cabinet-face {
+    border-radius: 1rem;
+    padding: 0.85rem;
+    background: linear-gradient(180deg, #3a2350, #1d1030 60%, #160c26);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06), inset 0 10px 24px rgba(0, 0, 0, 0.45);
 }
 
-.sl-reels { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.7rem; }
+/* ── marquee ─────────────────────────────────────────────────────────── */
+.sl-marquee {
+    display: flex; align-items: center; justify-content: center; gap: 0.6rem;
+    padding: 0.5rem 0.75rem; margin-bottom: 0.85rem;
+    border-radius: 0.7rem;
+    background: radial-gradient(120% 160% at 50% 0%, #2a1742, #140a22);
+    box-shadow: inset 0 0 0 1px rgba(255, 215, 130, 0.18), inset 0 2px 10px rgba(0, 0, 0, 0.5);
+}
+.sl-marquee-title {
+    font-weight: 900; letter-spacing: 0.22em; text-transform: uppercase;
+    font-size: clamp(0.95rem, 4.4vw, 1.4rem);
+    background: linear-gradient(180deg, #fff6d8 0%, #fcd34d 45%, #d9892a 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+    font-family: "Georgia", "Times New Roman", ui-serif, serif; /* art-deco-ish serif marquee */
+}
+.sl-marquee-seven {
+    font-size: clamp(1.2rem, 5vw, 1.7rem); font-weight: 900; color: #f43f5e;
+    text-shadow: 0 0 10px rgba(244, 63, 94, 0.6); font-family: Georgia, serif;
+}
+
+/* ── bulb border ─────────────────────────────────────────────────────── */
+.sl-bulbs { display: flex; justify-content: space-between; padding: 0 0.4rem 0.6rem; }
+.sl-bulb {
+    width: 0.55rem; height: 0.55rem; border-radius: 9999px;
+    background: radial-gradient(circle at 35% 30%, #fff3c4, #f59e0b 60%, #7a4f08);
+    box-shadow: 0 0 6px rgba(251, 191, 36, 0.7);
+    animation: sl-bulb-idle 2.4s ease-in-out infinite;
+}
+@keyframes sl-bulb-idle { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+/* chase on a win — each bulb lit in sequence via its --d delay */
+.sl-cabinet.sl-win .sl-bulb,
+.sl-cabinet.sl-jackpot .sl-bulb {
+    animation: sl-bulb-chase 0.7s linear infinite;
+    animation-delay: var(--d, 0ms);
+}
+@keyframes sl-bulb-chase {
+    0%, 100% { opacity: 0.4; box-shadow: 0 0 5px rgba(251, 191, 36, 0.5); }
+    50% { opacity: 1; box-shadow: 0 0 12px rgba(255, 224, 130, 0.95); transform: scale(1.15); }
+}
+
+/* ── reel window ─────────────────────────────────────────────────────── */
+.sl-reels-row { display: flex; align-items: stretch; gap: 0.8rem; }
+
+.sl-window {
+    position: relative; flex: 1 1 auto;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem;
+    padding: 0.45rem; border-radius: 0.7rem;
+    background: #0b0610;
+    box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.6), inset 0 0 24px rgba(0, 0, 0, 0.6);
+}
 
 .sl-reel {
     position: relative; overflow: hidden;
-    aspect-ratio: 3 / 4; border-radius: 0.7rem;
-    background: linear-gradient(180deg, #fdfdfd, #d6d6e0);
-    box-shadow: inset 0 0 0 3px rgba(0, 0, 0, 0.25), inset 0 12px 18px rgba(0, 0, 0, 0.18), inset 0 -12px 18px rgba(0, 0, 0, 0.18);
-    display: flex; align-items: center; justify-content: center;
+    height: clamp(9rem, 42vw, 13.2rem); border-radius: 0.5rem;
+    background: linear-gradient(180deg, #fdfdfd 0%, #ece9f4 50%, #d4d0e0 100%);
+    box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.3);
 }
+/* top & bottom shade so symbols fade at the window edges (depth of a real drum) */
+.sl-reel::before, .sl-reel::after {
+    content: ""; position: absolute; left: 0; right: 0; height: 32%; z-index: 2; pointer-events: none;
+}
+.sl-reel::before { top: 0; background: linear-gradient(180deg, rgba(20, 10, 30, 0.55), transparent); }
+.sl-reel::after { bottom: 0; background: linear-gradient(0deg, rgba(20, 10, 30, 0.55), transparent); }
 
-.sl-reel-glyph {
-    font-size: clamp(2.2rem, 12vw, 3.4rem); font-weight: 900;
-    color: #1a1022; line-height: 1; user-select: none;
-    font-family: ui-sans-serif, system-ui, "Segoe UI Emoji", sans-serif;
+/* JS-built scrolling strip + cells */
+.sl-strip { position: absolute; top: 0; left: 0; right: 0; will-change: transform; backface-visibility: hidden; }
+.sl-cell {
+    display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
+    font-size: clamp(1.7rem, 9vw, 2.8rem); font-weight: 900; line-height: 1; color: #1a1022;
+    user-select: none; font-family: ui-sans-serif, system-ui, "Segoe UI Emoji", sans-serif;
 }
-
-/* scrolling strip (built by slots.js for the duration of a spin) */
-.sl-strip {
-    position: absolute; top: 0; left: 0; right: 0;
-    display: flex; flex-direction: column;
-    will-change: transform; backface-visibility: hidden;
-}
-.sl-strip-cell {
-    display: flex; align-items: center; justify-content: center;
-    flex: 0 0 auto;
-    font-size: clamp(2.2rem, 12vw, 3.4rem); font-weight: 900;
-    color: #1a1022; line-height: 1; user-select: none;
-    font-family: ui-sans-serif, system-ui, "Segoe UI Emoji", sans-serif;
-}
-/* motion blur that eases out as the reel slows — sells the speed without the cells tearing */
+/* text symbols (7 / BAR) get a warm casino tint; emoji ignore color */
+.sl-cell { letter-spacing: 0.02em; }
 .sl-strip-spin { animation: sl-blur var(--sl-dur, 1200ms) ease-out forwards; }
-@keyframes sl-blur {
-    0%   { filter: blur(3px); }
-    60%  { filter: blur(1px); }
-    100% { filter: blur(0); }
+@keyframes sl-blur { 0% { filter: blur(4px); } 55% { filter: blur(1.5px); } 100% { filter: blur(0); } }
+
+/* the centre cell of a reel that's part of a win */
+.sl-cell-win {
+    color: #7a4a00;
+    background: radial-gradient(circle at 50% 40%, rgba(253, 224, 138, 0.95), rgba(251, 191, 36, 0.35) 70%, transparent);
+    animation: sl-cell-pop 0.5s cubic-bezier(0.18, 1.4, 0.4, 1), sl-cell-glow 1s ease-in-out 0.5s infinite;
 }
+@keyframes sl-cell-pop { 0% { transform: scale(0.8); } 55% { transform: scale(1.16); } 100% { transform: scale(1); } }
+@keyframes sl-cell-glow { 0%, 100% { filter: drop-shadow(0 0 2px rgba(251, 191, 36, 0.5)); } 50% { filter: drop-shadow(0 0 10px rgba(251, 191, 36, 0.95)); } }
 
-.sl-settled { animation: sl-pop 0.3s cubic-bezier(0.18, 1.4, 0.4, 1); }
-@keyframes sl-pop { 0% { transform: scale(0.82); } 55% { transform: scale(1.12); } 100% { transform: scale(1); } }
-
-/* payline across the middle of the reels */
+/* ── payline ─────────────────────────────────────────────────────────── */
 .sl-payline {
-    position: absolute; left: 0.6rem; right: 0.6rem; top: 50%;
-    height: 2px; transform: translateY(-50%);
-    background: linear-gradient(90deg, transparent, rgba(251, 191, 36, 0.7), transparent);
-    pointer-events: none;
+    position: absolute; left: 0.75rem; right: 0.75rem; top: 50%; transform: translateY(-50%);
+    height: 3px; z-index: 3; pointer-events: none; border-radius: 2px;
+    background: linear-gradient(90deg, transparent, rgba(251, 191, 36, 0.85), transparent);
+    opacity: 0.45; transition: opacity 0.2s ease;
 }
-.sl-reels-spinning ~ .sl-payline { opacity: 0.35; }
-
-/* (win/loss feedback is the shared GameResultToast — see custom.css `.credify-toast*`) */
-
-/* ── chips + lever ───────────────────────────────────────────────────── */
-.sl-chip {
-    min-width: 3.2rem; padding: 0.45rem 0.7rem; border-radius: 0.6rem; font-weight: 700; font-size: 0.85rem;
-    background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.12); color: #e4e4e7;
-    transition: background 0.15s ease, transform 0.05s ease;
+.sl-cabinet.sl-win .sl-payline, .sl-cabinet.sl-jackpot .sl-payline {
+    opacity: 1; box-shadow: 0 0 14px rgba(251, 191, 36, 0.8); animation: sl-pay-pulse 0.6s ease-in-out infinite;
 }
-.sl-chip:hover:not(:disabled) { background: rgba(255, 255, 255, 0.12); }
-.sl-chip:active:not(:disabled) { transform: translateY(1px); }
-.sl-chip:disabled { opacity: 0.4; cursor: not-allowed; }
-.sl-chip-max { color: #fcd34d; }
-.sl-chip-clear { color: #fda4af; }
+@keyframes sl-pay-pulse { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
+.sl-payarrow {
+    position: absolute; top: 50%; transform: translateY(-50%); z-index: 4;
+    color: #fcd34d; font-size: 1rem; line-height: 1; pointer-events: none;
+    filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.6));
+}
+.sl-payarrow-l { left: -0.15rem; }
+.sl-payarrow-r { right: -0.15rem; }
 
+/* anticipation: the final reel crawls under a spotlight when the first two already match */
+.sl-reel.sl-reel-anticipate {
+    box-shadow: inset 0 0 0 2px rgba(251, 191, 36, 0.9), 0 0 22px rgba(251, 191, 36, 0.55);
+    animation: sl-anticipate 0.5s ease-in-out infinite;
+}
+@keyframes sl-anticipate { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.18); } }
+
+/* ── lever ───────────────────────────────────────────────────────────── */
+.sl-lever {
+    position: relative; flex: 0 0 auto; width: 2.2rem; align-self: stretch;
+    background: none; border: none; cursor: pointer; padding: 0;
+}
+.sl-lever:disabled { cursor: not-allowed; opacity: 0.55; }
+.sl-lever-track {
+    position: absolute; top: 0.6rem; bottom: 0.6rem; left: 50%; width: 0.5rem; transform: translateX(-50%);
+    border-radius: 9999px; background: linear-gradient(90deg, #1c1c22, #4b4b55 45%, #2a2a32);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.6);
+}
+.sl-lever-arm {
+    position: absolute; left: 50%; width: 0.62rem; height: 55%; transform: translateX(-50%);
+    top: 6%; transform-origin: 50% 100%;
+    border-radius: 9999px;
+    background: linear-gradient(90deg, #6b6b76, #e6e6ee 45%, #8a8a96);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+    transition: top 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.sl-lever-knob {
+    position: absolute; left: 50%; top: 2%; width: 1.5rem; height: 1.5rem; transform: translate(-50%, -40%);
+    border-radius: 9999px;
+    background: radial-gradient(circle at 35% 30%, #ff8fa3, #e11d48 55%, #7f1024);
+    box-shadow: 0 4px 10px rgba(159, 18, 57, 0.6), inset 0 2px 3px rgba(255, 255, 255, 0.4);
+    transition: top 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+/* pulled down while the reels spin */
+.sl-lever-down .sl-lever-arm { top: 42%; }
+.sl-lever-down .sl-lever-knob { top: 46%; }
+
+/* jackpot: a quick golden screen flash over the whole cabinet */
+.sl-cabinet.sl-jackpot::after {
+    content: ""; position: absolute; inset: 0; border-radius: 1.4rem; pointer-events: none; z-index: 5;
+    background: radial-gradient(circle at 50% 45%, rgba(255, 236, 170, 0.55), transparent 60%);
+    animation: sl-jackpot-flash 0.7s ease-out 3;
+}
+@keyframes sl-jackpot-flash { 0% { opacity: 0; } 30% { opacity: 1; } 100% { opacity: 0; } }
+
+/* ── controls ────────────────────────────────────────────────────────── */
 .sl-btn {
     display: inline-flex; align-items: center; gap: 0.5rem;
     padding: 0.65rem 1.5rem; border-radius: 0.8rem; font-weight: 800;
@@ -102,11 +200,65 @@
 .sl-btn-primary:hover:not(:disabled) { filter: brightness(1.1); }
 .sl-btn-lever {
     background: linear-gradient(180deg, #f43f5e, #be123c); color: #fff;
-    font-size: 1.05rem; padding-inline: 2rem;
+    font-size: 1.05rem; padding-inline: 2.2rem; letter-spacing: 0.04em;
     box-shadow: 0 8px 20px rgba(190, 18, 60, 0.4);
 }
 .sl-btn-lever:hover:not(:disabled) { filter: brightness(1.08); }
 .sl-btn-lever:active:not(:disabled) { transform: translateY(1px); }
+
+/* ── gamble (double-or-nothing) ──────────────────────────────────────── */
+.sl-gamble {
+    max-width: 26rem; margin-inline: auto;
+    display: flex; flex-direction: column; align-items: center; gap: 0.6rem;
+    padding: 1rem 1.1rem; border-radius: 1rem;
+    background: radial-gradient(120% 130% at 50% 0%, rgba(251, 191, 36, 0.1), transparent 60%), rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(251, 191, 36, 0.25);
+}
+.sl-gamble-amount {
+    font-size: clamp(1.6rem, 7vw, 2.2rem); font-weight: 900; font-variant-numeric: tabular-nums;
+    color: #fcd34d; text-shadow: 0 0 14px rgba(251, 191, 36, 0.45);
+}
+.sl-gamble-amount .sl-muted { font-size: 0.7rem; }
+.sl-gamble-hint { font-size: 0.85rem; color: #d4d4d8; text-align: center; }
+.sl-gamble-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; justify-content: center; }
+
+.sl-btn-collect { background: linear-gradient(180deg, #10b981, #047857); color: #fff; box-shadow: 0 8px 20px rgba(4, 120, 87, 0.35); }
+.sl-btn-collect:hover:not(:disabled) { filter: brightness(1.1); }
+.sl-btn-gamble { background: linear-gradient(180deg, #fbbf24, #b45309); color: #1a1022; box-shadow: 0 8px 20px rgba(180, 83, 9, 0.4); }
+.sl-btn-gamble:hover:not(:disabled) { filter: brightness(1.08); }
+
+/* red / black pick buttons */
+.sl-pick {
+    display: flex; flex-direction: column; align-items: center; gap: 0.15rem;
+    min-width: 7rem; padding: 0.8rem 1.4rem; border-radius: 0.9rem;
+    font-weight: 900; letter-spacing: 0.06em; color: #fff;
+    border: 2px solid rgba(255, 255, 255, 0.25);
+    transition: filter 0.15s ease, transform 0.05s ease;
+}
+.sl-pick:disabled { opacity: 0.5; cursor: not-allowed; }
+.sl-pick:hover:not(:disabled) { filter: brightness(1.12); transform: translateY(-2px); }
+.sl-pick:active:not(:disabled) { transform: translateY(0); }
+.sl-pick-pips { font-size: 1.3rem; line-height: 1; }
+.sl-pick-red { background: radial-gradient(circle at 50% 30%, #f43f5e, #9f1239); }
+.sl-pick-black { background: radial-gradient(circle at 50% 30%, #3f3f52, #111118); }
+
+/* the landed card on reveal */
+.sl-gamble-card {
+    width: 5rem; height: 7rem; border-radius: 0.7rem;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(180deg, #ffffff, #e8e6f0);
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5);
+    animation: sl-card-flip 0.5s cubic-bezier(0.18, 1.2, 0.4, 1) both;
+}
+.sl-gamble-card-pip { font-size: 3rem; font-weight: 900; line-height: 1; }
+.sl-card-red .sl-gamble-card-pip { color: #e11d48; }
+.sl-card-black .sl-gamble-card-pip { color: #18181b; }
+.sl-card-won { box-shadow: 0 0 0 3px #fbbf24, 0 0 26px rgba(251, 191, 36, 0.7); }
+.sl-card-lost { filter: grayscale(0.4); opacity: 0.85; }
+@keyframes sl-card-flip {
+    0% { transform: rotateY(90deg) scale(0.9); opacity: 0; }
+    100% { transform: rotateY(0) scale(1); opacity: 1; }
+}
 
 /* ── paytable ────────────────────────────────────────────────────────── */
 .sl-paytable {
@@ -124,3 +276,9 @@
 .sl-pt-dim { opacity: 0.35; }
 .sl-paytable-label { color: #a1a1aa; }
 .sl-paytable-mult { font-weight: 800; color: #fcd34d; font-variant-numeric: tabular-nums; }
+
+@media (prefers-reduced-motion: reduce) {
+    .sl-bulb, .sl-cabinet.sl-win .sl-bulb, .sl-cabinet.sl-jackpot .sl-bulb,
+    .sl-strip-spin, .sl-cell-win, .sl-reel.sl-reel-anticipate,
+    .sl-cabinet.sl-win .sl-payline, .sl-cabinet.sl-jackpot::after, .sl-gamble-card { animation: none; }
+}

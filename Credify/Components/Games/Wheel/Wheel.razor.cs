@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Security.Claims;
+using System.Text;
 using System.Threading.Tasks;
 using Credify.Components.Shared;
 using Credify.Games.Wheel;
@@ -29,9 +30,9 @@ public partial class Wheel
     private static readonly IReadOnlyList<WheelSegment> Segments = WheelMachine.DefaultWheel;
     private static readonly int TotalWeight = Segments.Sum(slice => slice.Weight);
 
-    // precomputed slice geometry (degrees, clockwise from 12 o'clock) + the conic-gradient wheel face
+    // precomputed slice geometry (degrees, clockwise from 12 o'clock) + the SVG wheel face
     private static readonly double[] SliceMid = BuildMidAngles();
-    private static readonly string ConicCss = BuildConic();
+    private static readonly MarkupString FaceSvg = BuildFace();
 
     private EFClient? _client;
     private long _balance;
@@ -66,22 +67,42 @@ public partial class Wheel
         return mids;
     }
 
-    private static string BuildConic()
+    // SVG pie sectors rather than a CSS conic-gradient: Chromium paints conic gradients in four 90° arcs
+    // and leaves hairline seams/clips at the compass points, plus ragged antialiasing where the gradient
+    // meets the border-radius clip. Each slice starts a sliver early so antialiasing can't open a gap
+    // against the slice painted before it (the first slice tucks under the last one across 0°).
+    private static MarkupString BuildFace()
     {
-        var stops = new List<string>(Segments.Count);
+        var svg = new StringBuilder("<svg viewBox=\"-51 -51 102 102\" aria-hidden=\"true\">");
         double cumulative = 0;
-        foreach (var slice in Segments)
+        for (var i = 0; i < Segments.Count; i++)
         {
             var start = cumulative / TotalWeight * 360.0;
-            cumulative += slice.Weight;
+            cumulative += Segments[i].Weight;
             var end = cumulative / TotalWeight * 360.0;
-            stops.Add($"{slice.Color} {Deg(start)}deg {Deg(end)}deg");
+            svg.Append(Sector(start - 0.35, end, Segments[i].Color));
         }
 
-        return $"conic-gradient(from 0deg, {string.Join(", ", stops)})";
+        svg.Append("</svg>");
+        return new MarkupString(svg.ToString());
     }
 
-    private static string Deg(double value) => value.ToString("0.###", CultureInfo.InvariantCulture);
+    private static string Sector(double startDeg, double endDeg, string color)
+    {
+        const double radius = 50; // viewBox half-size is 51 — the spare unit keeps edge antialiasing unclipped
+        var (x0, y0) = Point(startDeg, radius);
+        var (x1, y1) = Point(endDeg, radius);
+        var largeArc = endDeg - startDeg > 180 ? 1 : 0;
+        return $"<path d=\"M0 0 L{F(x0)} {F(y0)} A{radius} {radius} 0 {largeArc} 1 {F(x1)} {F(y1)} Z\" fill=\"{color}\"/>";
+    }
+
+    private static (double X, double Y) Point(double deg, double radius)
+    {
+        var rad = deg * Math.PI / 180.0;
+        return (radius * Math.Sin(rad), -radius * Math.Cos(rad));
+    }
+
+    private static string F(double value) => value.ToString("0.####", CultureInfo.InvariantCulture);
     private static string Mult(WheelSegment slice) => slice.Multiplier.ToString("0.##", CultureInfo.InvariantCulture) + "×";
     private static string Chance(WheelSegment slice) => (slice.Weight / (double)TotalWeight * 100).ToString("0.##", CultureInfo.InvariantCulture) + "%";
 

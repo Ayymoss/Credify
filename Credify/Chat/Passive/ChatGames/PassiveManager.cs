@@ -15,6 +15,13 @@ public class PassiveManager(
 {
     private ChatGame? _currentGame;
 
+    /// <summary>When the next scheduled chat game fires (stamped by ScheduleService) — web home page countdown.</summary>
+    public DateTimeOffset? NextGameDue { get; set; }
+
+    /// <summary>Friendly name of the chat game running right now (accepting answers), or null between games.</summary>
+    public string? CurrentGameName =>
+        _currentGame is { GameState: GameState.Started or GameState.Closing } game ? game.PublicGameName : null;
+
     public async Task InitGameAsync()
     {
         try

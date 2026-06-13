@@ -1,0 +1,30 @@
+@namespace Credify.Components.Shared
+@implements IAsyncDisposable
+
+@* Shared playing card for every card game (Blackjack, Poker, Hold'em, Three-Card).
+   Face-down renders the bundled card-back; face-up renders an HTML/CSS card. A card that
+   transitions face-down → face-up auto-plays a 3D flip (no per-game wiring); a fresh face-up
+   card slides in, staggered by Index. Highlight glows a winning card. Sound plays a short
+   deal/flip swish (opt-in, best-effort). *@
+<div class="credify-card @(Compact ? "credify-card-sm" : "") @StateClass @(Highlight ? "credify-card-win" : "")"
+     style="animation-delay:@(Index * 90)ms">
+    @if (FaceDown || Card is null)
+    {
+        <img src="/_content/credify/blackjack/card-back.svg" alt="Face-down card"
+             class="h-full w-full select-none" draggable="false"/>
+    }
+    else
+    {
+        <div class="credify-card-face @(Card.IsRed ? "credify-card-red" : "credify-card-black")">
+            <div class="credify-card-corner credify-card-tl">
+                <span class="credify-card-rank">@Card.RankLabel</span>
+                <span class="credify-card-suit">@Card.SuitGlyph</span>
+            </div>
+            <div class="credify-card-pip">@Card.SuitGlyph</div>
+            <div class="credify-card-corner credify-card-br">
+                <span class="credify-card-rank">@Card.RankLabel</span>
+                <span class="credify-card-suit">@Card.SuitGlyph</span>
+            </div>
+        </div>
+    }
+</div>

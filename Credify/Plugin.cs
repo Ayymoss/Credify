@@ -137,6 +137,10 @@ public class Plugin : IPluginV2
         serviceCollection.AddSingleton<SlotsService>(); // atomic spin: shared by chat command + web page
         serviceCollection.AddSingleton<PlinkoService>(); // atomic drop: webfront-only game
         serviceCollection.AddSingleton<GameHistoryService>(); // per-client session log for the web games
+        serviceCollection.AddScoped<SessionBalanceTracker>(); // per-CIRCUIT session P/L curve — resets on refresh by design
+        serviceCollection.AddSingleton<LeaderboardService>(); // full webfront leaderboards (TTL-cached meta-table scans)
+        serviceCollection.AddSingleton<VideoPokerService>(); // webfront Jacks-or-Better (server-authoritative deal/hold/draw)
+        serviceCollection.AddSingleton<BaccaratService>(); // webfront Punto Banco (server-authoritative coup, fair-odds payouts)
         serviceCollection.AddSingleton<CreditsApiIdempotencyCache>(); // replay guard for POST /api/credits adjust
 
         // Active Games Core

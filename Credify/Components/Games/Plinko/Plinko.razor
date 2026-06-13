@@ -8,20 +8,7 @@
 <PluginPageShell BackgroundClass="pl-felt text-zinc-100" Menu='CredifyNav.Build("/credify/plinko")'>
 
     <!-- header -->
-    <div class="flex items-center justify-between gap-3">
-        <div class="flex items-center gap-2">
-            <i class="ph-fill ph-circles-three text-2xl text-[color:var(--color-action-primary,#818cf8)]"></i>
-            <h1 class="text-2xl font-bold tracking-tight">Plinko</h1>
-        </div>
-        <div class="flex items-center gap-2">
-            <CredifyAudioControls/>
-            <span class="pl-chip-stat"><i class="ph-fill ph-coins text-amber-400"></i> @Cache.BankCredits.ToString("N0") <span class="pl-muted">bank</span></span>
-            @if (_authed)
-            {
-                <span class="pl-chip-stat"><i class="ph-fill ph-wallet text-emerald-400"></i> @_balance.ToString("N0") <span class="pl-muted">credits</span></span>
-            }
-        </div>
-    </div>
+    <GameHeader Title="Plinko" Icon="ph-circles-three" Balance="DisplayBalance" Authed="_authed"/>
 
     <GameHistoryPanel ClientId="_client?.ClientId"/>
 
@@ -70,15 +57,15 @@
         <GameResultToast Toast="_toast"/>
 
         <!-- the board: JS-owned canvas (pegs + ball) above the multiplier bucket strip -->
-        <div class="pl-board mt-5">
+        <div class="pl-board pl-risk-@RiskKey(_risk) mt-5">
             <canvas @ref="_canvasRef" class="pl-canvas"></canvas>
             <div class="pl-buckets" style="grid-template-columns:repeat(@(_multipliers.Count), minmax(0, 1fr));">
                 @for (var i = 0; i < _multipliers.Count; i++)
                 {
                     var hits = _bucketHits.GetValueOrDefault(i);
-                    var landed = hits > 0 && !_busy;
-                    <div class="pl-bucket @BucketClass(_multipliers[i]) @(landed ? "pl-bucket-landed" : "")">
-                        @FormatMultiplier(_multipliers[i])
+                    var landed = hits > 0 && _dropsInFlight == 0;
+                    <div class="pl-bucket @BucketClass(_multipliers[i]) @(landed ? "pl-bucket-landed" : "")" title="@BucketTooltip(i)">
+                        @BucketLabel(_multipliers[i])
                         @if (landed && hits > 1)
                         {
                             <span class="pl-bucket-count">@hits</span>
@@ -90,14 +77,14 @@
 
         <!-- controls -->
         <div class="pl-controls mt-5">
-            <!-- risk + rows selectors -->
+            <!-- risk + rows + balls + auto + speed selectors -->
             <div class="flex flex-wrap items-center justify-center gap-x-6 gap-y-3">
                 <div class="pl-field">
                     <span class="pl-field-label">Risk</span>
                     <div class="pl-segment">
                         @foreach (var risk in Risks)
                         {
-                            <button class="pl-seg @(_risk == risk ? "pl-seg-on" : "")" disabled="@_busy" @onclick="() => SetRisk(risk)">@RiskLabel(risk)</button>
+                            <button class="pl-seg @(_risk == risk ? "pl-seg-on" : "")" disabled="@BoardLocked" @onclick="() => SetRisk(risk)">@RiskLabel(risk)</button>
                         }
                     </div>
                 </div>
@@ -106,7 +93,7 @@
                     <div class="pl-segment">
                         @foreach (var rows in RowPresets)
                         {
-                            <button class="pl-seg @(_rows == rows ? "pl-seg-on" : "")" disabled="@_busy" @onclick="() => SetRows(rows)">@rows</button>
+                            <button class="pl-seg @(_rows == rows ? "pl-seg-on" : "")" disabled="@BoardLocked" @onclick="() => SetRows(rows)">@rows</button>
                         }
                     </div>
                 </div>
@@ -115,36 +102,69 @@
                     <div class="pl-segment">
                         @foreach (var count in BallPresets)
                         {
-                            <button class="pl-seg @(_balls == count ? "pl-seg-on" : "")" disabled="@_busy" @onclick="() => SetBalls(count)">@count</button>
+                            <button class="pl-seg @(_balls == count ? "pl-seg-on" : "")" disabled="@_autoRunning" @onclick="() => SetBalls(count)">@count</button>
                         }
+                    </div>
+                </div>
+                <div class="pl-field">
+                    <span class="pl-field-label">Auto</span>
+                    <div class="pl-segment">
+                        @if (_autoRunning)
+                        {
+                            <button class="pl-seg pl-seg-stop" @onclick="StopAuto">
+                                Stop@(_autoRemaining > 0 ? $" ({_autoRemaining})" : "")
+                            </button>
+                        }
+                        else
+                        {
+                            @foreach (var n in AutoPresets)
+                            {
+                                <button class="pl-seg" disabled="@(!CanDrop)" @onclick="() => StartAuto(n)">@n</button>
+                            }
+                            <button class="pl-seg" disabled="@(!CanDrop)" @onclick="() => StartAuto(-1)">∞</button>
+                        }
+                    </div>
+                </div>
+                <div class="pl-field">
+                    <span class="pl-field-label">Speed</span>
+                    <div class="pl-segment">
+                        <button class="pl-seg @(_turbo ? "pl-seg-on" : "")" @onclick="ToggleTurbo">
+                            <i class="ph-fill ph-lightning"></i> Turbo
+                        </button>
                     </div>
                 </div>
             </div>
 
             <div class="mt-4">
-                <BetControl @bind-Value="_bet" Balance="_balance" Min="MinBet" Max="MaxBet" Disabled="_busy"/>
+                <BetControl @bind-Value="_bet" Balance="DisplayBalance" Min="MinBet" Max="MaxBet" Disabled="_autoRunning"/>
             </div>
 
             <div class="mt-4 flex flex-col items-center gap-2">
-                <button class="pl-btn pl-btn-drop" disabled="@(!CanDrop)" @onclick="Drop">
-                    @if (_busy)
-                    {
-                        <i class="ph ph-spinner animate-spin"></i> <span>Dropping…</span>
-                    }
-                    else if (_balls > 1)
-                    {
-                        <i class="ph-fill ph-circles-three"></i> <span>Drop @_balls balls · @TotalCost.ToString("N0")</span>
-                    }
-                    else
-                    {
-                        <i class="ph-fill ph-circle"></i> <span>Drop ball · @_bet.ToString("N0")</span>
-                    }
-                </button>
-                @if (_balance < MinBet)
+                @if (_autoRunning)
+                {
+                    <button class="pl-btn pl-btn-stop" @onclick="StopAuto">
+                        <i class="ph-fill ph-stop-circle"></i>
+                        <span>Stop auto@(_autoRemaining > 0 ? $" · {_autoRemaining} left" : "")</span>
+                    </button>
+                }
+                else
+                {
+                    <button class="pl-btn pl-btn-drop" disabled="@(!CanDrop)" @onclick="Drop">
+                        @if (_balls > 1)
+                        {
+                            <i class="ph-fill ph-circles-three"></i> <span>Drop @_balls balls · @TotalCost.ToString("N0")</span>
+                        }
+                        else
+                        {
+                            <i class="ph-fill ph-circle"></i> <span>Drop ball · @_bet.ToString("N0")</span>
+                        }
+                    </button>
+                }
+                @if (DisplayBalance < MinBet && _dropsInFlight == 0)
                 {
                     <p class="text-sm text-rose-400">You need at least @MinBet.ToString("N0") credits to play.</p>
                 }
-                else if (TotalCost > _balance)
+                else if (TotalCost > DisplayBalance && _dropsInFlight == 0)
                 {
                     <p class="text-sm text-rose-400">@_balls balls costs @TotalCost.ToString("N0") — more than your balance.</p>
                 }

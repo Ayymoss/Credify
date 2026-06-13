@@ -12,17 +12,6 @@
     box-shadow: inset 0 0 120px rgba(0, 0, 0, 0.45);
 }
 
-.bj-chip-stat {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.3rem 0.7rem;
-    border-radius: 9999px;
-    background: rgba(0, 0, 0, 0.35);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    font-weight: 700;
-    font-size: 0.85rem;
-}
 .bj-muted { color: rgba(255, 255, 255, 0.5); font-weight: 500; }
 
 .bj-panel {
@@ -79,61 +68,7 @@
     perspective: 900px;
 }
 
-/* ── cards ─────────────────────────────────────────────────────────── */
-.bj-card {
-    width: 4.25rem;
-    height: 6rem;
-    flex: 0 0 auto;
-    border-radius: 0.5rem;
-    transform-style: preserve-3d;
-}
-.bj-card img { border-radius: 0.5rem; box-shadow: 0 6px 14px rgba(0, 0, 0, 0.4); }
-
-.bj-card-face {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(180deg, #ffffff, #f3f4f6);
-    border-radius: 0.5rem;
-    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.4);
-    overflow: hidden;
-}
-.bj-red { color: #e11d48; }
-.bj-black { color: #18181b; }
-
-.bj-card-corner {
-    position: absolute;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    line-height: 0.95;
-    font-weight: 800;
-}
-.bj-card-tl { top: 0.3rem; left: 0.4rem; }
-.bj-card-br { bottom: 0.3rem; right: 0.4rem; transform: rotate(180deg); }
-.bj-card-rank { font-size: 1rem; }
-.bj-card-suit { font-size: 0.8rem; }
-.bj-card-pip {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 2.4rem;
-    opacity: 0.92;
-}
-
-@keyframes bj-deal {
-    from { opacity: 0; transform: translateY(-2.4rem) scale(0.85) rotate(-4deg); }
-    to   { opacity: 1; transform: none; }
-}
-.bj-card-deal { animation: bj-deal 0.38s cubic-bezier(0.2, 0.8, 0.25, 1) both; }
-
-@keyframes bj-reveal {
-    from { transform: rotateY(90deg); opacity: 0.15; }
-    to   { transform: rotateY(0deg); opacity: 1; }
-}
-.bj-card-reveal { animation: bj-reveal 0.42s ease-out both; }
+/* Cards use the shared kit — see .credify-card* in custom.css (PlayingCard.razor). */
 
 /* ── result banner ─────────────────────────────────────────────────── */
 .bj-banner {
@@ -197,9 +132,3 @@
 .bj-chip:disabled { opacity: 0.4; cursor: not-allowed; }
 .bj-chip-max { background: radial-gradient(circle at 50% 30%, #d97706, #92400e); }
 .bj-chip-clear { background: radial-gradient(circle at 50% 30%, #4b5563, #1f2937); min-width: 2.6rem; }
-
-@media (min-width: 640px) {
-    .bj-card { width: 5rem; height: 7rem; }
-    .bj-card-pip { font-size: 2.9rem; }
-    .bj-card-rank { font-size: 1.15rem; }
-}

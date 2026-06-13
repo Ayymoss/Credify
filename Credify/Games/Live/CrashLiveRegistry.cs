@@ -8,8 +8,9 @@ public sealed record CrashLiveEntry(
     string Name,
     long Stake,
     DateTimeOffset StartedAt,
-    string Status,          // "Flying" | "Cashed" | "Crashed"
-    double FinalMultiplier); // meaningful once settled
+    string Status,           // "Flying" | "Cashed" | "Crashed"
+    double FinalMultiplier,  // meaningful once settled
+    DateTimeOffset? SettledAt = null); // set on settle, so lobbies can fade finished rows out
 
 /// <summary>
 /// Tracks every player's in-flight (and just-finished) Crash run so each web session can show a live lobby of
@@ -36,7 +37,12 @@ public sealed class CrashLiveRegistry
     {
         if (_entries.TryGetValue(clientId, out var e))
         {
-            _entries[clientId] = e with { Status = cashed ? "Cashed" : "Crashed", FinalMultiplier = multiplier };
+            _entries[clientId] = e with
+            {
+                Status = cashed ? "Cashed" : "Crashed",
+                FinalMultiplier = multiplier,
+                SettledAt = DateTimeOffset.UtcNow
+            };
             Changed?.Invoke();
         }
     }

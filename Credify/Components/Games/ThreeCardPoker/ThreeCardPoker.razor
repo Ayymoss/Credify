@@ -8,20 +8,7 @@
 <PluginPageShell BackgroundClass="tcp-felt text-zinc-100" Menu='CredifyNav.Build("/credify/threecardpoker")'>
 
     <!-- header -->
-    <div class="flex items-center justify-between gap-3">
-        <div class="flex items-center gap-2">
-            <i class="ph-fill ph-cards text-2xl text-[color:var(--color-action-primary,#818cf8)]"></i>
-            <h1 class="text-2xl font-bold tracking-tight">Three-Card Poker</h1>
-        </div>
-        <div class="flex items-center gap-2">
-            <CredifyAudioControls/>
-            <span class="tcp-chip-stat"><i class="ph-fill ph-coins text-amber-400"></i> @Cache.BankCredits.ToString("N0") <span class="tcp-muted">bank</span></span>
-            @if (_authed)
-            {
-                <span class="tcp-chip-stat"><i class="ph-fill ph-wallet text-emerald-400"></i> @_balance.ToString("N0") <span class="tcp-muted">credits</span></span>
-            }
-        </div>
-    </div>
+    <GameHeader Title="Three-Card Poker" Icon="ph-cards" Balance="_balance" Authed="_authed"/>
 
     <GameHistoryPanel ClientId="_client?.ClientId"/>
 
@@ -65,14 +52,14 @@
                     {
                         @for (var i = 0; i < 3; i++)
                         {
-                            <CardView Card="_noCard" FaceDown="true" Index="i"/>
+                            <PlayingCard Card="_noCard" FaceDown="true" Index="i"/>
                         }
                     }
                     else
                     {
                         @for (var i = 0; i < _dealerCards.Count; i++)
                         {
-                            <CardView Card="_dealerCards[i]" Index="i"/>
+                            <PlayingCard Card="_dealerCards[i]" Index="i" Highlight="DealerWon"/>
                         }
                     }
                 </div>
@@ -96,7 +83,7 @@
                     {
                         @for (var i = 0; i < _playerCards.Count; i++)
                         {
-                            <CardView Card="_playerCards[i]" Index="i"/>
+                            <PlayingCard Card="_playerCards[i]" Index="i" Highlight="PlayerWon"/>
                         }
                     }
                 </div>

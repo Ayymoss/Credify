@@ -15,11 +15,10 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="RaidMax.IW4MAdmin.SharedLibraryCore" Version="2026.3.22.1-preview"/>
-        <!-- shared web UI kit (PluginPageShell + SideContextMenu). host-provided at runtime, so the bundle
-             targets mark it PrivateAssets and exclude WebCommon.dll from the .zip automatically.
-             track this version to the published WebCommon package (same scheme as SharedLibraryCore). -->
-        <PackageReference Include="RaidMax.IW4MAdmin.WebCommon" Version="2025.12.24.1"/>
+        <!-- WebCommon (PluginPageShell, SideContextMenu, Tooltip, …) now ships INSIDE this package as a
+             bundled WebCommon.dll — the standalone RaidMax.IW4MAdmin.WebCommon package is deprecated.
+             Sourced from the local feed (see ../nuget.config) until this version is published to nuget.org. -->
+        <PackageReference Include="RaidMax.IW4MAdmin.SharedLibraryCore" Version="2026.6.10.4-preview"/>
     </ItemGroup>
 
     <ItemGroup>

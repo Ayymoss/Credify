@@ -26,6 +26,8 @@
                 <button class="credify-history-close" @onclick="() => SetOpen(false)" aria-label="Hide session history"><i class="ph ph-caret-left"></i></button>
             </div>
 
+            <SessionGraphPanel ClientId="ClientId"/>
+
             @if (entries.Count == 0)
             {
                 <p class="credify-history-empty">No plays yet this session.</p>
@@ -56,7 +58,7 @@
     protected override void OnInitialized() => History.Changed += OnHistoryChanged;
 
     // refresh the rail the moment a result is recorded for this client (from any game/thread)
-    private void OnHistoryChanged(int clientId)
+    private void OnHistoryChanged(int clientId, GameHistoryEntry entry)
     {
         if (clientId == ClientId)
         {

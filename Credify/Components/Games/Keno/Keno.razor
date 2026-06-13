@@ -8,20 +8,7 @@
 <PluginPageShell BackgroundClass="kn-felt text-zinc-100" Menu='CredifyNav.Build("/credify/keno")'>
 
     <!-- header -->
-    <div class="flex items-center justify-between gap-3">
-        <div class="flex items-center gap-2">
-            <i class="ph-fill ph-grid-four text-2xl text-[color:var(--color-action-primary,#818cf8)]"></i>
-            <h1 class="text-2xl font-bold tracking-tight">Keno</h1>
-        </div>
-        <div class="flex items-center gap-2">
-            <CredifyAudioControls/>
-            <span class="kn-chip-stat"><i class="ph-fill ph-coins text-amber-400"></i> @Cache.BankCredits.ToString("N0") <span class="kn-muted">bank</span></span>
-            @if (_authed)
-            {
-                <span class="kn-chip-stat"><i class="ph-fill ph-wallet text-emerald-400"></i> @_balance.ToString("N0") <span class="kn-muted">credits</span></span>
-            }
-        </div>
-    </div>
+    <GameHeader Title="Keno" Icon="ph-grid-four" Balance="_balance" Authed="_authed"/>
 
     <GameHistoryPanel ClientId="_client?.ClientId"/>
 
@@ -61,9 +48,20 @@
     {
         <GameResultToast Toast="_toast"/>
 
-        <!-- status -->
+        <!-- status / draw readout -->
         <div class="mt-5 flex items-center justify-center gap-3 text-sm">
-            @if (HasResult)
+            @if (Revealing)
+            {
+                <span class="kn-status">
+                    @if (_currentBall is { } ball)
+                    {
+                        <span class="kn-draw-ball @(_picks.Contains(ball) ? "kn-draw-ball-hit" : "")" @key="_currentBall">@ball</span>
+                    }
+                    <i class="ph-fill ph-target text-amber-300"></i> @RevealedHits / @Spots hits
+                    <span class="kn-muted">@_revealedCount/@_drawn.Count drawn</span>
+                </span>
+            }
+            else if (HasResult)
             {
                 <span class="kn-status"><i class="ph-fill ph-target text-amber-300"></i> @_hits.Count / @Spots hits</span>
             }
@@ -78,7 +76,7 @@
             @for (var n = 1; n <= KenoPayouts.PoolSize; n++)
             {
                 var num = n;
-                <button class="@CellClass(num)" style="@CellStyle(num)"
+                <button class="@CellClass(num)"
                         disabled="@(_busy || (!_picks.Contains(num) && Spots >= KenoPayouts.MaxSpots && !HasResult))"
                         @onclick="() => Toggle(num)">@num</button>
             }

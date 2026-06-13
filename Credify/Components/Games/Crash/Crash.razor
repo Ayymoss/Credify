@@ -7,20 +7,7 @@
 <PluginPageShell BackgroundClass="cr-felt text-zinc-100" Menu='CredifyNav.Build("/credify/crash")'>
 
         <!-- header -->
-        <div class="flex items-center justify-between gap-3">
-            <div class="flex items-center gap-2">
-                <i class="ph-fill ph-rocket-launch text-2xl text-[color:var(--color-action-primary,#818cf8)]"></i>
-                <h1 class="text-2xl font-bold tracking-tight">Crash</h1>
-            </div>
-            <div class="flex items-center gap-2">
-                <CredifyAudioControls/>
-                <span class="cr-chip-stat"><i class="ph-fill ph-coins text-amber-400"></i> @Cache.BankCredits.ToString("N0") <span class="cr-muted">bank</span></span>
-                @if (_authed)
-                {
-                    <span class="cr-chip-stat"><i class="ph-fill ph-wallet text-emerald-400"></i> @_balance.ToString("N0") <span class="cr-muted">credits</span></span>
-                }
-            </div>
-        </div>
+        <GameHeader Title="Crash" Icon="ph-rocket-launch" Balance="_balance" Authed="_authed"/>
 
         <GameHistoryPanel ClientId="_client?.ClientId"/>
 
@@ -41,12 +28,14 @@
                     <div class="cr-stage">
                         <canvas @ref="_canvasRef" class="cr-canvas"></canvas>
                         <div @ref="_readoutRef" class="cr-readout">1.00×</div>
+                        <div @ref="_profitRef" class="cr-profit"></div>
                         <div class="cr-sub">
                             @switch (_game.Phase)
                             {
                                 case CrashPhase.Flying: <text>Cash out before it crashes!</text> break;
                                 case CrashPhase.Settled when _game.Outcome == CrashOutcome.Crashed: <text>Crashed at @_game.CrashPoint.ToString("0.00")×</text> break;
-                                case CrashPhase.Settled: <text>Banked @_game.CashedMultiplier.ToString("0.00")×</text> break;
+                                case CrashPhase.Settled when _crashRevealed: <text>Banked @_game.CashedMultiplier.ToString("0.00")× — it crashed at @_game.CrashPoint.ToString("0.00")×</text> break;
+                                case CrashPhase.Settled: <text>Banked @_game.CashedMultiplier.ToString("0.00")×…</text> break;
                                 default: <text>Set your stake and launch</text> break;
                             }
                         </div>
@@ -63,12 +52,36 @@
                     else
                     {
                         <div class="cr-controls flex flex-col items-center gap-3">
-                            @if (_game.Phase == CrashPhase.Idle)
+                            @if (_game.Phase == CrashPhase.Idle && !_autoRunning)
                             {
                                 <BetControl @bind-Value="_stake" Balance="_balance" Min="Config.Crash.MinBet" Disabled="_busy" Label="Stake"/>
-                                <button class="cr-btn cr-btn-launch" disabled="@(_busy || _stake < Config.Crash.MinBet || _stake > _balance)" @onclick="Launch">
-                                    <i class="ph-fill ph-rocket-launch"></i> Launch
-                                </button>
+
+                                <div class="flex flex-wrap items-center justify-center gap-2">
+                                    <button class="cr-quick" disabled="@_busy" @onclick="HalveStake">½</button>
+                                    <button class="cr-quick" disabled="@_busy" @onclick="DoubleStake">2×</button>
+
+                                    <label class="cr-autocash">
+                                        <input type="checkbox" checked="@_autoCashEnabled" @onchange="SetAutoCashEnabled"/>
+                                        <span>Auto cash out at</span>
+                                        <input type="number" class="cr-autocash-input" min="1.01" step="0.1"
+                                               value="@_autoCashTarget.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)"
+                                               disabled="@(!_autoCashEnabled)" @onchange="SetAutoCashTarget"/>
+                                        <span>×</span>
+                                    </label>
+                                </div>
+
+                                <div class="flex flex-wrap items-center justify-center gap-2">
+                                    <button class="cr-btn cr-btn-launch" disabled="@(!CanLaunch)" @onclick="Launch">
+                                        <i class="ph-fill ph-rocket-launch"></i> Launch
+                                    </button>
+                                    <span class="cr-auto-label" title="Auto-launch rounds back to back (requires auto cash out)">Auto:</span>
+                                    @foreach (var n in AutoPresets)
+                                    {
+                                        <button class="cr-quick" disabled="@(!_autoCashEnabled || !CanLaunch)" @onclick="() => StartAuto(n)">@n</button>
+                                    }
+                                    <button class="cr-quick" disabled="@(!_autoCashEnabled || !CanLaunch)" @onclick="() => StartAuto(-1)">∞</button>
+                                </div>
+
                                 @if (_balance < Config.Crash.MinBet)
                                 {
                                     <p class="text-sm text-rose-400">You need at least @Config.Crash.MinBet.ToString("N0") credits to play.</p>
@@ -79,12 +92,29 @@
                                 <button class="cr-btn cr-btn-cash" disabled="@_busy" @onclick="CashOut">
                                     <i class="ph-fill ph-hand-coins"></i> Cash out @_game.CurrentPayout.ToString("N0")
                                 </button>
+                                @if (_autoCashEnabled)
+                                {
+                                    <p class="text-xs text-zinc-500">Auto cash out armed at @_autoCashTarget.ToString("0.00")×</p>
+                                }
+                                @if (_autoRunning)
+                                {
+                                    <button class="cr-btn cr-btn-stopauto" @onclick="StopAuto">
+                                        <i class="ph-fill ph-stop-circle"></i> Stop auto@(_autoRemaining > 0 ? $" · {_autoRemaining} left" : "")
+                                    </button>
+                                }
                             }
                             else
                             {
-                                <div class="flex flex-col items-center gap-2">
-                                    <button class="cr-btn cr-btn-launch" disabled="@_busy" @onclick="NewRound"><i class="ph ph-arrow-clockwise"></i> New round</button>
-                                </div>
+                                @if (_autoRunning)
+                                {
+                                    <button class="cr-btn cr-btn-stopauto" @onclick="StopAuto">
+                                        <i class="ph-fill ph-stop-circle"></i> Stop auto@(_autoRemaining > 0 ? $" · {_autoRemaining} left" : "")
+                                    </button>
+                                }
+                                else
+                                {
+                                    <p class="text-sm text-zinc-500">Next round in a moment…</p>
+                                }
                             }
 
                             @if (_error is not null)
@@ -109,9 +139,9 @@
                         else
                         {
                             <div class="cr-live mt-3">
-                                @foreach (var e in _live)
+                                @foreach (var e in LobbyRows)
                                 {
-                                    <div class="cr-live-row @(IsMe(e) ? "cr-live-you" : "")">
+                                    <div class="cr-live-row @(IsMe(e) ? "cr-live-you" : "") @(e.Status != "Flying" ? "cr-live-settled" : "")">
                                         <span class="flex items-center gap-2 truncate">
                                             <i class="ph-fill ph-user text-zinc-400"></i>
                                             <span class="truncate">@e.Name</span>
@@ -120,7 +150,11 @@
                                                 <span class="cr-muted text-xs">you</span>
                                             }
                                         </span>
-                                        <span class="cr-live-mult @StatusClass(e.Status)">@LiveMultiplier(e)</span>
+                                        <span class="flex items-center gap-3 text-right">
+                                            <span class="cr-live-stake">@e.Stake.ToString("N0")</span>
+                                            <span class="cr-live-mult @StatusClass(e.Status)">@LiveMultiplier(e)</span>
+                                            <span class="cr-live-profit @StatusClass(e.Status)">@LiveProfit(e)</span>
+                                        </span>
                                     </div>
                                 }
                             </div>

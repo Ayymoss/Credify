@@ -1,0 +1,32 @@
+@inject CredifyCache Cache
+
+@* Shared game-page header: icon + title (+ optional subtitle) on the left; audio controls, bank
+   and (when signed in) credits chips on the right. Pill chips reuse the global .credify-chip /
+   .credify-muted (custom.css), so every game matches the /credify home page. Replaces the 11
+   copy-pasted per-game header blocks and their drifted XX-chip-stat classes. *@
+<div class="flex items-center justify-between gap-3">
+    <div class="flex items-center gap-2">
+        <i class="ph-fill @Icon text-2xl text-[color:var(--color-action-primary,#818cf8)]"></i>
+        <h1 class="text-2xl font-bold tracking-tight">@Title</h1>
+        @if (!string.IsNullOrEmpty(Subtitle))
+        {
+            <span class="credify-muted text-xs">@Subtitle</span>
+        }
+    </div>
+    <div class="flex items-center gap-2">
+        <CredifyAudioControls/>
+        <span class="credify-chip"><i class="ph-fill ph-coins text-amber-400"></i> @Cache.BankCredits.ToString("N0") <span class="credify-muted">bank</span></span>
+        @if (Authed)
+        {
+            <span class="credify-chip"><i class="ph-fill ph-wallet text-emerald-400"></i> @Balance.ToString("N0") <span class="credify-muted">credits</span></span>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter, EditorRequired] public string Icon { get; set; } = "";
+    [Parameter] public string? Subtitle { get; set; }
+    [Parameter] public long Balance { get; set; }
+    [Parameter] public bool Authed { get; set; }
+}

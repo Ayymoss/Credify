@@ -42,6 +42,24 @@ public partial class Blackjack
     private string _lastPhase = "";
     private string _lastMyOutcome = "";
 
+    // Web-side dealer reveal pacing. The server exposes the dealer's whole hand the instant it plays
+    // (hole card + every drawn card arrive in one snapshot), so the UI flips them over one at a time
+    // for suspense. _dealerShown is how many dealer cards are currently face-up; the rest render as
+    // card backs until the reveal task catches up.
+    private int _dealerShown;
+    private bool _dealerRevealing;
+    private CancellationTokenSource? _revealCts;
+
+    // The previous round's dealer hand stays on the table through "place your bets" (the server clears
+    // its cards the moment the next round opens, leaving no time to read them). It drops off as soon as
+    // the new round's cards are dealt.
+    private List<Card> _heldDealerCards = [];
+    private int _heldDealerValue;
+
+    private bool ShowingHeldHand => _snapshot.DealerCards.Count == 0 && _heldDealerCards.Count > 0;
+    private IReadOnlyList<Card> DealerCardsToShow => ShowingHeldHand ? _heldDealerCards : _snapshot.DealerCards;
+    private int DealerShownCount => ShowingHeldHand ? _heldDealerCards.Count : _dealerShown;
+
     private CancellationTokenSource? _loopCts;
 
     [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
@@ -50,6 +68,9 @@ public partial class Blackjack
         _client is null ? null : _snapshot.Seats.FirstOrDefault(s => s.ClientId == _client.ClientId);
 
     private bool IsMe(BlackjackSeatView s) => _client is not null && s.ClientId == _client.ClientId;
+
+    // Glow a seat's cards once the round is settled and that seat came out ahead (win / blackjack).
+    private bool SeatWon(BlackjackSeatView s) => !_dealerRevealing && !string.IsNullOrEmpty(s.Outcome) && s.Net > 0;
 
     private string StatusClass => "bj-banner " + _snapshot.Phase switch
     {
@@ -104,6 +125,7 @@ public partial class Blackjack
 
         _snapshot = Game.GetSnapshot();
         _lastPhase = _snapshot.Phase;
+        _dealerShown = _snapshot.DealerCards.Count; // joining mid-round shows the table as-is, no replay
         Game.StateChanged += OnStateChanged;
 
         _loopCts = new CancellationTokenSource();
@@ -149,6 +171,7 @@ public partial class Blackjack
         try
         {
             _snapshot = Game.GetSnapshot();
+            SyncDealerReveal();
 
             // cards-dealt sound on entering the decision phase
             if (_snapshot.Phase != _lastPhase)
@@ -160,9 +183,10 @@ public partial class Blackjack
                 _lastPhase = _snapshot.Phase;
             }
 
-            // my result sound + balance refresh when my outcome settles
+            // my result sound + balance refresh when my outcome settles — held back while the dealer's
+            // cards are still flipping over so the result lands after the reveal, not before
             var myOutcome = MySeat?.Outcome ?? "";
-            if (myOutcome != _lastMyOutcome)
+            if (myOutcome != _lastMyOutcome && !_dealerRevealing)
             {
                 _lastMyOutcome = myOutcome;
 
@@ -212,6 +236,79 @@ public partial class Blackjack
             _audio = await JS.InvokeAsync<IJSObjectReference>("import", "/_content/credify/audio.js");
         }
     }
+
+    // Keep the face-up count in step with the snapshot: before the reveal (or on a fresh round) mirror the
+    // server exactly; once the dealer's hand is exposed, start the staggered flip if we're behind.
+    private void SyncDealerReveal()
+    {
+        var count = _snapshot.DealerCards.Count;
+        if (_snapshot.DealerHasHole || count <= 1)
+        {
+            CancelReveal();
+            _dealerShown = count;
+            if (count > 0)
+            {
+                _heldDealerCards = []; // new round's cards are out — drop the previous hand
+            }
+
+            return;
+        }
+
+        // hand is fully exposed — remember it so it can stay on the table during the next betting phase
+        _heldDealerCards = _snapshot.DealerCards.ToList();
+        _heldDealerValue = _snapshot.DealerValue;
+
+        if (_dealerShown < count && _revealCts is null)
+        {
+            _revealCts = new CancellationTokenSource();
+            _dealerRevealing = true;
+            _ = RevealDealerAsync(_revealCts.Token);
+        }
+    }
+
+    private async Task RevealDealerAsync(CancellationToken token)
+    {
+        try
+        {
+            await Task.Delay(900, token); // a beat before the hole card turns
+            while (!token.IsCancellationRequested && _dealerShown < _snapshot.DealerCards.Count)
+            {
+                await InvokeAsync(() =>
+                {
+                    _dealerShown++;
+                    StateHasChanged();
+                });
+                await Sfx("deal");
+                if (_dealerShown < _snapshot.DealerCards.Count)
+                {
+                    await Task.Delay(650, token);
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // round moved on or page closed
+        }
+        finally
+        {
+            _dealerRevealing = false;
+        }
+    }
+
+    private void CancelReveal()
+    {
+        _revealCts?.Cancel();
+        _revealCts?.Dispose();
+        _revealCts = null;
+        _dealerRevealing = false;
+    }
+
+    // hide the dealer's total while cards are still flipping so it can't spoil the reveal
+    private string DealerValueLabel =>
+        ShowingHeldHand ? _heldDealerValue.ToString()
+        : _snapshot.DealerHasHole ? $"{_snapshot.DealerValue} +"
+        : _dealerShown < _snapshot.DealerCards.Count ? "?"
+        : _snapshot.DealerValue.ToString();
 
     private async Task Sfx(string name)
     {
@@ -320,6 +417,7 @@ public partial class Blackjack
     public async ValueTask DisposeAsync()
     {
         Game.StateChanged -= OnStateChanged;
+        CancelReveal();
         if (_loopCts is not null)
         {
             await _loopCts.CancelAsync();

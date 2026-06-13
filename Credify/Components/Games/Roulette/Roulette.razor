@@ -7,20 +7,7 @@
 <PluginPageShell BackgroundClass="rl-felt text-zinc-100" Menu='CredifyNav.Build("/credify/roulette")'>
 
         <!-- header -->
-        <div class="flex items-center justify-between gap-3">
-            <div class="flex items-center gap-2">
-                <i class="ph-fill ph-circle-half text-2xl text-[color:var(--color-action-primary,#818cf8)]"></i>
-                <h1 class="text-2xl font-bold tracking-tight">Roulette</h1>
-            </div>
-            <div class="flex items-center gap-2">
-                <CredifyAudioControls/>
-                <span class="rl-chip-stat"><i class="ph-fill ph-coins text-amber-400"></i> @Cache.BankCredits.ToString("N0") <span class="rl-muted">bank</span></span>
-                @if (_authed)
-                {
-                    <span class="rl-chip-stat"><i class="ph-fill ph-wallet text-emerald-400"></i> @_balance.ToString("N0") <span class="rl-muted">credits</span></span>
-                }
-            </div>
-        </div>
+        <GameHeader Title="Roulette" Icon="ph-circle-half" Balance="_balance" Authed="_authed"/>
 
         <GameHistoryPanel ClientId="_client?.ClientId"/>
 
@@ -50,8 +37,16 @@
                                     <span>No more bets — spinning…</span>
                                     break;
                                 case "Resolving":
-                                    <i class="ph-fill ph-flag-checkered"></i>
-                                    <span>Round over</span>
+                                    if (_wheelLanding)
+                                    {
+                                        <i class="ph ph-spinner animate-spin"></i>
+                                        <span>No more bets — spinning…</span>
+                                    }
+                                    else
+                                    {
+                                        <i class="ph-fill ph-flag-checkered"></i>
+                                        <span>Round over</span>
+                                    }
                                     break;
                                 default:
                                     <i class="ph-fill ph-users"></i>
@@ -63,7 +58,7 @@
 
                     <div @ref="_wheelRef" class="rl-wheel"></div>
 
-                    @if (_snapshot.LastSpin is { } spin && _snapshot.Phase != "Spinning")
+                    @if (_snapshot.LastSpin is { } spin && _snapshot.Phase != "Spinning" && !_wheelLanding)
                     {
                         <div class="rl-result">
                             <span class="rl-num-badge @ColourClass(spin.Colour)">@spin.Display</span>
@@ -82,7 +77,7 @@
                     @if (_snapshot.History.Count > 0)
                     {
                         <div class="rl-history">
-                            @foreach (var h in _snapshot.History)
+                            @foreach (var h in VisibleHistory)
                             {
                                 <span class="rl-num-badge @ColourClass(h.Colour)" title="@h.Colour">@h.Display</span>
                             }
@@ -240,11 +235,11 @@
                                             {
                                                 <span class="rl-seat-bet">@p.TotalStake.ToString("N0") · @p.Bets.Count bet@(p.Bets.Count == 1 ? "" : "s")</span>
                                             }
-                                            else if (p.Outcome == "Won")
+                                            else if (p.Outcome == "Won" && !_wheelLanding)
                                             {
                                                 <span class="rl-seat-won">+@p.Net.ToString("N0")</span>
                                             }
-                                            else if (p.Outcome == "Lost")
+                                            else if (p.Outcome == "Lost" && !_wheelLanding)
                                             {
                                                 <span class="rl-seat-lost">@p.Net.ToString("N0")</span>
                                             }

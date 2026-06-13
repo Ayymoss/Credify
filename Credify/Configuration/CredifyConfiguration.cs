@@ -21,5 +21,7 @@ public class CredifyConfiguration
     public DailyConfiguration Daily { get; set; } = new();
     public AchievementConfiguration Achievement { get; set; } = new();
     public DuelConfiguration Duel { get; set; } = new();
+    public VideoPokerConfiguration VideoPoker { get; set; } = new();
+    public BaccaratConfiguration Baccarat { get; set; } = new();
     public TranslationsRoot Translations { get; set; } = new();
 }

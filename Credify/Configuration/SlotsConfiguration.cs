@@ -31,23 +31,34 @@ public class SlotsConfiguration
     
     // Payout multipliers (gross return: a win pays back bet * multiplier).
     //
-    // RTP is tuned to a realistic ~95% (4.6% house edge). With the default weights
-    // above (total 100), per spin:
-    //   - three-of-a-kind (non-7): 4.3625%  -> 21x  => 0.9161
-    //   - jackpot (7 7 7):         0.0125%  -> 300x => 0.0375
+    // Tuned to RTP = 100% — no house edge. Credify is a fair-economy casino: the bank neither
+    // gains nor loses in expectation, so the credit pool stays stable instead of bleeding players.
+    // With the default weights above (total 100), per spin:
+    //   - three-of-a-kind (non-7): 4.3625%  -> 22x  => 0.95975
+    //   - jackpot (7 7 7):         0.0125%  -> 322x => 0.04025
     //   - any two matching:        46.875%  -> 0x   (no win, like a real single-line reel)
-    //   RTP = 0.9161 + 0.0375 = ~0.954
+    //   RTP = 0.95975 + 0.04025 = 1.0000
     //
-    // WARNING: paying "any two matching" is what made this game pay out at ~138% RTP.
-    // With 6 symbols it lands ~47% of spins, so even a 2x there hands the player a huge
-    // edge. Keep TwoMatchMultiplier at 0 unless you re-derive the whole RTP.
+    // To keep it 1:1 after any change, re-solve  P(3oak)*Three + P(jackpot)*Jackpot = 1, where
+    // P(3oak) = Σ p^3 over the non-7 symbols and P(jackpot) = p7^3 (p = weight / total weight).
+    // WARNING: "any two matching" lands ~47% of spins with 6 symbols, so even a 2x there blows the
+    // RTP far past 100%. Keep TwoMatchMultiplier at 0 unless you re-derive everything.
 
     /// <summary>Three matching (non-jackpot) symbols. Drives almost all of the RTP.</summary>
-    public double ThreeMatchMultiplier { get; set; } = 21.0;
+    public double ThreeMatchMultiplier { get; set; } = 22.0;
 
     /// <summary>Two matching symbols. 0 = no payout (realistic for a single-line 3-reel slot).</summary>
     public double TwoMatchMultiplier { get; set; } = 0.0;
 
     /// <summary>Three jackpot symbols (7 7 7). Rare (~1 in 8000) so it can pay big.</summary>
-    public double JackpotMultiplier { get; set; } = 300.0;
+    public double JackpotMultiplier { get; set; } = 322.0;
+
+    /// <summary>
+    /// "Gamble" (double-or-nothing) feature: after a win the player may risk it on a fair 50/50
+    /// red/black flip. Each flip is exactly even money, so it adds zero house edge — the game stays 1:1.
+    /// </summary>
+    public bool GambleEnabled { get; set; } = true;
+
+    /// <summary>Maximum consecutive gambles before the winnings are force-collected (bounds variance).</summary>
+    public int GambleMaxSteps { get; set; } = 4;
 }

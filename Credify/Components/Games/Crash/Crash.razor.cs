@@ -40,10 +40,30 @@ public partial class Crash
     private bool _busy;
     private string? _error;
 
+    // auto cash-out: deterministic — the game banks EXACTLY the target if the crash point is beyond it
+    private bool _autoCashEnabled;
+    private double _autoCashTarget = 2.0;
+
+    // auto-launch: rounds remaining (-1 = until stopped) + the loop's running flag
+    private int _autoRemaining;
+    private bool _autoRunning;
+    private static readonly int[] AutoPresets = [10, 25];
+
+    // after a cash-out the ghost curve flies on to the real crash point; once it gets there this flips and
+    // the subtitle reveals what was left behind
+    private bool _crashRevealed;
+
+    // one settle per round, whichever of (manual click | auto target | crash poll) gets there first
+    private int _settleGuard;
+
+    // invalidates pending auto-resets when a new round starts under them
+    private int _roundSeq;
+
     private IReadOnlyList<CrashLiveEntry> _live = [];
 
     private ElementReference _canvasRef;
     private ElementReference _readoutRef;
+    private ElementReference _profitRef;
     private IJSObjectReference? _jsModule;
     private IJSObjectReference? _audio;
     private bool _mounted;
@@ -53,6 +73,9 @@ public partial class Crash
     [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
 
     private bool IsMe(CrashLiveEntry e) => _client is not null && e.ClientId == _client.ClientId;
+
+    private bool CanLaunch => !_busy && _authed && _client is not null && _game.Phase == CrashPhase.Idle
+                              && _stake >= Config.Crash.MinBet && _stake <= _balance;
 
     protected override async Task OnInitializedAsync()
     {
@@ -96,7 +119,7 @@ public partial class Crash
 
     private void OnRegistryChanged() => _ = RefreshAsync();
 
-    // ~100ms loop: detect our own crash (server-authoritative) and keep the lobby fresh
+    // ~100ms loop: auto cash-out + detect our own crash (server-authoritative) and keep the lobby fresh
     private async Task LoopAsync(CancellationToken token)
     {
         try
@@ -104,9 +127,16 @@ public partial class Crash
             using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(100));
             while (await timer.WaitForNextTickAsync(token))
             {
-                if (_game.Phase == CrashPhase.Flying && _game.PollCrash())
+                if (_game.Phase == CrashPhase.Flying)
                 {
-                    await OnCrashed();
+                    if (_autoCashEnabled && _game.TryAutoCashOut(_autoCashTarget) && TryBeginSettle())
+                    {
+                        await SettleCashedOutAsync();
+                    }
+                    else if (_game.PollCrash() && TryBeginSettle())
+                    {
+                        await OnCrashed();
+                    }
                 }
 
                 await RefreshAsync();
@@ -117,6 +147,8 @@ public partial class Crash
             // page closed
         }
     }
+
+    private bool TryBeginSettle() => Interlocked.Exchange(ref _settleGuard, 1) == 0;
 
     private async Task RefreshAsync()
     {
@@ -140,19 +172,39 @@ public partial class Crash
 
         _audio = await JS.InvokeAsync<IJSObjectReference>("import", "/_content/credify/audio.js");
         _jsModule = await JS.InvokeAsync<IJSObjectReference>("import", "/_content/credify/crash/crash.js");
-        await _jsModule.InvokeVoidAsync("mount", _canvasRef, _readoutRef);
+        await _jsModule.InvokeVoidAsync("mount", _canvasRef, _readoutRef, _profitRef);
         _mounted = true;
     }
 
-    private async Task Launch()
+    // ── stake quick-actions ─────────────────────────────────────────────────
+    private void HalveStake() => _stake = Math.Max(Config.Crash.MinBet, _stake / 2);
+    private void DoubleStake() => _stake = Math.Clamp(_stake * 2, Config.Crash.MinBet, Math.Max(Config.Crash.MinBet, _balance));
+
+    private void SetAutoCashEnabled(ChangeEventArgs e) => _autoCashEnabled = e.Value is true or "true";
+
+    private void SetAutoCashTarget(ChangeEventArgs e)
     {
-        if (_busy || _client is null || _game.Phase != CrashPhase.Idle || _stake < Config.Crash.MinBet || _stake > _balance)
+        if (double.TryParse(e.Value?.ToString(), out var v))
         {
-            return;
+            _autoCashTarget = Math.Clamp(Math.Round(v, 2), 1.01, Config.Crash.MaxMultiplier);
+        }
+    }
+
+    // ── round flow ──────────────────────────────────────────────────────────
+    private async Task Launch() => await LaunchCoreAsync();
+
+    private async Task<bool> LaunchCoreAsync()
+    {
+        if (!CanLaunch || _client is null)
+        {
+            return false;
         }
 
         _busy = true;
         _error = null;
+        _crashRevealed = false;
+        _settleGuard = 0;
+        _roundSeq++;
         _balance = await Persistence.RemoveCreditsAsync(_client, _stake);
         _game.Launch(_stake);
         Registry.Launch(_client.ClientId, _client.CleanedName, _stake, _game.StartedAt);
@@ -167,15 +219,17 @@ public partial class Crash
             await _jsModule.InvokeVoidAsync("fly",
                 _game.StartedAt.ToUnixTimeMilliseconds(),
                 Config.Crash.TickInterval.TotalSeconds,
-                Config.Crash.GrowthPerTick);
+                Config.Crash.GrowthPerTick,
+                _game.Stake);
         }
 
         _busy = false;
+        return true;
     }
 
     private async Task CashOut()
     {
-        if (_busy || _game.Phase != CrashPhase.Flying)
+        if (_busy || _game.Phase != CrashPhase.Flying || !TryBeginSettle())
         {
             return;
         }
@@ -185,28 +239,7 @@ public partial class Crash
 
         if (_game.Outcome == CrashOutcome.CashedOut)
         {
-            var payout = _game.Payout;
-            if (payout > 0 && _client is not null)
-            {
-                _balance = await Persistence.AddCreditsAsync(_client, payout);
-            }
-
-            Registry.Settle(_client!.ClientId, cashed: true, _game.CashedMultiplier);
-
-            _toast = new GameToast(++_toastSeq,
-                _game.CashedMultiplier >= 5d ? GameToastVariant.Jackpot : GameToastVariant.Win,
-                $"Cashed {_game.CashedMultiplier:0.00}×", $"+{_game.NetResult:N0}", "ph-hand-coins");
-            GameHistory.Record(_client!.ClientId, new GameHistoryEntry(
-                "Crash", "ph-rocket-launch", $"{_game.CashedMultiplier:0.00}×", _game.NetResult, DateTimeOffset.UtcNow));
-
-            if (_jsModule is not null)
-            {
-                await _jsModule.InvokeVoidAsync("cashOut", _game.CashedMultiplier);
-            }
-            if (_audio is not null)
-            {
-                try { await _audio.InvokeVoidAsync("win", _game.NetResult, _game.CashedMultiplier >= 5d); } catch { }
-            }
+            await SettleCashedOutAsync();
         }
         else
         {
@@ -215,6 +248,57 @@ public partial class Crash
         }
 
         _busy = false;
+    }
+
+    // shared by the manual button and the auto cash-out: pay, record, then ghost-fly to the reveal
+    private async Task SettleCashedOutAsync()
+    {
+        var payout = _game.Payout;
+        if (payout > 0 && _client is not null)
+        {
+            _balance = await Persistence.AddCreditsAsync(_client, payout);
+        }
+
+        Registry.Settle(_client!.ClientId, cashed: true, _game.CashedMultiplier);
+
+        _toast = new GameToast(++_toastSeq,
+            _game.CashedMultiplier >= 5d ? GameToastVariant.Jackpot : GameToastVariant.Win,
+            $"Cashed {_game.CashedMultiplier:0.00}×", $"+{_game.NetResult:N0}", "ph-hand-coins");
+        GameHistory.Record(_client!.ClientId, new GameHistoryEntry(
+            "Crash", "ph-rocket-launch", $"{_game.CashedMultiplier:0.00}×", _game.NetResult, DateTimeOffset.UtcNow));
+
+        if (_audio is not null)
+        {
+            try { await _audio.InvokeVoidAsync("win", _game.NetResult, _game.Stake); } catch { }
+        }
+
+        // ghost flight: the curve carries on (dimmed) to the now-revealed crash point, then we show it
+        var ghostSeconds = Math.Max(0, CrashMath.TimeToReach(Config.Crash, _game.CrashPoint) - _game.ElapsedSeconds);
+        _ = GhostAndRevealAsync(_roundSeq);
+        ScheduleReset(ghostSeconds + 1.8);
+    }
+
+    private async Task GhostAndRevealAsync(int seq)
+    {
+        try
+        {
+            if (_mounted && _jsModule is not null)
+            {
+                // resolves when the ghost curve reaches the crash point
+                await _jsModule.InvokeAsync<object?>("ghost",
+                    _game.CashedMultiplier, _game.CrashPoint, $"+{_game.NetResult:N0}");
+            }
+        }
+        catch
+        {
+            // circuit/JS gone
+        }
+
+        if (seq == _roundSeq)
+        {
+            _crashRevealed = true;
+            try { await InvokeAsync(StateHasChanged); } catch { }
+        }
     }
 
     // settle as a crash (from the poll loop or a too-late cash-out)
@@ -238,11 +322,44 @@ public partial class Crash
         {
             try { await _audio.InvokeVoidAsync("bomb"); } catch { }
         }
+
+        ScheduleReset(2.0);
     }
 
-    private async Task NewRound()
+    // the round resets itself — no "new round" click in the loop
+    private void ScheduleReset(double holdSeconds)
+    {
+        var seq = _roundSeq;
+        _ = ResetAfterAsync(seq, TimeSpan.FromSeconds(holdSeconds));
+    }
+
+    private async Task ResetAfterAsync(int seq, TimeSpan delay)
+    {
+        await Task.Delay(delay);
+        if (seq != _roundSeq || _game.Phase != CrashPhase.Settled)
+        {
+            return;
+        }
+
+        try
+        {
+            await InvokeAsync(async () =>
+            {
+                await NewRoundCoreAsync();
+                StateHasChanged();
+            });
+        }
+        catch
+        {
+            // circuit tearing down
+        }
+    }
+
+    private async Task NewRoundCoreAsync()
     {
         _game.Reset();
+        _crashRevealed = false;
+        _settleGuard = 0;
         _stake = Math.Clamp(_stake, Config.Crash.MinBet, Math.Max(Config.Crash.MinBet, _balance));
         if (_client is not null)
         {
@@ -250,20 +367,81 @@ public partial class Crash
         }
         if (_jsModule is not null)
         {
-            await _jsModule.InvokeVoidAsync("reset");
+            try { await _jsModule.InvokeVoidAsync("reset"); } catch { }
         }
     }
 
-    private string LiveMultiplier(CrashLiveEntry e)
+    // ── auto-launch ─────────────────────────────────────────────────────────
+    private void StartAuto(int rounds)
     {
-        if (e.Status == "Flying")
+        if (_autoRunning || !_autoCashEnabled || !CanLaunch)
         {
-            var mult = CrashMath.MultiplierAt(Config.Crash, (DateTimeOffset.UtcNow - e.StartedAt).TotalSeconds);
-            return mult.ToString("0.00") + "×";
+            return;
         }
 
-        return e.FinalMultiplier.ToString("0.00") + "×";
+        _autoRemaining = rounds;
+        _autoRunning = true;
+        _ = AutoLoopAsync();
     }
+
+    private void StopAuto() => _autoRemaining = 0;
+
+    private async Task AutoLoopAsync()
+    {
+        try
+        {
+            while (_autoRemaining != 0)
+            {
+                var launched = false;
+                await InvokeAsync(async () => launched = await LaunchCoreAsync());
+                if (!launched)
+                {
+                    break; // can't afford the stake (or page state changed under us)
+                }
+
+                if (_autoRemaining > 0)
+                {
+                    _autoRemaining--;
+                }
+
+                // ride the round out: flight, then the post-settle hold (ghost flight + auto-reset)
+                while (_game.Phase != CrashPhase.Idle && _autoRemaining != 0)
+                {
+                    await Task.Delay(150);
+                }
+
+                await Task.Delay(250);
+            }
+        }
+        finally
+        {
+            _autoRemaining = 0;
+            _autoRunning = false;
+            try { await InvokeAsync(StateHasChanged); } catch { }
+        }
+    }
+
+    // ── lobby ───────────────────────────────────────────────────────────────
+    // flying rows first; settled rows linger ~10s then drop off
+    private IEnumerable<CrashLiveEntry> LobbyRows => _live
+        .Where(e => e.Status == "Flying" || e.SettledAt is null ||
+                    DateTimeOffset.UtcNow - e.SettledAt < TimeSpan.FromSeconds(10))
+        .OrderBy(e => e.Status == "Flying" ? 0 : 1)
+        .ThenByDescending(e => e.SettledAt ?? DateTimeOffset.MaxValue)
+        .ToList();
+
+    private double LiveMult(CrashLiveEntry e) => e.Status == "Flying"
+        ? CrashMath.MultiplierAt(Config.Crash, (DateTimeOffset.UtcNow - e.StartedAt).TotalSeconds)
+        : e.FinalMultiplier;
+
+    private string LiveMultiplier(CrashLiveEntry e) => LiveMult(e).ToString("0.00") + "×";
+
+    private string LiveProfit(CrashLiveEntry e) => e.Status switch
+    {
+        "Flying" => "+" + ((long)(e.Stake * (LiveMult(e) - 1))).ToString("N0"),
+        "Cashed" => "+" + ((long)(e.Stake * e.FinalMultiplier) - e.Stake).ToString("N0"),
+        _ => (-e.Stake).ToString("N0")
+    };
 
     private static string StatusClass(string status) => status switch
     {
@@ -274,6 +452,7 @@ public partial class Crash
 
     public async ValueTask DisposeAsync()
     {
+        StopAuto();
         Registry.Changed -= OnRegistryChanged;
         if (_client is not null)
         {

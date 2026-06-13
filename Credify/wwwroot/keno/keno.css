@@ -6,17 +6,30 @@
 }
 
 .kn-muted { color: var(--color-subtle, #a1a1aa); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; }
-.kn-chip-stat {
-    display: inline-flex; align-items: center; gap: 0.4rem;
-    padding: 0.35rem 0.7rem; border-radius: 0.6rem;
-    background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.08);
-    font-weight: 700; font-size: 0.85rem;
-}
 .kn-panel { border-radius: 1rem; padding: 1.25rem; background: rgba(0, 0, 0, 0.28); border: 1px solid rgba(255, 255, 255, 0.08); }
 .kn-status {
     display: inline-flex; align-items: center; gap: 0.4rem; font-weight: 700;
     padding: 0.35rem 0.8rem; border-radius: 0.6rem;
     background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* draw readout — the ball currently being pulled, re-keyed per number so it pops each time */
+.kn-draw-ball {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 1.8rem; height: 1.8rem; border-radius: 9999px;
+    font-weight: 900; font-size: 0.85rem;
+    color: #d4d4d8; background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 255, 255, 0.2);
+    animation: kn-pop 0.25s cubic-bezier(0.18, 1.4, 0.4, 1) both;
+}
+.kn-draw-ball-hit {
+    color: #1a1022;
+    background: radial-gradient(circle at 50% 35%, #fde68a, #fbbf24);
+    border-color: #f59e0b; box-shadow: 0 0 12px rgba(251, 191, 36, 0.6);
+}
+@keyframes kn-pop {
+    0%   { transform: scale(0.4); opacity: 0; }
+    60%  { transform: scale(1.15); }
+    100% { transform: scale(1); opacity: 1; }
 }
 
 /* ── board ───────────────────────────────────────────────────────────── */
@@ -90,3 +103,7 @@
 .kn-pt-hits { color: #a1a1aa; }
 .kn-paytable-hit .kn-pt-hits { color: #fcd34d; font-weight: 700; }
 .kn-pt-mult { font-weight: 800; color: #fcd34d; font-variant-numeric: tabular-nums; }
+
+@media (prefers-reduced-motion: reduce) {
+    .kn-cell.kn-drawn, .kn-cell.kn-hit, .kn-draw-ball { animation: none; }
+}

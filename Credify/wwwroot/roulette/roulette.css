@@ -11,17 +11,6 @@
     box-shadow: inset 0 0 130px rgba(0, 0, 0, 0.5);
 }
 
-.rl-chip-stat {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.3rem 0.7rem;
-    border-radius: 9999px;
-    background: rgba(0, 0, 0, 0.35);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    font-weight: 700;
-    font-size: 0.85rem;
-}
 .rl-muted { color: rgba(255, 255, 255, 0.5); font-weight: 500; }
 
 .rl-panel {
@@ -76,6 +65,9 @@
     border-radius: 50%;
     background: radial-gradient(circle at 50% 50%, #1c1c22 0%, #0c0c10 70%);
     will-change: transform;
+    /* the host theme's global `transition: all` must never apply here — it fights the JS rAF animation
+       and renders the end-of-spin angle normalisation as a backwards glitch spin */
+    transition: none !important;
 }
 .rl-pocket {
     position: absolute;

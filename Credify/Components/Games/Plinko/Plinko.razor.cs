@@ -33,7 +33,6 @@ public partial class Plinko
     private PlinkoRisk _risk = PlinkoRisk.Medium;
     private bool _authed;
     private bool _loading = true;
-    private bool _busy;
 
     private IReadOnlyList<double> _multipliers = [];
     private readonly Dictionary<int, int> _bucketHits = new();
@@ -46,6 +45,27 @@ public partial class Plinko
     private IJSObjectReference? _audio;
     private bool _mounted;
 
+    // Drops are fire-and-forget: the server settles instantly, the animation runs as a background task, and
+    // the button stays live so the player can rapid-fire. _heldPayout keeps settled-but-not-yet-revealed
+    // winnings out of the displayed balance so the wallet number can't spoil a ball still in the air.
+    private int _dropsInFlight;
+    private long _heldPayout;
+    private const int MaxConcurrentDrops = 6;
+
+    // auto-drop: remaining drops (-1 = until stopped) + the loop's running flag
+    private int _autoRemaining;
+    private bool _autoRunning;
+    private static readonly int[] AutoPresets = [10, 25];
+
+    // Quiet auto mode: drops launched while auto runs skip the full money-count (just a short cash blip per
+    // win — overlapping counts at turbo cadence are a racket) and accumulate here; ONE full money-count with
+    // the session net fires when auto stops and its last ball has landed.
+    private long _autoSessionWagered;
+    private long _autoSessionProfit;
+    private int _autoBatchesInFlight;
+
+    private bool _turbo;
+
     [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
 
     private long MinBet => PlinkoService.MinBet;
@@ -57,11 +77,18 @@ public partial class Plinko
     // selectable ball counts — dropping N balls stakes the bet N times
     private static readonly int[] BallPresets = [1, 3, 5, 10];
     private const int MaxBalls = 10;
-    private const int BallStaggerMs = 260; // gap between successive ball releases
+    private const int BallStaggerMs = 260; // gap between successive ball releases (plinko.js halves it in turbo)
 
     private long TotalCost => _bet * _balls;
 
-    private bool CanDrop => !_busy && _authed && _client is not null && _bet >= MinBet && TotalCost <= _balance;
+    // what the wallet shows: true balance minus winnings whose balls haven't landed yet
+    private long DisplayBalance => Math.Max(0, _balance - _heldPayout);
+
+    private bool CanDrop => _authed && _client is not null && _bet >= MinBet && TotalCost <= DisplayBalance
+                            && _dropsInFlight < MaxConcurrentDrops;
+
+    // board geometry can't change under balls that are mid-flight
+    private bool BoardLocked => _dropsInFlight > 0 || _autoRunning;
 
     protected override async Task OnInitializedAsync()
     {
@@ -122,14 +149,17 @@ public partial class Plinko
         _plinkoJs = await JS.InvokeAsync<IJSObjectReference>("import", "/_content/credify/plinko/plinko.js");
         await _plinkoJs.InvokeVoidAsync("mount", _canvasRef);
         await _plinkoJs.InvokeVoidAsync("render", _rows);
+        await _plinkoJs.InvokeVoidAsync("setTheme", RiskKey(_risk));
+        _turbo = await _plinkoJs.InvokeAsync<bool>("getTurbo"); // persisted in localStorage by plinko.js
         _mounted = true;
+        StateHasChanged();
     }
 
     private void RefreshMultipliers() => _multipliers = PlinkoService.Multipliers(_rows, _risk);
 
     private async Task SetRows(int rows)
     {
-        if (_busy || rows == _rows || !RowPresets.Contains(rows))
+        if (BoardLocked || rows == _rows || !RowPresets.Contains(rows))
         {
             return;
         }
@@ -146,7 +176,7 @@ public partial class Plinko
 
     private async Task SetRisk(PlinkoRisk risk)
     {
-        if (_busy || risk == _risk)
+        if (BoardLocked || risk == _risk)
         {
             return;
         }
@@ -158,62 +188,228 @@ public partial class Plinko
         if (_mounted && _plinkoJs is not null)
         {
             await _plinkoJs.InvokeVoidAsync("render", _rows);
+            await _plinkoJs.InvokeVoidAsync("setTheme", RiskKey(_risk));
         }
     }
 
     private void SetBalls(int count)
     {
-        if (!_busy)
+        if (!_autoRunning)
         {
             _balls = Math.Clamp(count, 1, MaxBalls);
         }
     }
 
+    private async Task ToggleTurbo()
+    {
+        _turbo = !_turbo;
+        if (_mounted && _plinkoJs is not null)
+        {
+            try { await _plinkoJs.InvokeVoidAsync("setTurbo", _turbo); } catch { /* best-effort */ }
+        }
+    }
+
     private async Task Drop()
     {
+        if (!_autoRunning)
+        {
+            await DropOnceAsync();
+        }
+    }
+
+    // Settles a batch on the server, kicks the animation off as a background task and returns immediately,
+    // so further drops can launch while these balls are still falling.
+    private async Task<bool> DropOnceAsync()
+    {
         if (!CanDrop || _client is null)
+        {
+            return false;
+        }
+
+        if (_dropsInFlight == 0)
+        {
+            _bucketHits.Clear();
+        }
+
+        _dropsInFlight++;
+        StateHasChanged();
+        if (!_autoRunning)
+        {
+            await Sfx("bet"); // auto cadence would clink every few hundred ms — keep auto quiet
+        }
+
+        // settle every ball on the server first — each bucket is final before anything moves
+        var receipts = new List<PlinkoDropReceipt>(_balls);
+        try
+        {
+            for (var i = 0; i < _balls; i++)
+            {
+                receipts.Add(await PlinkoService.DropAsync(_client, _bet, _rows, _risk));
+            }
+        }
+        catch
+        {
+            if (receipts.Count == 0)
+            {
+                _dropsInFlight--;
+                StateHasChanged();
+                return false;
+            }
+            // partial batch settled — animate and account for what went through
+        }
+
+        _balance = receipts[^1].NewBalance;
+        var payoutTotal = receipts.Sum(r => r.Payout);
+        _heldPayout += payoutTotal;
+
+        // batches launched under auto stay quiet even if they land after auto stops
+        var quiet = _autoRunning;
+        if (quiet)
+        {
+            _autoBatchesInFlight++;
+        }
+
+        _ = FinishDropAsync(receipts, payoutTotal, quiet);
+        return true;
+    }
+
+    // background: wait for this batch's balls to land, then reveal the results
+    private async Task FinishDropAsync(List<PlinkoDropReceipt> receipts, long payoutTotal, bool quiet)
+    {
+        try
+        {
+            if (_mounted && _plinkoJs is not null)
+            {
+                var paths = receipts.Select(r => r.Drop.Path.ToArray()).ToArray();
+                var mults = receipts.Select(r => r.Multiplier).ToArray();
+                var labels = receipts.Select(r => new
+                {
+                    text = (r.Profit > 0 ? "+" : "") + r.Profit.ToString("N0"),
+                    win = r.Profit > 0
+                }).ToArray();
+                // dropMany resolves once every ball in this batch has settled
+                await _plinkoJs.InvokeVoidAsync("dropMany", paths, BallStaggerMs, mults, labels);
+            }
+
+            await InvokeAsync(async () =>
+            {
+                foreach (var receipt in receipts)
+                {
+                    _bucketHits[receipt.Drop.Bucket] = _bucketHits.GetValueOrDefault(receipt.Drop.Bucket) + 1;
+                }
+
+                var totalBet = receipts.Sum(r => r.Bet);
+                var totalProfit = receipts.Sum(r => r.Payout) - totalBet;
+
+                _heldPayout = Math.Max(0, _heldPayout - payoutTotal);
+                if (_client is not null)
+                {
+                    // re-query rather than trusting this batch's receipt — a newer batch may have settled since
+                    _balance = await Persistence.GetClientCreditsAsync(_client);
+                }
+
+                _toast = BuildToast(receipts, totalProfit);
+                GameHistory.Record(_client!.ClientId, new GameHistoryEntry(
+                    "Plinko", "ph-circles-three", HistoryLabel(receipts), totalProfit, DateTimeOffset.UtcNow));
+                _dropsInFlight = Math.Max(0, _dropsInFlight - 1);
+                StateHasChanged();
+
+                if (quiet)
+                {
+                    _autoSessionWagered += totalBet;
+                    _autoSessionProfit += totalProfit;
+                    _autoBatchesInFlight = Math.Max(0, _autoBatchesInFlight - 1);
+                    await Sfx(totalProfit > 0 ? "cash" : "lose");
+                    await MaybeFinishAutoSessionAsync();
+                }
+                else
+                {
+                    await PlayResultSoundAsync(totalProfit, totalBet);
+                }
+            });
+        }
+        catch
+        {
+            // circuit/JS torn down mid-flight — release the accounting so the page stays consistent
+            _heldPayout = Math.Max(0, _heldPayout - payoutTotal);
+            _dropsInFlight = Math.Max(0, _dropsInFlight - 1);
+            if (quiet)
+            {
+                _autoBatchesInFlight = Math.Max(0, _autoBatchesInFlight - 1);
+            }
+        }
+    }
+
+    // ── auto-drop ───────────────────────────────────────────────────────────
+    private void StartAuto(int count)
+    {
+        if (_autoRunning || !CanDrop)
         {
             return;
         }
 
-        _busy = true;
-        _bucketHits.Clear();
-        StateHasChanged();
+        _autoRemaining = count;
+        _autoSessionWagered = 0;
+        _autoSessionProfit = 0;
+        _autoRunning = true;
+        _ = AutoLoopAsync();
+    }
 
-        await Sfx("bet");
+    private void StopAuto() => _autoRemaining = 0;
 
-        // settle every ball on the server first — each bucket is final before anything moves
-        var receipts = new List<PlinkoDropReceipt>(_balls);
-        for (var i = 0; i < _balls; i++)
+    private async Task AutoLoopAsync()
+    {
+        try
         {
-            receipts.Add(await PlinkoService.DropAsync(_client, _bet, _rows, _risk));
+            while (_autoRemaining != 0)
+            {
+                var dropped = false;
+                await InvokeAsync(async () => dropped = await DropOnceAsync());
+                if (!dropped)
+                {
+                    if (_dropsInFlight > 0)
+                    {
+                        await Task.Delay(250); // all flight slots busy — wait for one to land
+                        continue;
+                    }
+
+                    break; // can't afford the next drop
+                }
+
+                if (_autoRemaining > 0)
+                {
+                    _autoRemaining--;
+                }
+
+                await Task.Delay(_turbo ? 400 : 700);
+            }
+        }
+        finally
+        {
+            _autoRemaining = 0;
+            _autoRunning = false;
+            await InvokeAsync(StateHasChanged);
+            await MaybeFinishAutoSessionAsync(); // all balls may already be down (e.g. stopped while idle)
+        }
+    }
+
+    // the auto session's single full money-count: fires once auto has stopped AND its last batch has landed
+    private async Task MaybeFinishAutoSessionAsync()
+    {
+        if (_autoRunning || _autoBatchesInFlight > 0)
+        {
+            return;
         }
 
-        // animate the balls down their exact paths, released one after another (no inter-ball collision)
-        if (_mounted && _plinkoJs is not null)
+        var profit = _autoSessionProfit;
+        var wagered = _autoSessionWagered;
+        _autoSessionProfit = 0;
+        _autoSessionWagered = 0;
+
+        if (profit > 0 && _audio is not null)
         {
-            var paths = receipts.Select(r => r.Drop.Path.ToArray()).ToArray();
-            var mults = receipts.Select(r => r.Multiplier).ToArray();
-            try { await _plinkoJs.InvokeVoidAsync("dropMany", paths, BallStaggerMs, mults); }
-            catch { /* circuit/JS gone — fall through and just show the result */ }
+            try { await _audio.InvokeVoidAsync("win", profit, wagered); } catch { /* best-effort audio */ }
         }
-
-        foreach (var receipt in receipts)
-        {
-            _bucketHits[receipt.Drop.Bucket] = _bucketHits.GetValueOrDefault(receipt.Drop.Bucket) + 1;
-        }
-
-        var totalBet = receipts.Sum(r => r.Bet);
-        var totalProfit = receipts.Sum(r => r.Payout) - totalBet;
-
-        _balance = receipts[^1].NewBalance;
-        _toast = BuildToast(receipts, totalProfit);
-        GameHistory.Record(_client.ClientId, new GameHistoryEntry(
-            "Plinko", "ph-circles-three", HistoryLabel(receipts), totalProfit, DateTimeOffset.UtcNow));
-        _busy = false;
-        StateHasChanged();
-
-        await PlayResultSoundAsync(totalProfit, totalBet);
     }
 
     private async Task PlayResultSoundAsync(long totalProfit, long totalBet)
@@ -227,7 +423,7 @@ public partial class Plinko
         {
             if (totalProfit > 0)
             {
-                await _audio.InvokeVoidAsync("win", totalProfit, totalProfit >= totalBet * 10);
+                await _audio.InvokeVoidAsync("win", totalProfit, totalBet);
             }
             else
             {
@@ -277,6 +473,13 @@ public partial class Plinko
         _ => "Medium"
     };
 
+    private static string RiskKey(PlinkoRisk risk) => risk switch
+    {
+        PlinkoRisk.Low => "low",
+        PlinkoRisk.High => "high",
+        _ => "medium"
+    };
+
     // colour the bucket strip by how the multiplier compares to the stake: green = profit, amber = big, red = loss
     private static string BucketClass(double multiplier) => multiplier switch
     {
@@ -293,8 +496,32 @@ public partial class Plinko
         _ => multiplier.ToString("0.00") + "×"
     };
 
+    // compact strip label (no × glyph, no padded decimals) so the buckets stay legible on tall boards
+    private static string BucketLabel(double multiplier) => multiplier switch
+    {
+        >= 100 => multiplier.ToString("0"),
+        >= 10 => multiplier.ToString("0.#"),
+        _ => multiplier.ToString("0.##")
+    };
+
+    // binomial landing chance for bucket k of a rows-row board: C(rows, k) / 2^rows
+    private static double BucketChance(int rows, int bucket)
+    {
+        var p = Math.Pow(0.5, rows);
+        for (var i = 0; i < bucket; i++)
+        {
+            p = p * (rows - i) / (i + 1);
+        }
+
+        return p * 100;
+    }
+
+    private string BucketTooltip(int bucket) =>
+        $"{BucketChance(_rows, bucket):0.###}% chance · pays {FormatMultiplier(_multipliers[bucket])}";
+
     public async ValueTask DisposeAsync()
     {
+        StopAuto();
         foreach (var module in new[] { _plinkoJs, _audio })
         {
             if (module is null)

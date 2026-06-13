@@ -7,20 +7,7 @@
 <PluginPageShell BackgroundClass="wh-felt text-zinc-100" Menu='CredifyNav.Build("/credify/wheel")'>
 
     <!-- header -->
-    <div class="flex items-center justify-between gap-3">
-        <div class="flex items-center gap-2">
-            <i class="ph-fill ph-circle-half text-2xl text-[color:var(--color-action-primary,#818cf8)]"></i>
-            <h1 class="text-2xl font-bold tracking-tight">Wheel</h1>
-        </div>
-        <div class="flex items-center gap-2">
-            <CredifyAudioControls/>
-            <span class="wh-chip-stat"><i class="ph-fill ph-coins text-amber-400"></i> @Cache.BankCredits.ToString("N0") <span class="wh-muted">bank</span></span>
-            @if (_authed)
-            {
-                <span class="wh-chip-stat"><i class="ph-fill ph-wallet text-emerald-400"></i> @_balance.ToString("N0") <span class="wh-muted">credits</span></span>
-            }
-        </div>
-    </div>
+    <GameHeader Title="Wheel" Icon="ph-circle-half" Balance="_balance" Authed="_authed"/>
 
     <GameHistoryPanel ClientId="_client?.ClientId"/>
 
@@ -62,7 +49,7 @@
 
         <div class="wh-stage mt-6">
             <div class="wh-wheel" id="wh-wheel">
-                <div class="wh-rotor" style="background:@ConicCss"></div>
+                <div class="wh-rotor">@FaceSvg</div>
                 <div class="wh-pointer"></div>
                 <div class="wh-hub"><span class="wh-hub-val">@(_busy ? "" : _resultLabel)</span></div>
             </div>

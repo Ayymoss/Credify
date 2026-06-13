@@ -1,0 +1,93 @@
+@namespace Credify.Components.Shared
+@implements IAsyncDisposable
+@inject SessionBalanceTracker Tracker
+@inject IJSRuntime JS
+
+@* The session P/L graph block at the top of the history rail's card (GameHistoryPanel renders this).
+   Blazor owns only the empty slot div below; shared/session-graph.js builds and updates everything
+   inside it (sparkline, tweened net figure, session clock), so Blazor's diffing never touches the
+   JS-managed DOM. This component binds the circuit-scoped SessionBalanceTracker to the signed-in
+   client and streams snapshots to the renderer. *@
+
+@if (ClientId is not null)
+{
+    <div class="credify-sgraph" @ref="_host"></div>
+}
+
+@code {
+    [Parameter] public int? ClientId { get; set; }
+
+    private ElementReference _host;
+    private IJSObjectReference? _mod;
+    private int _instance = -1;
+
+    protected override void OnInitialized()
+    {
+        if (ClientId is { } clientId)
+        {
+            Tracker.Track(clientId); // no-op if an earlier page already bound this circuit's session
+            Tracker.Changed += OnTrackerChanged;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || ClientId is null)
+        {
+            return;
+        }
+
+        try
+        {
+            _mod = await JS.InvokeAsync<IJSObjectReference>("import", "/_content/credify/shared/session-graph.js");
+            _instance = await _mod.InvokeAsync<int>("mount", _host, Payload());
+        }
+        catch
+        {
+            // JS unavailable (prerender teardown etc.) — the graph is a garnish, never break the page
+        }
+    }
+
+    private void OnTrackerChanged() => _ = PushAsync();
+
+    private async Task PushAsync()
+    {
+        if (_mod is null || _instance < 0)
+        {
+            return;
+        }
+
+        try { await _mod.InvokeVoidAsync("update", _instance, Payload()); }
+        catch { /* circuit/JS gone — best effort */ }
+    }
+
+    private object Payload()
+    {
+        var (points, startedAt, plays) = Tracker.Snapshot();
+        return new
+        {
+            points = points.Select(p => p.Net).ToArray(),
+            plays,
+            startedAt = startedAt.ToUnixTimeMilliseconds()
+        };
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        Tracker.Changed -= OnTrackerChanged;
+        if (_mod is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _mod.InvokeVoidAsync("dispose", _instance);
+            await _mod.DisposeAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+            // circuit already gone — the panel DOM died with the page
+        }
+    }
+}

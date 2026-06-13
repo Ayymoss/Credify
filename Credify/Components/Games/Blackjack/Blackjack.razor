@@ -8,20 +8,7 @@
 <PluginPageShell BackgroundClass="bj-felt text-zinc-100" Menu='CredifyNav.Build("/credify/blackjack")'>
 
         <!-- header -->
-        <div class="flex items-center justify-between gap-3">
-            <div class="flex items-center gap-2">
-                <i class="ph-fill ph-cards-three text-2xl text-[color:var(--color-action-primary,#818cf8)]"></i>
-                <h1 class="text-2xl font-bold tracking-tight">Blackjack</h1>
-            </div>
-            <div class="flex items-center gap-2">
-                <CredifyAudioControls/>
-                <span class="bj-chip-stat"><i class="ph-fill ph-coins text-amber-400"></i> @Cache.BankCredits.ToString("N0") <span class="bj-muted">bank</span></span>
-                @if (_authed)
-                {
-                    <span class="bj-chip-stat"><i class="ph-fill ph-wallet text-emerald-400"></i> @_balance.ToString("N0") <span class="bj-muted">credits</span></span>
-                }
-            </div>
-        </div>
+        <GameHeader Title="Blackjack" Icon="ph-cards-three" Balance="_balance" Authed="_authed"/>
 
         <GameHistoryPanel ClientId="_client?.ClientId"/>
 
@@ -53,19 +40,30 @@
                 <div class="bj-seat">
                     <div class="bj-seat-head">
                         <span class="bj-seat-name">Dealer</span>
-                        @if (_snapshot.DealerCards.Count > 0)
+                        @if (ShowingHeldHand)
                         {
-                            <span class="bj-value">@_snapshot.DealerValue@(_snapshot.DealerHasHole ? " +" : "")</span>
+                            <span class="bj-muted text-xs">last round</span>
+                        }
+                        @if (DealerCardsToShow.Count > 0)
+                        {
+                            <span class="bj-value">@DealerValueLabel</span>
                         }
                     </div>
-                    <div class="bj-hand">
-                        @for (var i = 0; i < _snapshot.DealerCards.Count; i++)
+                    <div class="bj-hand" style="@(ShowingHeldHand ? "opacity:0.6" : null)">
+                        @for (var i = 0; i < DealerCardsToShow.Count; i++)
                         {
-                            <CardView Card="_snapshot.DealerCards[i]" Index="i"/>
+                            if (i < DealerShownCount)
+                            {
+                                <PlayingCard Card="DealerCardsToShow[i]" Index="i"/>
+                            }
+                            else
+                            {
+                                <PlayingCard Card="_noCard" FaceDown="true" Index="i"/>
+                            }
                         }
                         @if (_snapshot.DealerHasHole)
                         {
-                            <CardView Card="_noCard" FaceDown="true" Index="_snapshot.DealerCards.Count"/>
+                            <PlayingCard Card="_noCard" FaceDown="true" Index="_snapshot.DealerCards.Count"/>
                         }
                     </div>
                 </div>
@@ -96,7 +94,7 @@
                                     <div class="bj-hand">
                                         @for (var i = 0; i < seat.Cards.Count; i++)
                                         {
-                                            <CardView Card="seat.Cards[i]" Index="i"/>
+                                            <PlayingCard Card="seat.Cards[i]" Index="i" Highlight="SeatWon(seat)"/>
                                         }
                                     </div>
                                     <span class="bj-value @(seat.Busted ? "bj-value-bust" : "")">@seat.Value@(seat.IsSoft && !seat.Busted ? " (soft)" : "")</span>
@@ -109,7 +107,7 @@
                                         <div class="bj-hand">
                                             @for (var i = 0; i < seat.SplitCards.Count; i++)
                                             {
-                                                <CardView Card="seat.SplitCards[i]" Index="i"/>
+                                                <PlayingCard Card="seat.SplitCards[i]" Index="i" Highlight="SeatWon(seat)"/>
                                             }
                                         </div>
                                         <span class="bj-value">@seat.SplitValue</span>
@@ -121,7 +119,7 @@
                                 <p class="mt-2 text-sm text-zinc-400">Bet <span class="font-semibold text-amber-300">@s.ToString("N0")</span></p>
                             }
 
-                            @if (!string.IsNullOrEmpty(seat.Outcome))
+                            @if (!string.IsNullOrEmpty(seat.Outcome) && !_dealerRevealing)
                             {
                                 <div class="mt-2 flex items-center gap-2">
                                     <span class="@OutcomeClass(seat.Outcome)">@OutcomeLabel(seat.Outcome)</span>

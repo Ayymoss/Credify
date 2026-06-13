@@ -7,6 +7,10 @@ public abstract class ChatGame
 {
     public GameState GameState { get; set; }
     protected GameStateInfo GameInfo { get; set; } = new();
+
+    /// <summary>Friendly name of the running game (e.g. "Trivia"), null until StartAsync populates it.
+    /// Read-only surface for the web home page's "happening now" line.</summary>
+    public string? PublicGameName => GameInfo?.GameName;
     protected readonly SemaphoreSlim MessageReceivedLock = new(1, 1);
 
     public abstract Task StartAsync();
@@ -33,7 +37,7 @@ public abstract class ChatGame
         var metrics = client.CurrentServer.LatencyMetrics;
         var latencyOffsetSeconds = 0.0;
 
-        if (metrics?.GameLogPipelineMs is { } logLatency)
+        if (metrics?.GameLogIngestMs is { } logLatency)
         {
             // GSC companion — precise receive measurement + estimated send (half RCON RTT)
             latencyOffsetSeconds = logLatency / 1000.0;

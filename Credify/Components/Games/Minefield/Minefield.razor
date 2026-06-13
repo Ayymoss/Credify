@@ -7,20 +7,7 @@
 <PluginPageShell BackgroundClass="mf-felt text-zinc-100" Menu='CredifyNav.Build("/credify/minefield")'>
 
         <!-- header -->
-        <div class="flex items-center justify-between gap-3">
-            <div class="flex items-center gap-2">
-                <i class="ph-fill ph-bomb text-2xl text-[color:var(--color-action-primary,#818cf8)]"></i>
-                <h1 class="text-2xl font-bold tracking-tight">Minefield</h1>
-            </div>
-            <div class="flex items-center gap-2">
-                <CredifyAudioControls/>
-                <span class="mf-chip-stat"><i class="ph-fill ph-coins text-amber-400"></i> @Cache.BankCredits.ToString("N0") <span class="mf-muted">bank</span></span>
-                @if (_authed)
-                {
-                    <span class="mf-chip-stat"><i class="ph-fill ph-wallet text-emerald-400"></i> @_balance.ToString("N0") <span class="mf-muted">credits</span></span>
-                }
-            </div>
-        </div>
+        <GameHeader Title="Minefield" Icon="ph-bomb" Balance="_balance" Authed="_authed"/>
 
         <GameHistoryPanel ClientId="_client?.ClientId"/>
 

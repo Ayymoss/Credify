@@ -1,17 +1,11 @@
-/* Credify Three-Card Poker — vs-house table. Cards render via the shared CardView (blackjack.css);
-   these are the table/controls bits. */
+/* Credify Three-Card Poker — vs-house table. Cards render via the shared PlayingCard component
+   (`.credify-card*` in custom.css); these are the table/controls bits. */
 
 .tcp-felt {
     background: radial-gradient(130% 110% at 50% -10%, #173a2a 0%, #0f261c 45%, #07120d 100%);
 }
 
 .tcp-muted { color: var(--color-subtle, #a1a1aa); font-size: 0.72rem; }
-.tcp-chip-stat {
-    display: inline-flex; align-items: center; gap: 0.4rem;
-    padding: 0.35rem 0.7rem; border-radius: 0.6rem;
-    background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.08);
-    font-weight: 700; font-size: 0.85rem;
-}
 
 /* ── table ───────────────────────────────────────────────────────────── */
 .tcp-table { max-width: 30rem; margin-inline: auto; display: flex; flex-direction: column; gap: 1rem; }

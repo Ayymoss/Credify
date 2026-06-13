@@ -52,6 +52,15 @@ public partial class Roulette
     private bool _spinStarted;
     private string? _lastLandedDisplay;
     private string? _lastOutcome;
+    private string? _lastLoggedPhase;
+
+    // True from landOn until the wheel visually stops. All result feedback (sounds, result chip, seat
+    // outcomes, newest history pip) is held back while this is set so nothing spoils the landing.
+    private bool _wheelLanding;
+
+    // newest-first; the just-spun number is hidden from the strip until the wheel stops
+    private IEnumerable<RouletteSpinView> VisibleHistory =>
+        _wheelLanding ? _snapshot.History.Skip(1) : _snapshot.History;
 
     private CancellationTokenSource? _loopCts;
 
@@ -67,6 +76,7 @@ public partial class Roulette
     {
         "Betting" => "rl-status-betting",
         "Spinning" => "rl-status-spinning",
+        "Resolving" when _wheelLanding => "rl-status-spinning",
         _ => "rl-status-idle"
     };
 
@@ -100,6 +110,7 @@ public partial class Roulette
         }
 
         _snapshot = RouletteTable.GetSnapshot();
+        _lastOutcome = MyView?.Outcome; // an already-settled outcome must not replay its sound on page load
         RouletteTable.StateChanged += OnStateChanged;
 
         // refresh loop drives the countdown + picks up state changes smoothly
@@ -171,6 +182,21 @@ public partial class Roulette
         }
     }
 
+    // one console timeline shared with roulette.js — see the `note` export there
+    private async Task WebLog(string evt, object? data = null)
+    {
+        if (_jsModule is null) return;
+        try { await _jsModule.InvokeVoidAsync("note", evt, data); } catch { }
+    }
+
+    // every sound emit goes through here so the console shows exactly when feedback fires
+    private async Task EmitSfx(string name, object? detail = null)
+    {
+        await WebLog($"sfx:{name}", detail);
+        if (_audio is null) return;
+        try { await _audio.InvokeVoidAsync("play", name); } catch { }
+    }
+
     // map the server phase/result onto the wheel animation
     private async Task DriveWheelAsync()
     {
@@ -179,16 +205,26 @@ public partial class Roulette
             return;
         }
 
+        if (_snapshot.Phase != _lastLoggedPhase)
+        {
+            _lastLoggedPhase = _snapshot.Phase;
+            await WebLog("phase", new
+            {
+                phase = _snapshot.Phase,
+                lastSpin = _snapshot.LastSpin?.Display,
+                secondsRemaining = Math.Round(_snapshot.SecondsRemaining, 1),
+                myOutcome = MyView?.Outcome
+            });
+        }
+
         if (_snapshot.Phase == "Spinning")
         {
             if (!_spinStarted)
             {
                 _spinStarted = true;
+                // wheel ticks are emitted per real pocket crossing inside roulette.js — no canned sound here
+                await WebLog("sfx: per-pocket ticks (driven by the animation loop)");
                 await _jsModule.InvokeVoidAsync("startSpin");
-                if (_audio is not null)
-                {
-                    try { await _audio.InvokeVoidAsync("spin"); } catch { }
-                }
             }
             return;
         }
@@ -196,19 +232,26 @@ public partial class Roulette
         // once the result is known (Resolving / next betting), land on it exactly once
         if (_snapshot.LastSpin is { } spin && spin.Display != _lastLandedDisplay)
         {
+            // arriving fresh to an already-settled result (page load mid-betting) snaps with no theatre
+            var initialSync = _lastLandedDisplay is null && _snapshot.Phase != "Resolving";
             _lastLandedDisplay = spin.Display;
             _spinStarted = false;
-            await _jsModule.InvokeVoidAsync("landOn", spin.Display);
-            if (_audio is not null)
+            if (initialSync)
             {
-                try { await _audio.InvokeVoidAsync("land"); } catch { }
+                try { await _jsModule.InvokeVoidAsync("setTo", spin.Display); } catch { }
+            }
+            else
+            {
+                _wheelLanding = true;
+                _ = FinishSpinAsync(spin.Display);
             }
         }
 
-        // my own result sound (once per settle)
-        if (MyView is { } me && me.Outcome != _lastOutcome)
+        // my own result sound (once per settle) — held back until the wheel has visually stopped
+        if (MyView is { } me && me.Outcome != _lastOutcome && !_wheelLanding)
         {
             _lastOutcome = me.Outcome;
+            await WebLog("outcome settled", new { outcome = me.Outcome, net = me.Net, totalStake = me.TotalStake });
 
             // log the settled spin to the session history rail (labelled with the number it landed on)
             if (me.Outcome is "Won" or "Lost" && _client is not null)
@@ -223,12 +266,47 @@ public partial class Roulette
             {
                 try
                 {
-                    if (me.Outcome == "Won") await _audio.InvokeVoidAsync("win", me.Net, me.TotalStake);
-                    else if (me.Outcome == "Lost") await _audio.InvokeVoidAsync("play", "lose");
+                    if (me.Outcome == "Won")
+                    {
+                        await WebLog("sfx:win (money count)", new { net = me.Net, stake = me.TotalStake });
+                        await _audio.InvokeVoidAsync("win", me.Net, me.TotalStake);
+                    }
+                    else if (me.Outcome == "Lost")
+                    {
+                        await WebLog("sfx:lose");
+                        await _audio.InvokeVoidAsync("play", "lose");
+                    }
                 }
                 catch { }
             }
         }
+    }
+
+    // Awaits the landing tween (the JS promise resolves when the wheel stops), then releases the
+    // held-back feedback: pocket clack now, outcome sound/result UI on the next refresh tick.
+    private async Task FinishSpinAsync(string display)
+    {
+        try
+        {
+            if (_jsModule is not null)
+            {
+                await _jsModule.InvokeAsync<object?>("landOn", display);
+            }
+        }
+        catch
+        {
+            // circuit/JS gone — still release the gate below
+        }
+
+        _wheelLanding = false;
+        await WebLog("wheel stopped — releasing result feedback", new { display });
+        if (_audio is not null)
+        {
+            await WebLog("sfx:land (pocket clack)");
+            try { await _audio.InvokeVoidAsync("land"); } catch { }
+        }
+
+        await RefreshAsync();
     }
 
     private async Task TakeSeat()
@@ -241,10 +319,7 @@ public partial class Roulette
         _busy = true;
         _error = null;
         CredifyDebugLog.Log("Roulette", $"WEB TakeSeat click: {_client.CleanedName} balance={_balance:N0}");
-        if (_audio is not null)
-        {
-            try { await _audio.InvokeVoidAsync("play", "click"); } catch { }
-        }
+        await EmitSfx("click");
         await RouletteTable.JoinGameAsync(_client);
         await RefreshAsync();
         _busy = false;
@@ -306,11 +381,9 @@ public partial class Roulette
         }
         else
         {
+            var total = PendingTotal;
             _pendingBets.Clear();
-            if (_audio is not null)
-            {
-                try { await _audio.InvokeVoidAsync("play", "bet"); } catch { }
-            }
+            await EmitSfx("bet", new { total });
         }
 
         _balance = await Persistence.GetClientCreditsAsync(_client);

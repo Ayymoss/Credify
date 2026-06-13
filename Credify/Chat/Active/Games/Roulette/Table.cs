@@ -101,6 +101,10 @@ public class Table(
         await HandleResult(spinResult);
         RaiseStateChanged();
 
+        // Hold the resolved state while the web wheel finishes its landing tween (3–6.5s) and players
+        // read the result — without this the next betting round opens while the wheel is still turning.
+        await Task.Delay(TimeSpan.FromSeconds(7), token);
+
         // Cleanup
         foreach (var player in _roundPlayers)
         {
@@ -504,7 +508,9 @@ public class Table(
     private static SpinResult SpinWheel()
     {
         // American Roulette: 0, 00 (37), 1-36 = 38 outcomes
-        var number = Random.Shared.Next(0, RouletteConstants.TotalOutcomes);
+        // crypto RNG (matching PlinkoBoard): Random.Shared is a statistical PRNG whose internal state can in
+        // principle be reconstructed from the public stream of spin results — GetInt32 cannot
+        var number = System.Security.Cryptography.RandomNumberGenerator.GetInt32(RouletteConstants.TotalOutcomes);
         var isEven = !RouletteConstants.IsZero(number) && number % 2 == 0;
         var color = RouletteConstants.GetColor(number);
 
